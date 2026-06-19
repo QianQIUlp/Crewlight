@@ -1,6 +1,6 @@
 {
   "name": "agentpulse",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.11.0",
@@ -9,14 +9,18 @@
   },
   "scripts": {
     "build": "tsc -b",
+    "build:standalone": "pnpm build && node scripts/build-standalone.mjs",
     "clean": "tsc -b --clean",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "smoke:standalone": "bash scripts/smoke-standalone.sh",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -b --pretty false"
   },
   "devDependencies": {
     "@types/node": "^22.15.29",
+    "esbuild": "^0.27.7",
+    "postject": "1.0.0-alpha.6",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.1"

@@ -1,68 +1,104 @@
 # AgentPulse
 
-AgentPulse is a local activity hub for AI coding agents. Platform adapters
-translate lifecycle events into one normalized model, a local daemon aggregates
-sessions, and notifier outputs surface states that need attention.
+AgentPulse is a local activity hub for AI coding agents. It receives supported
+Claude Code, Codex, generic CLI, and manual events, aggregates them into
+in-memory sessions, and exposes their current state through notifications, CLI
+commands, and an optional browser dashboard.
 
-v0.2 adds precise Claude Code hooks, the narrow official Codex CLI notify
-integration, and optional OS notifications. v0.2.1 hardens installation,
-diagnostics, setup merging, and failure recovery. The v0.1 manual emit and
-generic command wrapper remain supported.
+## Quick Start
 
-## Requirements
+The recommended user installation is the standalone Linux x64 release binary.
+It does not require Node.js, npm, or pnpm.
 
-- Node.js 22 or newer
-- pnpm 10.11.0
+1. Download `agentpulse-v0.2.2-linux-x64.tar.gz` and its `.sha256` file from
+   [GitHub Releases](https://github.com/QianQIUlp/AgentPulse/releases).
+2. Verify and extract the archive:
 
-## Setup
+   ```bash
+   sha256sum --check agentpulse-v0.2.2-linux-x64.tar.gz.sha256
+   tar -xzf agentpulse-v0.2.2-linux-x64.tar.gz
+   cd agentpulse-v0.2.2-linux-x64
+   ```
+
+3. Start the daemon and dashboard:
+
+   ```bash
+   ./agentpulse daemon --dashboard
+   ```
+
+4. Open the printed local URL, normally
+   `http://127.0.0.1:3768/dashboard`.
+
+The dashboard is read-only, opt-in, and restricted to loopback. It shows daemon
+health, notifier mode, current in-memory sessions, setup snippets, and basic
+doctor output. See [install without Node](docs/install-without-node.md) and the
+[dashboard guide](docs/dashboard.md).
+
+### Standalone platform status
+
+| Platform  | v0.2.2 status                                               |
+| --------- | ----------------------------------------------------------- |
+| Linux x64 | Supported and verified by CI standalone smoke tests         |
+| Windows   | Planned / unverified; no supported v0.2.2 binary is claimed |
+| macOS     | Planned / unverified; no supported v0.2.2 binary is claimed |
+
+Commands below use `agentpulse` on `PATH`. When running directly from the
+extracted archive, replace it with `./agentpulse`.
+
+## Check the Installation
+
+With the daemon running in one terminal:
 
 ```bash
-corepack enable
-pnpm install
-pnpm build
-cd packages/cli
-npm link
-cd ../..
+./agentpulse doctor
+./agentpulse doctor --json
 ```
 
-The link exposes the built `agentpulse` executable. Run `pnpm build` after
-changing TypeScript source.
+For a standalone binary, doctor reports that pnpm and source-build checks are
+not required. The archive's `BUILD-INFO.txt` records the exact Node 22.x runtime
+used to build that artifact, its commit, platform, and architecture.
 
-## Quick start
+## Platform Setup
 
-Start the daemon with the default console notifier:
+Print a Claude Code hooks snippet:
 
 ```bash
-agentpulse daemon
+agentpulse setup claude-code --print
 ```
 
-Check the local installation and daemon connection without changing
-configuration:
+Print a Codex user-config snippet:
 
 ```bash
-agentpulse doctor
-agentpulse doctor --json
-agentpulse doctor --notifier os
+agentpulse setup codex --print
 ```
 
-`doctor` is read-only. It does not start a daemon, send a desktop notification,
-or modify Claude Code or Codex configuration. An unreachable daemon is an
-error; an unavailable optional OS notifier is a warning with a console
-fallback.
+These commands only print mergeable snippets. They never read or modify user
+configuration. Follow the platform-specific merge instructions:
 
-Select a notifier with a flag or environment variable:
+- [Claude Code setup](docs/setup-claude-code.md)
+- [Codex setup](docs/setup-codex.md)
+
+The ingest commands are intended to be called by those integrations. Malformed
+input, unsupported events, and daemon connection failures warn safely without
+interrupting the host platform.
+
+## CLI Usage
+
+Select a notifier when starting the daemon:
 
 ```bash
+agentpulse daemon --notifier console
 agentpulse daemon --notifier os
 agentpulse daemon --notifier none
 AGENTPULSE_NOTIFIER=os agentpulse daemon
 ```
 
-Supported kinds are `console`, `os`, and `none`; the default is `console`. If
-native OS notification support is unavailable, AgentPulse prints a warning and
-continues running.
+Supported notifier modes are `console`, `os`, and `none`; the default is
+`console`. On Linux, OS notification mode requires a working graphical session
+and the system `notify-send` command. Notification failures never stop event
+ingestion.
 
-Send and inspect manual events:
+Send and inspect a manual event:
 
 ```bash
 agentpulse emit \
@@ -85,42 +121,6 @@ agentpulse run --source generic-cli -- npm test
 The wrapper preserves the command's exit result. Daemon delivery failures warn
 without preventing the command from running.
 
-## Platform setup
-
-Print a Claude Code hooks snippet:
-
-```bash
-agentpulse setup claude-code --print
-```
-
-Print a Codex user-config snippet:
-
-```bash
-agentpulse setup codex --print
-```
-
-These commands only print snippets. They never read, overwrite, or modify user
-configuration. The snippet is written to stdout so it can be redirected; merge
-instructions and conflict warnings are written to stderr. Manually merge the
-output with existing settings:
-
-- [Claude Code setup](docs/setup-claude-code.md)
-- [Codex setup](docs/setup-codex.md)
-
-The platform ingest commands are intended to be called by those integrations:
-
-```bash
-echo '{"session_id":"claude-demo","cwd":"/tmp/demo","hook_event_name":"Stop","last_assistant_message":"Done"}' \
-  | agentpulse ingest claude-code
-
-agentpulse ingest codex \
-  '{"type":"agent-turn-complete","thread-id":"codex-demo","turn-id":"turn-1","cwd":"/tmp/demo","last-assistant-message":"Done"}'
-```
-
-Ingest commands intentionally return zero after malformed input, unsupported
-events, or daemon connection failures so they do not interrupt the host
-platform.
-
 ## Configuration
 
 The daemon defaults to `127.0.0.1:3768`.
@@ -131,12 +131,51 @@ AGENTPULSE_PORT=3768
 AGENTPULSE_NOTIFIER=console
 ```
 
-CLI connections use the same host and port variables. A `--notifier` daemon
-flag overrides `AGENTPULSE_NOTIFIER`. Binding beyond loopback is only
-appropriate for a trusted development environment because AgentPulse has no
-authentication.
+CLI connections use the same host and port variables. Binding the daemon beyond
+loopback remains available only for trusted development environments because
+the HTTP API has no authentication. `--dashboard` rejects every host except
+`127.0.0.1` and `::1`.
 
-## Architecture
+## Developer Setup
+
+Source builds are the developer path and require:
+
+- Node.js 22 or newer
+- pnpm 10.11.0
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm build
+cd packages/cli
+npm link
+cd ../..
+```
+
+The normal development output remains TypeScript-compiled ESM. The CommonJS
+bundle used for Node SEA is generated only by the release-specific command:
+
+```bash
+pnpm build:standalone
+pnpm smoke:standalone
+```
+
+Run repository validation with:
+
+```bash
+pnpm format:check
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+For local use without a global link:
+
+```bash
+node packages/cli/dist/index.js
+```
+
+## Architecture and Safety
 
 ```text
 Claude hook / Codex notify / wrapper / manual emit
@@ -149,22 +188,25 @@ Claude hook / Codex notify / wrapper / manual emit
                         |
                         v
                      daemon
-                    /      \
-             session store  console / OS / none
+             /          |          \
+       session store  dashboard  console / OS / none
 ```
 
 - `sessionId` is the optional original identifier supplied by a platform.
 - `sessionKey` is an AgentPulse-owned, namespaced and hashed aggregation key.
-- Adapters whitelist output fields. Complete platform payloads are never
-  forwarded as `rawEvent`.
-- Sessions remain in memory until the daemon exits; v0.2 has no persistence or
-  session cleanup.
+- Adapters whitelist output fields. Complete platform payloads, prompts,
+  transcripts, and tool input/output are never forwarded into normalized
+  events or dashboard responses.
+- Sessions remain in memory until the daemon exits. There is no persistence,
+  history recovery, or session cleanup.
+- The dashboard polls ordinary HTTP endpoints; there is no SSE or WebSocket.
 
 See [architecture](docs/architecture.md),
-[integration boundaries](docs/integration-boundaries.md), and the
-[v0.2 platform adapter guide](docs/v0.2-platform-adapters.md).
+[integration boundaries](docs/integration-boundaries.md), the
+[v0.2 platform adapter guide](docs/v0.2-platform-adapters.md), and
+[troubleshooting](docs/troubleshooting.md).
 
-## Integration levels
+## Integration Levels
 
 - **Precise:** Claude Code uses documented lifecycle hooks.
 - **Narrow official:** Codex uses the documented external `notify` command and
@@ -172,34 +214,14 @@ See [architecture](docs/architecture.md),
 - **Best-effort:** the generic CLI wrapper observes only the command it starts.
 - **Manual:** callers explicitly submit normalized events.
 
-AgentPulse v0.2 does not claim Codex running, input-waiting, or permission
-states.
+AgentPulse does not claim Codex running, input-waiting, or permission states.
 
-## Development
+## v0.2.2 Scope Boundaries
 
-```bash
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm build
-```
-
-For local end-to-end verification without a global link, use:
-
-```bash
-node packages/cli/dist/index.js
-```
-
-See the [dogfood report](docs/dogfood-report.md) for verification categories
-and manual test steps, and [troubleshooting](docs/troubleshooting.md) for
-installation, daemon, notifier, hook, and configuration recovery.
-
-## v0.2 scope boundaries
-
-v0.2 does not include OpenCode or Cursor adapters, a VS Code extension, a
-desktop application, Tauri or Electron, persistence, SSE/WebSocket, session
-garbage collection, hardware output, automatic user-config mutation, OCR,
-screen scraping, window watching, or private API reverse engineering.
+v0.2.2 does not include OpenCode or Cursor adapters, a VS Code extension,
+Tauri, Electron, a desktop tray, persistence, SSE/WebSocket, session garbage
+collection, hardware output, automatic user-config mutation, OCR, screen
+scraping, window watching, or private API reverse engineering.
 
 ## License
 

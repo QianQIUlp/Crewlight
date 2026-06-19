@@ -9,7 +9,21 @@ import type { AgentEventInput } from "@agentpulse/core";
 import { ZodError } from "zod";
 
 import type { DaemonListenConfig } from "./config.js";
+import { handleDashboardRequest, type DashboardOptions } from "./dashboard.js";
 import { AgentPulseService } from "./service.js";
+
+export interface DaemonServerOptions {
+  dashboard?: DashboardOptions;
+}
+
+export function isLoopbackHost(host: string): boolean {
+  return host === "127.0.0.1" || host === "::1";
+}
+
+export function formatDaemonUrl(host: string, port: number): string {
+  const formattedHost = host.includes(":") ? `[${host}]` : host;
+  return `http://${formattedHost}:${port}`;
+}
 
 function sendJson(
   response: ServerResponse,
@@ -36,8 +50,24 @@ async function handleRequest(
   request: IncomingMessage,
   response: ServerResponse,
   service: AgentPulseService,
+  options: DaemonServerOptions,
+  startedAt: number,
 ): Promise<void> {
   const url = new URL(request.url ?? "/", "http://localhost");
+
+  if (
+    request.method === "GET" &&
+    options.dashboard &&
+    (await handleDashboardRequest(
+      url.pathname,
+      response,
+      service,
+      options.dashboard,
+      startedAt,
+    ))
+  ) {
+    return;
+  }
 
   if (request.method === "GET" && url.pathname === "/sessions") {
     sendJson(response, 200, { sessions: service.listSessions() });
@@ -80,9 +110,11 @@ async function handleRequest(
 
 export function createDaemonServer(
   service: AgentPulseService = new AgentPulseService(),
+  options: DaemonServerOptions = {},
 ): Server {
+  const startedAt = Date.now();
   return createServer((request, response) => {
-    void handleRequest(request, response, service);
+    void handleRequest(request, response, service, options, startedAt);
   });
 }
 
@@ -97,8 +129,15 @@ export interface DaemonInstance {
 export async function startDaemon(
   config: DaemonListenConfig,
   service: AgentPulseService = new AgentPulseService(),
+  options: DaemonServerOptions = {},
 ): Promise<DaemonInstance> {
-  const server = createDaemonServer(service);
+  if (options.dashboard && !isLoopbackHost(config.host)) {
+    throw new Error(
+      "The AgentPulse dashboard requires --host 127.0.0.1 or --host ::1.",
+    );
+  }
+
+  const server = createDaemonServer(service, options);
 
   await new Promise<void>((resolve, reject) => {
     const onError = (error: Error) => reject(error);
@@ -117,7 +156,7 @@ export async function startDaemon(
 
   const host = config.host;
   const port = address.port;
-  const url = `http://${host}:${port}`;
+  const url = formatDaemonUrl(host, port);
 
   return {
     host,

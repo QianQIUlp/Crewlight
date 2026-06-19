@@ -1,6 +1,7 @@
 import { access, realpath } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import { sep } from "node:path";
+import { isSea } from "node:sea";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 
@@ -30,6 +31,7 @@ export interface DoctorReport {
 }
 
 export interface DoctorRuntime {
+  standalone(): boolean;
   nodeVersion(): string;
   pnpmVersion(): string | undefined;
   cliBuilt(): Promise<boolean>;
@@ -39,8 +41,15 @@ export interface DoctorRuntime {
   codexSnippet(): string;
 }
 
-function defaultRuntime(): DoctorRuntime {
+export interface DoctorRuntimeOptions {
+  baseUrl?: string;
+}
+
+export function createDoctorRuntime(
+  options: DoctorRuntimeOptions = {},
+): DoctorRuntime {
   return {
+    standalone: isSea,
     nodeVersion: () => process.versions.node,
     pnpmVersion: () => {
       const result = spawnSync("pnpm", ["--version"], {
@@ -65,7 +74,9 @@ function defaultRuntime(): DoctorRuntime {
     },
     daemonReachable: async () => {
       try {
-        await new DaemonClient().sessions();
+        await new DaemonClient(
+          options.baseUrl ? { baseUrl: options.baseUrl } : {},
+        ).sessions();
         return true;
       } catch {
         return false;
@@ -203,24 +214,37 @@ async function notifierCheck(
 
 export async function runDoctor(
   notifier: NotifierKind,
-  runtime: DoctorRuntime = defaultRuntime(),
+  runtime: DoctorRuntime = createDoctorRuntime(),
 ): Promise<DoctorReport> {
+  const standalone = runtime.standalone();
   const checks: DoctorCheck[] = [
     nodeCheck(runtime.nodeVersion()),
-    pnpmCheck(runtime.pnpmVersion()),
-    (await runtime.cliBuilt())
+    standalone
+      ? {
+          id: "pnpm",
+          status: "skipped",
+          message: "pnpm is not required by the standalone binary.",
+        }
+      : pnpmCheck(runtime.pnpmVersion()),
+    standalone
       ? {
           id: "cli-build",
           status: "ok",
-          message: "The current AgentPulse CLI is running from built output.",
+          message: "AgentPulse is running as a standalone binary.",
         }
-      : {
-          id: "cli-build",
-          status: "error",
-          message: "AgentPulse CLI built output could not be verified.",
-          action:
-            "Run `pnpm build`, then invoke `node packages/cli/dist/index.js doctor`.",
-        },
+      : (await runtime.cliBuilt())
+        ? {
+            id: "cli-build",
+            status: "ok",
+            message: "The current AgentPulse CLI is running from built output.",
+          }
+        : {
+            id: "cli-build",
+            status: "error",
+            message: "AgentPulse CLI built output could not be verified.",
+            action:
+              "Run `pnpm build`, then invoke `node packages/cli/dist/index.js doctor`.",
+          },
     (await runtime.daemonReachable())
       ? {
           id: "daemon",
@@ -262,7 +286,7 @@ function writeHumanReport(report: DoctorReport, io: CommandIo): void {
 export async function executeDoctorCommand(
   args: readonly string[],
   io: CommandIo,
-  runtime: DoctorRuntime = defaultRuntime(),
+  runtime: DoctorRuntime = createDoctorRuntime(),
 ): Promise<number> {
   const { values } = parseArgs({
     args: [...args],

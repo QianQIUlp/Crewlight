@@ -28,6 +28,8 @@ Claude hook / Codex notify / wrapper / manual emit
              |             /      |       \
              v        console     OS      none
        GET /sessions
+       GET /dashboard      (only with --dashboard)
+       GET /dashboard/api  (only with --dashboard)
 ```
 
 Adapters translate source payloads only. They do not own session state,
@@ -37,14 +39,15 @@ notification policy, UI, or platform permission decisions.
 
 - `@agentpulse/core`: schemas, normalized types, session key derivation, and
   in-memory session aggregation.
-- `@agentpulse/daemon`: local HTTP receiver, process-lifetime state, and daemon
-  configuration.
+- `@agentpulse/daemon`: local HTTP receiver, process-lifetime state, optional
+  browser dashboard, and daemon configuration.
 - `@agentpulse/notifier`: notification policy plus console, OS, and no-op
   outputs.
 - `@agentpulse/adapter-claude-code`: documented Claude Code hook translation.
 - `@agentpulse/adapter-codex`: documented Codex external notify translation.
 - `@agentpulse/adapter-generic-cli`: best-effort command lifecycle observation.
-- `@agentpulse/cli`: daemon, emit, ingest, setup, status, and run commands.
+- `@agentpulse/cli`: daemon/dashboard startup, diagnostics, emit, ingest, setup,
+  status, and run commands.
 - `@agentpulse/shared`: runtime configuration defaults.
 
 Dependencies flow toward `core`; adapters never depend on notifier outputs.
@@ -88,10 +91,18 @@ The daemon listens on `127.0.0.1:3768` by default:
 
 - `POST /events` accepts `AgentEventInput` and returns `{ event, session }`.
 - `GET /sessions` returns sessions ordered by most recent event.
+- `GET /dashboard` and its static assets provide the optional local browser
+  page.
+- `GET /dashboard/api` returns health, notifier mode, whitelisted sessions,
+  setup snippets, and basic doctor output with `Cache-Control: no-store`.
 
 `AGENTPULSE_HOST` and `AGENTPULSE_PORT` configure both daemon and clients.
 `AGENTPULSE_NOTIFIER` selects `console`, `os`, or `none`; the daemon
 `--notifier` flag takes precedence.
+
+Dashboard routes are registered only for `agentpulse daemon --dashboard`.
+Dashboard mode requires `127.0.0.1` or `::1` even if a trusted developer would
+otherwise choose a broader daemon bind address.
 
 OS notification runtime code is loaded lazily only when an actionable event
 needs notification. Import failures, unsupported module shapes, runtime
@@ -100,6 +111,6 @@ They produce safe warnings and cannot fail daemon startup or event ingestion.
 
 ## Deferred architecture
 
-Persistence, SSE/WebSocket broadcasting, session cleanup, desktop and IDE
-surfaces, OpenCode and Cursor adapters, and broader Codex lifecycle observation
-remain deferred.
+Persistence, SSE/WebSocket broadcasting, session cleanup, desktop/tray and IDE
+extensions, OpenCode and Cursor adapters, and broader Codex lifecycle
+observation remain deferred.

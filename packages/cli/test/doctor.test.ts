@@ -18,6 +18,7 @@ function captureIo() {
 
 function runtime(overrides: Partial<DoctorRuntime> = {}): DoctorRuntime {
   return {
+    standalone: () => false,
     nodeVersion: () => "22.16.0",
     pnpmVersion: () => "10.11.0",
     cliBuilt: async () => true,
@@ -120,5 +121,38 @@ describe("doctor command", () => {
     expect(capture.warnings.join("\n")).toContain("[error] cli-build");
     expect(capture.warnings.join("\n")).toContain("[error] setup-claude-code");
     expect(capture.warnings.join("\n")).toContain("[error] setup-codex");
+  });
+
+  it("skips source tooling checks for a standalone binary", async () => {
+    const capture = captureIo();
+
+    const code = await executeDoctorCommand(
+      ["--json", "--notifier", "none"],
+      capture.io,
+      runtime({
+        standalone: () => true,
+        pnpmVersion: () => {
+          throw new Error("pnpm must not be checked");
+        },
+        cliBuilt: async () => {
+          throw new Error("source build must not be checked");
+        },
+      }),
+    );
+    const report = JSON.parse(capture.output[0] ?? "{}") as {
+      checks: { id: string; status: string; message: string }[];
+    };
+
+    expect(code).toBe(0);
+    expect(report.checks).toContainEqual({
+      id: "pnpm",
+      status: "skipped",
+      message: "pnpm is not required by the standalone binary.",
+    });
+    expect(report.checks).toContainEqual({
+      id: "cli-build",
+      status: "ok",
+      message: "AgentPulse is running as a standalone binary.",
+    });
   });
 });

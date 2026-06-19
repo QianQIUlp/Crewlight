@@ -15,9 +15,45 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.x
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: node --version
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm build
+
+  standalone-linux-x64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build Linux x64 standalone artifact
+        run: |
+          node --version
+          pnpm build:standalone
+      - name: Record build provenance
+        run: |
+          {
+            echo "## Linux x64 standalone build"
+            echo '```text'
+            cat release/agentpulse-v0.2.2-linux-x64/BUILD-INFO.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Smoke test without Node or pnpm on PATH
+        run: pnpm smoke:standalone
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentpulse-v0.2.2-linux-x64
+          if-no-files-found: error
+          path: |
+            release/agentpulse-v0.2.2-linux-x64.tar.gz
+            release/agentpulse-v0.2.2-linux-x64.tar.gz.sha256

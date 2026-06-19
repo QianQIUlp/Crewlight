@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   AgentPulseService,
+  formatDaemonUrl,
   startDaemon,
   type DaemonInstance,
 } from "../src/index.js";
@@ -82,9 +83,119 @@ describe("daemon HTTP server", () => {
 
   it("returns not found for unsupported routes", async () => {
     const daemon = await startTestDaemon();
-    const response = await fetch(`${daemon.url}/health`);
+    const healthResponse = await fetch(`${daemon.url}/health`);
+    const dashboardResponse = await fetch(`${daemon.url}/dashboard`);
+    const dashboardApiResponse = await fetch(`${daemon.url}/dashboard/api`);
 
-    expect(response.status).toBe(404);
+    expect(healthResponse.status).toBe(404);
+    expect(dashboardResponse.status).toBe(404);
+    expect(dashboardApiResponse.status).toBe(404);
+  });
+
+  it("serves dashboard routes only when enabled with no-store responses", async () => {
+    instance = await startDaemon(
+      { host: "127.0.0.1", port: 0 },
+      new AgentPulseService({ notifier: new SilentNotifier() }),
+      {
+        dashboard: {
+          notifier: "none",
+          setup: {
+            claudeCode: '{"hooks":{"Stop":[]}}',
+            codex: 'notify = ["agentpulse", "ingest", "codex"]',
+          },
+          doctor: async () => ({
+            ok: true,
+            checks: [
+              {
+                id: "daemon",
+                status: "ok",
+                message: "Daemon is reachable.",
+              },
+            ],
+          }),
+        },
+      },
+    );
+
+    const page = await fetch(`${instance.url}/dashboard`);
+    const script = await fetch(`${instance.url}/dashboard/app.js`);
+    const api = await fetch(`${instance.url}/dashboard/api`);
+    const body = await api.text();
+
+    expect(page.status).toBe(200);
+    expect(page.headers.get("cache-control")).toBe("no-store");
+    expect(page.headers.get("content-security-policy")).toContain(
+      "default-src 'none'",
+    );
+    expect(script.status).toBe(200);
+    expect(script.headers.get("cache-control")).toBe("no-store");
+    expect(await script.text()).not.toContain("innerHTML");
+    expect(api.status).toBe(200);
+    expect(api.headers.get("cache-control")).toBe("no-store");
+    expect(api.headers.get("content-type")).toContain("application/json");
+    expect(body).toContain('"notifier":"none"');
+    expect(body).toContain('"status":"ok"');
+  });
+
+  it("exposes only normalized session fields through the dashboard API", async () => {
+    instance = await startDaemon(
+      { host: "127.0.0.1", port: 0 },
+      new AgentPulseService({ notifier: new SilentNotifier() }),
+      {
+        dashboard: {
+          notifier: "none",
+          setup: { claudeCode: "claude", codex: "codex" },
+          doctor: async () => ({ ok: true, checks: [] }),
+        },
+      },
+    );
+
+    await fetch(`${instance.url}/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        source: "custom",
+        surface: "manual",
+        sessionId: "dashboard-session",
+        status: "completed",
+        message: "safe summary",
+        rawEvent: {
+          prompt: "dashboard-secret-prompt",
+          toolInput: "dashboard-secret-tool-input",
+          transcript: "dashboard-secret-transcript",
+        },
+      }),
+    });
+
+    const response = await fetch(`${instance.url}/dashboard/api`);
+    const body = await response.text();
+
+    expect(body).toContain("dashboard-session");
+    expect(body).toContain("safe summary");
+    expect(body).not.toContain("dashboard-secret");
+    expect(body).not.toContain("rawEvent");
+    expect(body).not.toContain("toolInput");
+    expect(body).not.toContain("transcript");
+  });
+
+  it("rejects dashboard binding outside loopback", async () => {
+    await expect(
+      startDaemon(
+        { host: "0.0.0.0", port: 3768 },
+        new AgentPulseService({ notifier: new SilentNotifier() }),
+        {
+          dashboard: {
+            notifier: "none",
+            setup: { claudeCode: "claude", codex: "codex" },
+            doctor: async () => ({ ok: true, checks: [] }),
+          },
+        },
+      ),
+    ).rejects.toThrow("127.0.0.1");
+  });
+
+  it("formats IPv6 loopback daemon URLs correctly", () => {
+    expect(formatDaemonUrl("::1", 3768)).toBe("http://[::1]:3768");
   });
 
   it("keeps ingest available when the OS notifier cannot load", async () => {

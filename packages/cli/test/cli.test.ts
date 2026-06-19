@@ -186,4 +186,15 @@ describe("CLI commands", () => {
       ),
     ).rejects.toThrow("agentpulse daemon --port <port>");
   });
+
+  it("rejects a dashboard bound outside loopback", async () => {
+    const capture = captureIo();
+
+    await expect(
+      executeDaemonCommand(
+        ["--dashboard", "--host", "0.0.0.0", "--notifier", "none"],
+        capture.io,
+      ),
+    ).rejects.toThrow("127.0.0.1");
+  });
 });

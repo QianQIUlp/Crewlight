@@ -1,5 +1,5 @@
 import type { AgentEventInput, AgentSession } from "@agentpulse/core";
-import type { IngestResult } from "@agentpulse/daemon";
+import { formatDaemonUrl, type IngestResult } from "@agentpulse/daemon";
 import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@agentpulse/shared";
 
 export interface AgentPulseClient {
@@ -14,8 +14,8 @@ export interface DaemonClientOptions {
 
 function daemonBaseUrl(env: NodeJS.ProcessEnv): string {
   const host = env.AGENTPULSE_HOST ?? DEFAULT_DAEMON_HOST;
-  const port = env.AGENTPULSE_PORT ?? String(DEFAULT_DAEMON_PORT);
-  return `http://${host}:${port}`;
+  const port = Number(env.AGENTPULSE_PORT ?? DEFAULT_DAEMON_PORT);
+  return formatDaemonUrl(host, port);
 }
 
 export class DaemonClient implements AgentPulseClient {
