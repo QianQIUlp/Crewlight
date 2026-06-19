@@ -6,6 +6,8 @@
     { "path": "./packages/notifier" },
     { "path": "./packages/daemon" },
     { "path": "./packages/adapters/generic-cli" },
+    { "path": "./packages/adapters/claude-code" },
+    { "path": "./packages/adapters/codex" },
     { "path": "./packages/cli" }
   ]
 }
