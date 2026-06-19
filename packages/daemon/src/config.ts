@@ -1,11 +1,18 @@
 import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@agentpulse/shared";
+import { isNotifierKind, type NotifierKind } from "@agentpulse/notifier";
 
-export interface DaemonConfig {
+export interface DaemonListenConfig {
   host: string;
   port: number;
 }
 
-export type DaemonConfigOverrides = Partial<DaemonConfig>;
+export interface DaemonConfig extends DaemonListenConfig {
+  notifier: NotifierKind;
+}
+
+export type DaemonConfigOverrides = Partial<Omit<DaemonConfig, "notifier">> & {
+  notifier?: string;
+};
 
 export function resolveDaemonConfig(
   overrides: DaemonConfigOverrides = {},
@@ -24,5 +31,11 @@ export function resolveDaemonConfig(
     throw new Error(`Invalid daemon port: ${String(portValue)}`);
   }
 
-  return { host, port };
+  const notifierValue =
+    overrides.notifier ?? env.AGENTPULSE_NOTIFIER ?? "console";
+  if (!isNotifierKind(notifierValue)) {
+    throw new Error(`Invalid notifier kind: ${String(notifierValue)}`);
+  }
+
+  return { host, port, notifier: notifierValue };
 }

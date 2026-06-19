@@ -8,7 +8,7 @@ import {
 import type { AgentEventInput } from "@agentpulse/core";
 import { ZodError } from "zod";
 
-import type { DaemonConfig } from "./config.js";
+import type { DaemonListenConfig } from "./config.js";
 import { AgentPulseService } from "./service.js";
 
 function sendJson(
@@ -95,7 +95,7 @@ export interface DaemonInstance {
 }
 
 export async function startDaemon(
-  config: DaemonConfig,
+  config: DaemonListenConfig,
   service: AgentPulseService = new AgentPulseService(),
 ): Promise<DaemonInstance> {
   const server = createDaemonServer(service);

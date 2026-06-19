@@ -16,6 +16,10 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpulse/core": "workspace:^"
+    "@agentpulse/core": "workspace:^",
+    "node-notifier": "10.0.1"
+  },
+  "devDependencies": {
+    "@types/node-notifier": "^8.0.5"
   }
 }

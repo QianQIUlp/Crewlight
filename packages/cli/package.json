@@ -18,6 +18,7 @@
     "@agentpulse/adapter-generic-cli": "workspace:^",
     "@agentpulse/core": "workspace:^",
     "@agentpulse/daemon": "workspace:^",
+    "@agentpulse/notifier": "workspace:^",
     "@agentpulse/shared": "workspace:^"
   }
 }

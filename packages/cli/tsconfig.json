@@ -9,6 +9,7 @@
   "references": [
     { "path": "../shared" },
     { "path": "../core" },
+    { "path": "../notifier" },
     { "path": "../daemon" },
     { "path": "../adapters/claude-code" },
     { "path": "../adapters/codex" },

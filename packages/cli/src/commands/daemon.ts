@@ -1,6 +1,11 @@
 import { parseArgs } from "node:util";
 
-import { resolveDaemonConfig, startDaemon } from "@agentpulse/daemon";
+import {
+  AgentPulseService,
+  resolveDaemonConfig,
+  startDaemon,
+} from "@agentpulse/daemon";
+import { createNotifier } from "@agentpulse/notifier";
 
 import type { CommandIo } from "./types.js";
 
@@ -12,15 +17,22 @@ export async function executeDaemonCommand(
     args: [...args],
     options: {
       host: { type: "string" },
+      notifier: { type: "string" },
       port: { type: "string" },
     },
     strict: true,
   });
   const config = resolveDaemonConfig({
     ...(values.host ? { host: values.host } : {}),
+    ...(values.notifier ? { notifier: values.notifier } : {}),
     ...(values.port ? { port: Number(values.port) } : {}),
   });
-  const daemon = await startDaemon(config);
+  const service = new AgentPulseService({
+    notifier: createNotifier(config.notifier, {
+      warning: io.warn,
+    }),
+  });
+  const daemon = await startDaemon(config, service);
 
   io.write(`AgentPulse daemon listening at ${daemon.url}`);
 

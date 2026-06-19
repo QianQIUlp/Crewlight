@@ -2,6 +2,7 @@ export {
   resolveDaemonConfig,
   type DaemonConfig,
   type DaemonConfigOverrides,
+  type DaemonListenConfig,
 } from "./config.js";
 export {
   createDaemonServer,

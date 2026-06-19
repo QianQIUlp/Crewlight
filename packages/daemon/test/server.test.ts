@@ -1,5 +1,5 @@
 import type { AgentEvent, AgentSession } from "@agentpulse/core";
-import type { Notifier } from "@agentpulse/notifier";
+import { OsNotifier, type Notifier } from "@agentpulse/notifier";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -85,5 +85,34 @@ describe("daemon HTTP server", () => {
     const response = await fetch(`${daemon.url}/health`);
 
     expect(response.status).toBe(404);
+  });
+
+  it("keeps ingest available when the OS notifier cannot load", async () => {
+    const warnings: string[] = [];
+    instance = await startDaemon(
+      { host: "127.0.0.1", port: 0 },
+      new AgentPulseService({
+        notifier: new OsNotifier({
+          loader: async () => {
+            throw new Error("native runtime unavailable");
+          },
+          warning: (warning) => warnings.push(warning),
+        }),
+      }),
+    );
+
+    const response = await fetch(`${instance.url}/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        source: "custom",
+        surface: "manual",
+        status: "completed",
+      }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(warnings).toHaveLength(1);
+    expect(warnings.join("\n")).not.toContain("native runtime unavailable");
   });
 });
