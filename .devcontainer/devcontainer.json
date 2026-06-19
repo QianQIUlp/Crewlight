@@ -1,0 +1,75 @@
+{
+  "name": "AgentPulse",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "remoteUser": "node",
+
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "remoteEnv": {
+    "PATH": "/home/node/.npm-global/bin:${containerEnv:PATH}",
+    "AGENTPULSE_HOST": "0.0.0.0",
+    "AGENTPULSE_PORT": "3768"
+  },
+
+  "postCreateCommand": "bash -lc 'set -e; corepack enable; mkdir -p ~/.npm-global; npm config set prefix ~/.npm-global; export PATH=\"$HOME/.npm-global/bin:$PATH\"; npm install -g @anthropic-ai/claude-code; if [ -f pnpm-lock.yaml ]; then pnpm install; elif [ -f package-lock.json ]; then npm ci; elif [ -f package.json ]; then npm install; else echo \"No package.json found yet. Skipping dependency install.\"; fi; gh --version; node --version; npm --version'",
+
+  "forwardPorts": [3768],
+
+  "portsAttributes": {
+    "3768": {
+      "label": "AgentPulse daemon",
+      "onAutoForward": "notify"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "astro-build.astro-vscode",
+        "esbenp.prettier-vscode",
+        "github.codespaces",
+        "openai.chatgpt",
+        "github.vscode-github-actions",
+        "github.vscode-pull-request-github",
+        "eamodio.gitlens",
+        "shd101wyy.markdown-preview-enhanced"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "files.eol": "\n",
+
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[javascriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[json]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[jsonc]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[markdown]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.wordWrap": "on"
+        },
+
+        "typescript.tsserver.maxTsServerMemory": 4096,
+
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}
