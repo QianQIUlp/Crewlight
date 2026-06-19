@@ -20,7 +20,11 @@ importers:
         specifier: ^3.2.1
         version: 3.2.6(@types/node@22.19.21)
 
-  packages/adapters/generic-cli: {}
+  packages/adapters/generic-cli:
+    dependencies:
+      "@agentpulse/core":
+        specifier: workspace:^
+        version: link:../../core
 
   packages/cli: {}
 
