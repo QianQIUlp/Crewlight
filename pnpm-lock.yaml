@@ -26,7 +26,20 @@ importers:
         specifier: workspace:^
         version: link:../../core
 
-  packages/cli: {}
+  packages/cli:
+    dependencies:
+      "@agentpulse/adapter-generic-cli":
+        specifier: workspace:^
+        version: link:../adapters/generic-cli
+      "@agentpulse/core":
+        specifier: workspace:^
+        version: link:../core
+      "@agentpulse/daemon":
+        specifier: workspace:^
+        version: link:../daemon
+      "@agentpulse/shared":
+        specifier: workspace:^
+        version: link:../shared
 
   packages/core:
     dependencies:

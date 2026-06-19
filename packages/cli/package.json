@@ -11,5 +11,11 @@
   ],
   "scripts": {
     "build": "tsc -b"
+  },
+  "dependencies": {
+    "@agentpulse/adapter-generic-cli": "workspace:^",
+    "@agentpulse/core": "workspace:^",
+    "@agentpulse/daemon": "workspace:^",
+    "@agentpulse/shared": "workspace:^"
   }
 }
