@@ -22,6 +22,21 @@ $Taskkill = (Get-Command taskkill.exe -ErrorAction Stop).Source
 $Where = (Get-Command where.exe -ErrorAction Stop).Source
 $DaemonControl = Join-Path $Root "scripts\windows-daemon-control.mjs"
 
+function Convert-StreamToText {
+  param([object]$Value)
+
+  if ($null -eq $Value) {
+    return [string]""
+  }
+
+  if ($Value -is [array]) {
+    $lines = @($Value | ForEach-Object { [string]$_ })
+    return [string]($lines -join [Environment]::NewLine)
+  }
+
+  return [string]$Value
+}
+
 function Invoke-AgentPulse {
   param(
     [string[]]$Arguments,
@@ -29,14 +44,14 @@ function Invoke-AgentPulse {
     [switch]$AllowFailure
   )
 
-  $stdout = Join-Path $Work "command-$([guid]::NewGuid()).stdout"
-  $stderr = Join-Path $Work "command-$([guid]::NewGuid()).stderr"
+  $stdoutPath = Join-Path $Work "command-$([guid]::NewGuid()).stdout"
+  $stderrPath = Join-Path $Work "command-$([guid]::NewGuid()).stderr"
   $stdinFile = $null
   $start = @{
     FilePath = $Bin
     ArgumentList = $Arguments
-    RedirectStandardOutput = $stdout
-    RedirectStandardError = $stderr
+    RedirectStandardOutput = $stdoutPath
+    RedirectStandardError = $stderrPath
     NoNewWindow = $true
     PassThru = $true
     Wait = $true
@@ -48,13 +63,17 @@ function Invoke-AgentPulse {
   }
 
   $process = Start-Process @start
+  $stdoutValue = if (Test-Path $stdoutPath) { Get-Content $stdoutPath -Raw } else { $null }
+  $stderrValue = if (Test-Path $stderrPath) { Get-Content $stderrPath -Raw } else { $null }
+  $stdoutText = [string](Convert-StreamToText -Value $stdoutValue)
+  $stderrText = [string](Convert-StreamToText -Value $stderrValue)
   $result = [pscustomobject]@{
     ExitCode = $process.ExitCode
-    Stdout = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
-    Stderr = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+    Stdout = [string]$stdoutText
+    Stderr = [string]$stderrText
   }
   if (-not $AllowFailure -and $result.ExitCode -ne 0) {
-    throw "agentpulse $($Arguments -join ' ') failed with $($result.ExitCode): $($result.Stderr)"
+    throw "agentpulse $($Arguments -join ' ') failed with $($result.ExitCode): $stderrText"
   }
   return $result
 }
@@ -70,6 +89,148 @@ function Wait-Dashboard {
     }
   }
   throw "Dashboard did not become ready."
+}
+
+function ConvertFrom-FirstJsonObject {
+  param(
+    [string]$Text,
+    [string]$Description
+  )
+
+  $start = -1
+  $depth = 0
+  $inString = $false
+  $escaped = $false
+
+  for ($i = 0; $i -lt $Text.Length; $i++) {
+    $character = $Text[$i]
+
+    if ($start -lt 0) {
+      if ($character -eq "{") {
+        $start = $i
+        $depth = 1
+      }
+      continue
+    }
+
+    if ($inString) {
+      if ($escaped) {
+        $escaped = $false
+      } elseif ($character -eq "\") {
+        $escaped = $true
+      } elseif ($character -eq '"') {
+        $inString = $false
+      }
+      continue
+    }
+
+    if ($character -eq '"') {
+      $inString = $true
+    } elseif ($character -eq "{") {
+      $depth++
+    } elseif ($character -eq "}") {
+      $depth--
+      if ($depth -eq 0) {
+        $json = $Text.Substring($start, $i - $start + 1)
+        try {
+          return $json | ConvertFrom-Json
+        } catch {
+          throw "$Description first JSON object could not be parsed. Expected binary path: $Bin"
+        }
+      }
+    }
+  }
+
+  throw "$Description did not contain a complete JSON object. Expected binary path: $Bin"
+}
+
+function Get-StopHookCommand {
+  param(
+    [object]$Parsed,
+    [string]$FieldName
+  )
+
+  $path = "hooks.Stop[0].hooks[0].$FieldName"
+  $hooksProperty = $Parsed.PSObject.Properties["hooks"]
+  if ($null -eq $hooksProperty -or $null -eq $hooksProperty.Value) {
+    throw "$path missing. Expected binary path: $Bin"
+  }
+
+  $stopProperty = $hooksProperty.Value.PSObject.Properties["Stop"]
+  if ($null -eq $stopProperty -or $null -eq $stopProperty.Value) {
+    throw "$path missing. Expected binary path: $Bin"
+  }
+
+  $stopGroups = @($stopProperty.Value)
+  if ($stopGroups.Count -lt 1 -or $null -eq $stopGroups[0]) {
+    throw "$path missing. Expected binary path: $Bin"
+  }
+
+  $handlersProperty = $stopGroups[0].PSObject.Properties["hooks"]
+  if ($null -eq $handlersProperty -or $null -eq $handlersProperty.Value) {
+    throw "$path missing. Expected binary path: $Bin"
+  }
+
+  $handlers = @($handlersProperty.Value)
+  if ($handlers.Count -lt 1 -or $null -eq $handlers[0]) {
+    throw "$path missing. Expected binary path: $Bin"
+  }
+
+  $commandProperty = $handlers[0].PSObject.Properties[$FieldName]
+  if ($null -eq $commandProperty -or $null -eq $commandProperty.Value) {
+    throw "$path missing. Expected binary path: $Bin"
+  }
+  if (-not ($commandProperty.Value -is [string])) {
+    throw "$path must be a string. Expected binary path: $Bin"
+  }
+
+  return $commandProperty.Value
+}
+
+function Assert-SetupCommand {
+  param(
+    [string]$Command,
+    [string]$Description,
+    [string]$IngestTarget
+  )
+
+  $comparison = [System.StringComparison]::OrdinalIgnoreCase
+  if ($Command.IndexOf($Bin, $comparison) -lt 0 -or
+      $Command.IndexOf("ingest", $comparison) -lt 0 -or
+      $Command.IndexOf($IngestTarget, $comparison) -lt 0) {
+    throw "$Description command validation failed. Expected binary path: $Bin. Parsed command: $Command"
+  }
+}
+
+function ConvertFrom-CodexNotify {
+  param([string]$Text)
+
+  $reader = [System.IO.StringReader]::new($Text)
+  try {
+    while (($line = $reader.ReadLine()) -ne $null) {
+      $trimmedLine = $line.Trim()
+      $equalsIndex = $trimmedLine.IndexOf("=")
+      if ($equalsIndex -lt 0) {
+        continue
+      }
+
+      $key = $trimmedLine.Substring(0, $equalsIndex).Trim()
+      if (-not $key.Equals("notify", [System.StringComparison]::Ordinal)) {
+        continue
+      }
+
+      $arrayText = $trimmedLine.Substring($equalsIndex + 1).Trim()
+      try {
+        return @($arrayText | ConvertFrom-Json)
+      } catch {
+        throw "Codex notify argv could not be parsed. Expected binary path: $Bin"
+      }
+    }
+  } finally {
+    $reader.Dispose()
+  }
+
+  throw "Codex notify output did not contain a notify = [...] line. Expected binary path: $Bin"
 }
 
 function Stop-Daemon {
@@ -162,17 +323,29 @@ try {
   }
 
   $claude = Invoke-AgentPulse -Arguments @("setup", "claude-code", "--print")
-  if ($claude.Stdout -notmatch [regex]::Escape($Bin) -or $claude.Stdout -notmatch "ingest.*claude-code") {
-    throw "Claude setup did not use the absolute SEA path."
-  }
+  $claudeSetup = ConvertFrom-FirstJsonObject -Text $claude.Stdout -Description "Claude setup"
+  $claudeCommand = Get-StopHookCommand -Parsed $claudeSetup -FieldName "command"
+  Assert-SetupCommand -Command $claudeCommand -Description "Claude setup" -IngestTarget "claude-code"
+
   $codex = Invoke-AgentPulse -Arguments @("setup", "codex", "--print")
-  if ($codex.Stdout -notmatch [regex]::Escape($Bin) -or $codex.Stdout -notmatch '"ingest", "codex"') {
-    throw "Codex notify setup did not use the absolute SEA path."
+  $codexArgv = @(ConvertFrom-CodexNotify -Text $codex.Stdout)
+  $codexArgvDebug = $codexArgv | ConvertTo-Json -Compress
+  if ($codexArgv.Count -ne 3 -or
+      -not ($codexArgv[0] -is [string]) -or
+      -not ($codexArgv[1] -is [string]) -or
+      -not ($codexArgv[2] -is [string])) {
+    throw "Codex notify argv must contain exactly three strings. Expected binary path: $Bin. Parsed argv: $codexArgvDebug"
   }
+  if (-not $codexArgv[0].Equals($Bin, [System.StringComparison]::OrdinalIgnoreCase) -or
+      $codexArgv[1] -cne "ingest" -or
+      $codexArgv[2] -cne "codex") {
+    throw "Codex notify argv validation failed. Expected binary path: $Bin. Parsed argv: $codexArgvDebug"
+  }
+
   $codexHooks = Invoke-AgentPulse -Arguments @("setup", "codex-hooks", "--print")
-  if ($codexHooks.Stdout -notmatch "commandWindows" -or $codexHooks.Stdout -notmatch "codex-hook") {
-    throw "Codex hooks setup is missing its Windows command."
-  }
+  $codexHooksSetup = ConvertFrom-FirstJsonObject -Text $codexHooks.Stdout -Description "Codex hooks setup"
+  $codexHooksCommand = Get-StopHookCommand -Parsed $codexHooksSetup -FieldName "commandWindows"
+  Assert-SetupCommand -Command $codexHooksCommand -Description "Codex hooks setup" -IngestTarget "codex-hook"
 
   $env:AGENTPULSE_HOST = "0.0.0.0"
   $unsafe = Invoke-AgentPulse -Arguments @("daemon", "--dashboard", "--notifier", "none") -AllowFailure
@@ -199,8 +372,10 @@ try {
 
   $hookPayload = '{"session_id":"windows-codex-hook","cwd":"C:\\demo","hook_event_name":"PermissionRequest","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"}}'
   $hook = Invoke-AgentPulse -Arguments @("ingest", "codex-hook") -Stdin $hookPayload
-  if ($hook.Stdout.Length -ne 0 -or $hook.Stderr.Length -ne 0) {
-    throw "Successful Codex hook ingest must be silent."
+  $hookStdout = [string](Convert-StreamToText -Value $hook.Stdout)
+  $hookStderr = [string](Convert-StreamToText -Value $hook.Stderr)
+  if ($hookStdout.Length -ne 0 -or $hookStderr.Length -ne 0) {
+    throw "Codex hook ingest should be silent on success."
   }
 
   Invoke-AgentPulse -Arguments @(
