@@ -1,52 +1,57 @@
-# AgentPulse v0.1 Plan
+# AgentPulse MVP Plan
 
-## Goal
+## v0.1 foundation
 
-Deliver the smallest local event-to-session loop:
+v0.1 established the normalized event model, in-memory session store, local
+daemon, console notifier, manual emit path, status command, and generic CLI
+wrapper.
 
-1. start a local daemon;
-2. submit a normalized or manual activity event;
-3. inspect all sessions observed during that daemon process;
-4. wrap a command and report running, completed, or failed state;
-5. emit console notifications for actionable states.
+Those interfaces remain compatible in v0.2:
 
-## Included
+```bash
+agentpulse daemon
+agentpulse emit --source custom --surface manual --status running
+agentpulse status
+agentpulse run --source generic-cli -- node -e "process.exit(0)"
+```
 
-- pnpm TypeScript monorepo targeting Node.js 22;
-- validated event and session models;
-- distinct external `sessionId` and internal `sessionKey`;
-- process-lifetime in-memory session aggregation;
-- `POST /events` and `GET /sessions`;
-- `agentpulse daemon`, `emit`, `status`, and `run`;
-- console notifier policy;
-- generic CLI best-effort adapter;
-- unit, integration, and end-to-end validation.
+## v0.2 goal
 
-## Excluded
+Validate the complete real-platform path:
 
-- desktop, tray, floating window, and IDE interfaces;
-- Claude Code, Codex, OpenCode, or other platform-specific adapters;
-- persistent storage and daemon restart recovery;
-- session limits, `maxSessions`, `retentionMs`, or garbage collection;
-- SSE, WebSocket, webhooks, mobile push, and hardware output;
-- OS notification and sound;
-- raw event storage or debug output;
-- authentication for non-loopback access.
+```text
+documented lifecycle event
+        -> platform adapter
+        -> AgentEventInput
+        -> daemon
+        -> session store + selected notifier
+```
+
+Included:
+
+- Claude Code command-hook adapter;
+- Codex CLI external notify adapter for turn completion;
+- platform ingest and setup snippet commands;
+- optional OS notifier with contained failure handling;
+- documentation and regression coverage.
 
 ## Acceptance criteria
 
-- `agentpulse daemon` starts the local service.
-- `agentpulse emit` sends a valid event without exposing `rawEvent`.
-- `agentpulse status` lists active and terminal sessions retained in memory.
-- `agentpulse run --source generic-cli -- <command>` reports `running`, then
-  `completed` or `failed`, and preserves the wrapped command's exit result.
-- Failed command messages contain command, duration, and exit code or signal.
-- A daemon connection failure warns but does not prevent a wrapped command.
-- Formatting, strict type checks, tests, and build all pass in CI.
+- Claude Code hook JSON can create supported session state through stdin.
+- Codex `agent-turn-complete` JSON creates a completed session.
+- Unknown or malformed platform input does not interrupt the host process.
+- Claude `SessionEnd` cannot replace a useful terminal state.
+- OS notification failures cannot prevent daemon startup or event ingestion.
+- Setup commands print snippets without reading or modifying user config.
+- All v0.1 commands remain functional.
+- Format, typecheck, tests, and build pass.
 
-## Delivery sequence
+## Excluded
 
-Implementation proceeds as small commits: tooling, documentation, core,
-notifier, daemon, generic adapter, CLI, then setup and verification guidance.
-No commit is made until formatting, type checking, and tests pass for that
-stage.
+- OpenCode and Cursor adapters;
+- VS Code or other IDE extensions;
+- desktop, tray, or floating-window applications;
+- automatic user configuration mutation;
+- persistence, restart recovery, retention, or session cleanup;
+- SSE, WebSocket, webhooks, mobile push, or hardware output;
+- OCR, screen scraping, UI automation, or private API reverse engineering.

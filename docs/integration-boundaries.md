@@ -1,69 +1,67 @@
 # Integration Boundaries
 
-AgentPulse observes agent activity. It does not attempt to control every agent
-or promise lifecycle precision that a platform does not expose.
+AgentPulse reports only activity exposed by documented platform interfaces or
+clearly labeled best-effort observation points.
 
-## Integration levels
+## Precise integration: Claude Code
 
-### Precise integration
+The Claude Code adapter consumes documented command-hook JSON from stdin. It
+maps supported lifecycle events without returning permission decisions or
+modifying Claude behavior.
 
-Uses a documented platform hook, notification protocol, or plugin API that
-provides explicit lifecycle events. Precision is limited to the guarantees of
-that public interface.
+Supported events include session and prompt starts, tool start/completion,
+permission requests, actionable notifications, turn completion, and API
+failure. Unsupported events are ignored.
 
-No precise platform adapter ships in v0.1.
+`SessionEnd` is intentionally ignored in v0.2 because mapping it to `idle`
+could overwrite a terminal session state. The setup snippet does not register
+that hook.
 
-### Best-effort integration
+## Narrow official integration: Codex CLI
 
-Infers activity through supported but incomplete observation points such as a
-wrapper command, process watcher, terminal watcher, or documented log stream.
-These integrations can miss activity that occurs outside their observation
-boundary.
+The Codex adapter consumes the documented external `notify` JSON argument.
+Codex currently documents only `agent-turn-complete` for this interface, so
+v0.2 maps only that event to `completed`.
 
-The v0.1 generic CLI wrapper is best-effort. It reports only the lifecycle of
-the command it starts:
+AgentPulse does not claim Codex `running`, `waiting_input`, or
+`waiting_permission` support. Built-in TUI notifications and the app-server
+protocol are separate interfaces and are not used by this adapter.
+
+The adapter never copies complete `input-messages`; it uses a bounded
+`last-assistant-message` when available.
+
+## Best-effort integration
+
+The generic CLI wrapper reports only the process it starts:
 
 - successful spawn: `running`;
 - exit code zero: `completed`;
-- non-zero exit code: `failed`;
-- terminating signal: `failed`;
-- spawn error: `failed`.
+- non-zero exit code, signal, or spawn error: `failed`.
 
-It does not inspect an agent's internal tools, permission prompts, or model
-state.
+It cannot inspect internal tools, permission prompts, or model state.
 
-### Manual integration
+## Manual integration
 
-The user or another program explicitly calls `agentpulse emit`. AgentPulse
-validates and aggregates the event but cannot verify the caller's interpretation
-of platform state.
-
-## Prohibited foundations
-
-Core functionality must not depend on:
-
-- private API reverse engineering;
-- binary patching or process injection;
-- window OCR or screen scraping;
-- simulated clicks or keystrokes;
-- undocumented desktop application internals.
-
-Process, log, terminal, wrapper, and system-notification observation may be
-offered only as clearly labeled best-effort integrations.
+`agentpulse emit` accepts explicit caller-provided events. AgentPulse validates
+and aggregates the event but cannot verify the caller's platform
+interpretation.
 
 ## Adapter contract
 
-An adapter translates its source payload to `AgentEventInput`. It may use a raw
-platform payload while translating, but `rawEvent` is transient in v0.1.
-Adapters must not persist it or depend on downstream raw-payload access.
+Adapters may inspect a raw source payload while translating it, but must emit a
+whitelisted `AgentEventInput`. They must not:
 
-Adapters must not:
-
+- persist or forward the complete raw payload;
 - update the session store directly;
-- send desktop or console notifications directly;
-- implement UI, sound, or hardware output;
-- claim support for lifecycle events they cannot observe.
+- send notifications directly;
+- influence platform permission decisions;
+- claim lifecycle states the source interface does not expose.
 
-Source packages are added only when an implementation exists and is tested.
-Claude Code, Codex, OpenCode, Cursor, VS Code agents, and desktop applications
-are roadmap items rather than supported v0.1 integrations.
+Ingest commands warn and return zero for invalid input, unsupported event
+types, or daemon delivery failure so platform lifecycle execution continues.
+
+## Prohibited foundations
+
+Core functionality must not depend on private API reverse engineering, binary
+patching, process injection, OCR, screen scraping, window watching, simulated
+input, or undocumented desktop internals.

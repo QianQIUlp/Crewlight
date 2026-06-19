@@ -38,7 +38,7 @@ export async function executeRunCommand(
   });
   const source = agentSourceSchema.parse(values.source);
   if (source !== "generic-cli") {
-    throw new Error("v0.1 run supports only --source generic-cli");
+    throw new Error("agentpulse run supports only --source generic-cli");
   }
 
   const result = await runCommand({
