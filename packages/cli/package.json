@@ -13,6 +13,8 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@agentpulse/adapter-claude-code": "workspace:^",
+    "@agentpulse/adapter-codex": "workspace:^",
     "@agentpulse/adapter-generic-cli": "workspace:^",
     "@agentpulse/core": "workspace:^",
     "@agentpulse/daemon": "workspace:^",

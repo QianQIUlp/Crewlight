@@ -46,6 +46,12 @@ importers:
 
   packages/cli:
     dependencies:
+      "@agentpulse/adapter-claude-code":
+        specifier: workspace:^
+        version: link:../adapters/claude-code
+      "@agentpulse/adapter-codex":
+        specifier: workspace:^
+        version: link:../adapters/codex
       "@agentpulse/adapter-generic-cli":
         specifier: workspace:^
         version: link:../adapters/generic-cli
