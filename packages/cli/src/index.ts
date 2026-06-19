@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { DaemonClient } from "./daemon-client.js";
 import { executeDaemonCommand } from "./commands/daemon.js";
@@ -48,8 +49,22 @@ export async function main(
   }
 }
 
-const entryPath = process.argv[1];
-if (entryPath && import.meta.url === pathToFileURL(entryPath).href) {
+export function isMainModule(
+  moduleUrl: string,
+  entryPath: string | undefined,
+): boolean {
+  if (!entryPath) {
+    return false;
+  }
+
+  try {
+    return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(entryPath);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule(import.meta.url, process.argv[1])) {
   process.exitCode = await main();
 }
 

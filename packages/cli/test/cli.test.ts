@@ -17,6 +17,7 @@ import { executeEmitCommand } from "../src/commands/emit.js";
 import { executeRunCommand } from "../src/commands/run.js";
 import { executeStatusCommand } from "../src/commands/status.js";
 import type { CommandIo } from "../src/commands/types.js";
+import { isMainModule } from "../src/index.js";
 
 class SilentNotifier implements Notifier {
   notify(_event: AgentEvent, _session: AgentSession): void {}
@@ -40,6 +41,16 @@ afterEach(async () => {
 });
 
 describe("CLI commands", () => {
+  it("recognizes a symlinked executable as the main module", () => {
+    expect(isMainModule(import.meta.url, process.argv[1])).toBe(false);
+    expect(
+      isMainModule(
+        new URL("../src/index.ts", import.meta.url).href,
+        "packages/cli/src/index.ts",
+      ),
+    ).toBe(true);
+  });
+
   it("emits and lists a session through the daemon client", async () => {
     daemon = await startDaemon(
       { host: "127.0.0.1", port: 0 },
