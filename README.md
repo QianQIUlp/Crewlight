@@ -5,6 +5,12 @@ Claude Code, Codex, generic CLI, and manual events, aggregates them into
 in-memory sessions, and exposes their current state through notifications, CLI
 commands, and an optional browser dashboard.
 
+## Documentation
+
+- [简体中文 README](README.zh-CN.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [中文贡献指南](CONTRIBUTING.zh-CN.md)
+
 ## Quick Start
 
 The recommended user installation is a standalone Linux x64 or Windows x64
