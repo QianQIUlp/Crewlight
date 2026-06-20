@@ -52,10 +52,12 @@ bounded tool name where useful. It does not read or retain prompts,
 `transcript_path`, tool input, tool response/output, assistant messages, or the
 complete payload.
 
-Successful ingest writes nothing to stdout or stderr. Invalid JSON, unsupported
-events, and daemon delivery failures warn on stderr and exit zero so the Codex
-flow continues. AgentPulse never returns hook decisions, additional context,
-system messages, permission decisions, updated input, or turn-control fields.
+Every invocation writes the no-op JSON `{"continue":true}` to stdout and exits
+zero, including invalid JSON, unsupported events, and daemon delivery failures.
+Codex hook ingest writes nothing to stderr by default. The response contains no
+additional context, system message, permission decision, updated input,
+suppression, blocking, or other behavior-changing fields, so AgentPulse remains
+observation-only.
 
 ## Verify
 

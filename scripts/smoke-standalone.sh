@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('$ROOT/package.json', 'utf8')).version")"
 NODE_VERSION="$(node --version)"
+NODE="$(command -v node)"
 ARTIFACT="agentpulse-v${VERSION}-linux-x64"
 ARCHIVE="$ROOT/release/${ARTIFACT}.tar.gz"
 CHECKSUM="$ARCHIVE.sha256"
@@ -117,13 +118,23 @@ run_binary doctor --json --notifier none >"$WORK/doctor.json"
 "$GREP" -qF '"ok": true' "$WORK/doctor.json"
 "$GREP" -qF '"status": "skipped"' "$WORK/doctor.json"
 
-printf '%s' '{"session_id":"standalone-codex-hook","cwd":"/tmp/demo","hook_event_name":"PermissionRequest","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"}}' \
+printf '%s' '{"session_id":"standalone-codex-hook","cwd":"/tmp/demo","hook_event_name":"Stop","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"},"tool_response":"must-not-leak","transcript_path":"/tmp/must-not-leak"}' \
   | run_binary ingest codex-hook >"$WORK/codex-hook.stdout" 2>"$WORK/codex-hook.stderr"
-test ! -s "$WORK/codex-hook.stdout"
 test ! -s "$WORK/codex-hook.stderr"
+"$NODE" -e '
+  const output = require("node:fs").readFileSync(process.argv[1], "utf8");
+  const parsed = JSON.parse(output);
+  if (
+    parsed.continue !== true ||
+    Object.keys(parsed).length !== 1 ||
+    output.includes("must-not-leak")
+  ) {
+    process.exit(1);
+  }
+' "$WORK/codex-hook.stdout"
 run_binary status --json >"$WORK/codex-hook-status.json"
 "$GREP" -qF '"sessionId": "standalone-codex-hook"' "$WORK/codex-hook-status.json"
-"$GREP" -qF '"status": "waiting_permission"' "$WORK/codex-hook-status.json"
+"$GREP" -qF '"status": "completed"' "$WORK/codex-hook-status.json"
 if "$GREP" -qF "must-not-leak" "$WORK/codex-hook-status.json"; then
   echo "Codex hook sensitive fields leaked into status output" >&2
   exit 1

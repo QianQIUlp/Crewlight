@@ -8,6 +8,7 @@ import type { AgentPulseClient } from "../daemon-client.js";
 import type { CommandIo, StdinReader } from "./types.js";
 
 const WARNING_PREFIX = "AgentPulse ingest warning:";
+const CODEX_HOOK_NOOP_RESPONSE = '{"continue":true}';
 
 function warn(io: CommandIo, message: string): void {
   io.warn(`${WARNING_PREFIX} ${message}`);
@@ -59,6 +60,31 @@ async function deliver(
   return 0;
 }
 
+async function ingestCodexHook(
+  platformArgs: readonly string[],
+  client: AgentPulseClient,
+  io: CommandIo,
+  readStdin: StdinReader,
+): Promise<number> {
+  try {
+    if (platformArgs.length === 0) {
+      const result = ingestCodexHookJson(await readStdin());
+      if (result.kind === "event") {
+        try {
+          await client.emit(result.event);
+        } catch {
+          // Codex hooks must remain non-blocking when the daemon is unavailable.
+        }
+      }
+    }
+  } catch {
+    // Invalid or unreadable hook input must not interrupt Codex.
+  }
+
+  io.write(CODEX_HOOK_NOOP_RESPONSE);
+  return 0;
+}
+
 async function ingest(
   args: readonly string[],
   client: AgentPulseClient,
@@ -93,15 +119,7 @@ async function ingest(
   }
 
   if (platform === "codex-hook") {
-    if (platformArgs.length > 0) {
-      warn(
-        io,
-        "Codex hook ingest accepts JSON on stdin only. No event was recorded. Regenerate the hook with `agentpulse setup codex-hooks --print`.",
-      );
-      return 0;
-    }
-
-    return deliver(await readStdin(), ingestCodexHookJson, client, io);
+    return ingestCodexHook(platformArgs, client, io, readStdin);
   }
 
   warn(

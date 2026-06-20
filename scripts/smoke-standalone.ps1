@@ -370,12 +370,18 @@ try {
     throw "Doctor did not pass against the standalone daemon."
   }
 
-  $hookPayload = '{"session_id":"windows-codex-hook","cwd":"C:\\demo","hook_event_name":"PermissionRequest","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"}}'
+  $hookPayload = '{"session_id":"windows-codex-hook","cwd":"C:\\demo","hook_event_name":"Stop","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"},"tool_response":"must-not-leak","transcript_path":"C:\\must-not-leak"}'
   $hook = Invoke-AgentPulse -Arguments @("ingest", "codex-hook") -Stdin $hookPayload
   $hookStdout = [string](Convert-StreamToText -Value $hook.Stdout)
   $hookStderr = [string](Convert-StreamToText -Value $hook.Stderr)
-  if ($hookStdout.Length -ne 0 -or $hookStderr.Length -ne 0) {
-    throw "Codex hook ingest should be silent on success."
+  $hookResponse = $hookStdout | ConvertFrom-Json
+  $hookResponseProperties = @($hookResponse.PSObject.Properties)
+  if ($hookStderr.Length -ne 0 -or
+      $hookStdout.Contains("must-not-leak") -or
+      $hookResponseProperties.Count -ne 1 -or
+      $hookResponseProperties[0].Name -cne "continue" -or
+      $hookResponse.continue -ne $true) {
+    throw "Codex hook ingest did not return the expected no-op JSON."
   }
 
   Invoke-AgentPulse -Arguments @(
@@ -383,8 +389,12 @@ try {
     "--session-id", "windows-standalone-smoke", "--message", "done"
   ) | Out-Null
   $status = Invoke-AgentPulse -Arguments @("status", "--json")
-  if ($status.Stdout -notmatch "windows-codex-hook" -or
-      $status.Stdout -notmatch "windows-standalone-smoke" -or
+  $sessions = @($status.Stdout | ConvertFrom-Json)
+  $hookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-hook" })
+  $manualSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-standalone-smoke" })
+  if ($hookSessions.Count -ne 1 -or
+      $hookSessions[0].status -cne "completed" -or
+      $manualSessions.Count -ne 1 -or
       $status.Stdout -match "must-not-leak") {
     throw "Status output is missing smoke sessions or leaked sensitive hook data."
   }
