@@ -11,7 +11,7 @@ import {
 import { createNotifier } from "@agentpulse/notifier";
 
 import { createDoctorRuntime, runDoctor } from "./doctor.js";
-import { createSetupSnippets } from "./setup.js";
+import { createSetupSnippets, formatCodexHooksSetup } from "./setup.js";
 import type { CommandIo } from "./types.js";
 
 export interface DaemonCommandOptions {
@@ -63,10 +63,15 @@ export async function executeDaemonCommand(
     }),
   });
   let doctorReport: ReturnType<typeof runDoctor> | undefined;
+  const setup = createSetupSnippets();
   const dashboard = options.dashboard
     ? {
         notifier: config.notifier,
-        setup: createSetupSnippets(),
+        setup: {
+          claudeCode: setup.claudeCode,
+          codex: setup.codex,
+          codexHooks: formatCodexHooksSetup(setup.codexHooks),
+        },
         doctor: () => {
           doctorReport ??= runDoctor(
             config.notifier,

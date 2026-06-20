@@ -9,7 +9,7 @@ $Artifact = "agentpulse-v$Version-windows-x64"
 $Archive = Join-Path $Root "release\$Artifact.zip"
 $Checksum = "$Archive.sha256"
 $Port = if ($env:AGENTPULSE_SMOKE_PORT) { $env:AGENTPULSE_SMOKE_PORT } else { "43768" }
-$Work = Join-Path ([System.IO.Path]::GetTempPath()) "AgentPulse smoke $([guid]::NewGuid())"
+$Work = Join-Path ([System.IO.Path]::GetTempPath()) "AgentPulseSmoke-$([guid]::NewGuid())"
 $Extracted = Join-Path $Work $Artifact
 $Bin = Join-Path $Extracted "agentpulse.exe"
 $HomeDir = Join-Path $Work "home"
@@ -368,6 +368,11 @@ try {
   $codexHooksSetup = ConvertFrom-FirstJsonObject -Text $codexHooks.Stdout -Description "Codex hooks setup"
   $codexHooksCommand = Get-StopHookCommand -Parsed $codexHooksSetup -FieldName "commandWindows"
   Assert-SetupCommand -Command $codexHooksCommand -Description "Codex hooks setup" -IngestTarget "codex-hook"
+  $expectedCodexHooksCommand = "$Bin ingest codex-hook"
+  if ($codexHooksCommand.StartsWith('"', [System.StringComparison]::Ordinal) -or
+      -not $codexHooksCommand.Equals($expectedCodexHooksCommand, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Codex hooks commandWindows must use the unquoted standalone executable path. Expected: $expectedCodexHooksCommand. Actual: $codexHooksCommand"
+  }
 
   $env:AGENTPULSE_HOST = "0.0.0.0"
   $unsafe = Invoke-AgentPulse -Arguments @("daemon", "--dashboard", "--notifier", "none") -AllowFailure

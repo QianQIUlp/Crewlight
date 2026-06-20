@@ -453,9 +453,10 @@ describe("setup snippet commands", () => {
     expect(snippets.codex).toBe(
       'notify = ["/opt/Agent Pulse/agentpulse", "ingest", "codex"]',
     );
-    expect(snippets.codexHooks).toContain(
-      "'/opt/Agent Pulse/agentpulse' ingest codex-hook",
-    );
+    expect(snippets.codexHooks.available).toBe(true);
+    expect(
+      snippets.codexHooks.available ? snippets.codexHooks.snippet : "",
+    ).toContain("'/opt/Agent Pulse/agentpulse' ingest codex-hook");
   });
 
   it("uses exact agentpulse only for explicit PATH mode", () => {
@@ -482,14 +483,17 @@ describe("setup snippet commands", () => {
     ).toThrow("absolute path");
   });
 
-  it("renders Windows hook commands with spaces and commandWindows", () => {
+  it("renders a simple Windows commandWindows without quotes", () => {
     const runtime = setupRuntime({
-      execPath: "C:\\Program Files\\nodejs\\node.exe",
-      entryPath: "C:\\Agent Pulse\\packages\\cli\\dist\\index.js",
+      execPath: "C:\\Tools\\nodejs\\node.exe",
+      entryPath: "C:\\AgentPulse\\packages\\cli\\dist\\index.js",
       platform: "win32",
     });
     const snippets = createSetupSnippets(undefined, runtime);
-    const parsed = JSON.parse(snippets.codexHooks) as {
+    expect(snippets.codexHooks.available).toBe(true);
+    const parsed = JSON.parse(
+      snippets.codexHooks.available ? snippets.codexHooks.snippet : "",
+    ) as {
       hooks: {
         Stop: { hooks: { command: string; commandWindows?: string }[] }[];
       };
@@ -497,11 +501,126 @@ describe("setup snippet commands", () => {
     const handler = parsed.hooks.Stop[0]?.hooks[0];
 
     expect(handler?.command).toBe(
-      '"C:\\Program Files\\nodejs\\node.exe" "C:\\Agent Pulse\\packages\\cli\\dist\\index.js" "ingest" "codex-hook"',
+      '"C:\\Tools\\nodejs\\node.exe" "C:\\AgentPulse\\packages\\cli\\dist\\index.js" "ingest" "codex-hook"',
     );
-    expect(handler?.commandWindows).toBe(handler?.command);
-    expect(snippets.codex).toContain(
-      '"C:\\\\Program Files\\\\nodejs\\\\node.exe"',
+    expect(handler?.commandWindows).toBe(
+      "C:\\Tools\\nodejs\\node.exe C:\\AgentPulse\\packages\\cli\\dist\\index.js ingest codex-hook",
+    );
+    expect(handler?.commandWindows).not.toMatch(/^"/u);
+    expect(snippets.codex).toContain('"C:\\\\Tools\\\\nodejs\\\\node.exe"');
+  });
+
+  it("renders a standalone Windows commandWindows without quotes", () => {
+    const snippets = createSetupSnippets(
+      undefined,
+      setupRuntime({
+        isSea: () => true,
+        execPath: "C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe",
+        entryPath: undefined,
+        platform: "win32",
+      }),
+    );
+    expect(snippets.codexHooks.available).toBe(true);
+    const parsed = JSON.parse(
+      snippets.codexHooks.available ? snippets.codexHooks.snippet : "",
+    ) as {
+      hooks: {
+        Stop: { hooks: { commandWindows?: string }[] }[];
+      };
+    };
+
+    expect(parsed.hooks.Stop[0]?.hooks[0]?.commandWindows).toBe(
+      "C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe ingest codex-hook",
+    );
+  });
+
+  it.each([" ", "\t", "&", "(", ")", "^", "%", "!", "'", '"', "<", ">", "|"])(
+    "marks Windows Codex hooks unavailable for path character %j",
+    (character) => {
+      const snippets = createSetupSnippets(
+        undefined,
+        setupRuntime({
+          isSea: () => true,
+          execPath: `C:\\Users\\demo\\Agent${character}Pulse\\agentpulse.exe`,
+          entryPath: undefined,
+          platform: "win32",
+        }),
+      );
+
+      expect(snippets.codexHooks).toEqual({
+        available: false,
+        reason: expect.objectContaining({
+          code: "windows-codex-hooks-unsafe-command",
+          message: expect.stringContaining("Codex CLI 0.141.0"),
+          action: expect.stringContaining(
+            "C:\\Users\\<user>\\Tools\\AgentPulse\\agentpulse.exe",
+          ),
+        }),
+      });
+      expect(snippets.codex).toContain('"ingest", "codex"');
+    },
+  );
+
+  it("checks every Windows source-mode executable path token", () => {
+    const snippets = createSetupSnippets(
+      undefined,
+      setupRuntime({
+        execPath: "C:\\Tools\\nodejs\\node.exe",
+        entryPath: "C:\\Agent Pulse\\packages\\cli\\dist\\index.js",
+        platform: "win32",
+      }),
+    );
+
+    expect(snippets.codexHooks).toEqual({
+      available: false,
+      reason: expect.objectContaining({
+        code: "windows-codex-hooks-unsafe-command",
+      }),
+    });
+  });
+
+  it("fails closed when printing unavailable Windows Codex hooks", () => {
+    const capture = captureIo();
+    const runtime = setupRuntime({
+      isSea: () => true,
+      execPath: "C:\\Agent Pulse\\agentpulse.exe",
+      entryPath: undefined,
+      platform: "win32",
+    });
+
+    expect(
+      executeSetupCommand(["codex-hooks", "--print"], capture.io, runtime),
+    ).toBe(1);
+    expect(capture.output).toEqual([]);
+    expect(capture.warnings.join("\n")).toContain("setup unavailable");
+    expect(capture.warnings.join("\n")).toContain("simple no-space path");
+    expect(capture.warnings.join("\n")).not.toContain(
+      "C:\\Agent Pulse\\agentpulse.exe",
+    );
+
+    const codexCapture = captureIo();
+    expect(
+      executeSetupCommand(["codex", "--print"], codexCapture.io, runtime),
+    ).toBe(0);
+    expect(codexCapture.output).toEqual([
+      'notify = ["C:\\\\Agent Pulse\\\\agentpulse.exe", "ingest", "codex"]',
+    ]);
+
+    const claudeCapture = captureIo();
+    expect(
+      executeSetupCommand(
+        ["claude-code", "--print"],
+        claudeCapture.io,
+        runtime,
+      ),
+    ).toBe(0);
+    const claudeSetup = JSON.parse(claudeCapture.output[0] ?? "{}") as {
+      hooks?: {
+        Stop?: { hooks?: { command?: string }[] }[];
+      };
+    };
+    expect(claudeSetup.hooks?.Stop?.[0]?.hooks?.[0]?.command).toBe(
+      '"C:\\Agent Pulse\\agentpulse.exe" "ingest" "claude-code"',
     );
   });
 

@@ -68,11 +68,15 @@ install -m 0755 ./agentpulse "$HOME/.local/bin/agentpulse"
 ```
 
 On Windows, move `agentpulse.exe` to a user-controlled directory and add that
-directory to the user `PATH`.
+directory to the user `PATH`. For Codex hooks, use a simple no-space path such
+as `C:\Users\<you>\Tools\AgentPulse\agentpulse.exe`; Codex CLI 0.141.0 cannot
+reliably execute a `commandWindows` string that begins with a quoted executable
+path.
 
 Setup snippets default to the current executable's absolute path, so PATH
-installation is not required for hooks. To deliberately generate PATH-based
-snippets, pass `--binary agentpulse`.
+installation is not required for hooks. Windows Codex hooks setup fails closed
+when that resolved path contains whitespace or command-sensitive characters.
+To deliberately generate PATH-based snippets, pass `--binary agentpulse`.
 
 ## Start AgentPulse
 

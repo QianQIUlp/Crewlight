@@ -102,7 +102,8 @@ describe("daemon HTTP server", () => {
           setup: {
             claudeCode: '{"hooks":{"Stop":[]}}',
             codex: 'notify = ["agentpulse", "ingest", "codex"]',
-            codexHooks: '{"hooks":{"Stop":[]}}',
+            codexHooks:
+              "Codex hooks setup unavailable.\nInstall AgentPulse into a simple no-space path.",
           },
           doctor: async () => ({
             ok: true,
@@ -136,6 +137,8 @@ describe("daemon HTTP server", () => {
     expect(api.headers.get("content-type")).toContain("application/json");
     expect(body).toContain('"notifier":"none"');
     expect(body).toContain('"status":"ok"');
+    expect(body).toContain("Codex hooks setup unavailable");
+    expect(body).toContain("simple no-space path");
   });
 
   it("exposes only normalized session fields through the dashboard API", async () => {

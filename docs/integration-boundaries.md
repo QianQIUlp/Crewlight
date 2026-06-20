@@ -76,8 +76,8 @@ whitelisted `AgentEventInput`. They must not:
 
 Claude Code hook and Codex notify ingest commands warn and return zero for
 invalid input, unsupported event types, or daemon delivery failure. Codex hook
-ingest instead returns its no-op JSON with no stderr warning and exit zero so
-platform lifecycle execution continues without hook-failure noise.
+ingest instead returns no stdout or stderr output and exits zero so platform
+lifecycle execution continues without hook-failure noise.
 
 ## Prohibited foundations
 

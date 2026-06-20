@@ -13,7 +13,7 @@ import {
 } from "@agentpulse/notifier";
 
 import { DaemonClient } from "../daemon-client.js";
-import { createSetupSnippets } from "./setup.js";
+import { createSetupSnippets, type CodexHooksSetupResult } from "./setup.js";
 import type { CommandIo } from "./types.js";
 
 export type DoctorCheckStatus = "ok" | "warning" | "error" | "skipped";
@@ -39,7 +39,7 @@ export interface DoctorRuntime {
   osNotifier(): Promise<OsNotifierProbeResult>;
   claudeSnippet(): string;
   codexSnippet(): string;
-  codexHooksSnippet(): string;
+  codexHooksSetup(): CodexHooksSetupResult;
 }
 
 export interface DoctorRuntimeOptions {
@@ -87,7 +87,7 @@ export function createDoctorRuntime(
     osNotifier: probeOsNotifier,
     claudeSnippet: () => setup.claudeCode,
     codexSnippet: () => setup.codex,
-    codexHooksSnippet: () => setup.codexHooks,
+    codexHooksSetup: () => setup.codexHooks,
   };
 }
 
@@ -170,8 +170,19 @@ function setupChecks(runtime: DoctorRuntime): DoctorCheck[] {
         },
   );
 
+  const codexHooksSetup = runtime.codexHooksSetup();
+  if (!codexHooksSetup.available) {
+    checks.push({
+      id: "setup-codex-hooks",
+      status: "warning",
+      message: codexHooksSetup.reason.message,
+      action: codexHooksSetup.reason.action,
+    });
+    return checks;
+  }
+
   try {
-    const parsed = JSON.parse(runtime.codexHooksSnippet()) as {
+    const parsed = JSON.parse(codexHooksSetup.snippet) as {
       hooks?: { Stop?: unknown };
     };
     checks.push(

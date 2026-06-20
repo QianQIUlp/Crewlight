@@ -26,7 +26,10 @@ function runtime(overrides: Partial<DoctorRuntime> = {}): DoctorRuntime {
     osNotifier: async () => ({ available: true }),
     claudeSnippet: () => '{"hooks":{"Stop":[]}}',
     codexSnippet: () => 'notify = ["/opt/agentpulse", "ingest", "codex"]',
-    codexHooksSnippet: () => '{"hooks":{"Stop":[]}}',
+    codexHooksSetup: () => ({
+      available: true,
+      snippet: '{"hooks":{"Stop":[]}}',
+    }),
     ...overrides,
   };
 }
@@ -115,7 +118,7 @@ describe("doctor command", () => {
         cliBuilt: async () => false,
         claudeSnippet: () => "{",
         codexSnippet: () => "invalid",
-        codexHooksSnippet: () => "{",
+        codexHooksSetup: () => ({ available: true, snippet: "{" }),
       }),
     );
 
@@ -124,6 +127,34 @@ describe("doctor command", () => {
     expect(capture.warnings.join("\n")).toContain("[error] setup-claude-code");
     expect(capture.warnings.join("\n")).toContain("[error] setup-codex");
     expect(capture.warnings.join("\n")).toContain("[error] setup-codex-hooks");
+  });
+
+  it("reports unavailable Windows Codex hooks as a non-failing warning", async () => {
+    const capture = captureIo();
+
+    const code = await executeDoctorCommand(
+      [],
+      capture.io,
+      runtime({
+        codexHooksSetup: () => ({
+          available: false,
+          reason: {
+            code: "windows-codex-hooks-unsafe-command",
+            message: "Codex hooks setup is unavailable for this Windows path.",
+            action:
+              "Install AgentPulse into C:\\Users\\<user>\\Tools\\AgentPulse.",
+          },
+        }),
+      }),
+    );
+
+    expect(code).toBe(0);
+    expect(capture.warnings.join("\n")).toContain(
+      "[warning] setup-codex-hooks",
+    );
+    expect(capture.warnings.join("\n")).toContain(
+      "C:\\Users\\<user>\\Tools\\AgentPulse",
+    );
   });
 
   it("skips source tooling checks for a standalone binary", async () => {

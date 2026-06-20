@@ -18,7 +18,28 @@ By default the generated commands use the current standalone executable's
 absolute path. Source mode uses the absolute Node executable followed by the
 absolute CLI entry path. Use `--binary agentpulse` only when the Codex hook
 environment has a reliable `PATH`; other `--binary` values must be absolute.
-Windows output uses quoted Windows command lines and includes `commandWindows`.
+
+On Windows, `commandWindows` is the field Codex uses to execute the hook.
+Codex CLI 0.141.0 has a compatibility issue when that command begins with a
+quoted executable path. AgentPulse therefore emits an unquoted
+`commandWindows` only when every resolved executable path token is a simple
+path containing letters, numbers, `:`, `\`, `/`, `.`, `_`, or `-`.
+
+Install the standalone executable in a simple no-space path such as:
+
+```text
+C:\Users\<you>\Tools\AgentPulse\agentpulse.exe
+```
+
+The generated command is:
+
+```text
+C:\Users\<you>\Tools\AgentPulse\agentpulse.exe ingest codex-hook
+```
+
+If the path contains whitespace or command-sensitive characters, setup fails
+closed with a diagnostic instead of printing a known-broken hooks fragment. It
+does not copy the executable or modify Codex configuration.
 
 ## Merge and trust manually
 
@@ -80,4 +101,9 @@ agentpulse status --json
 ```
 
 Then use `/hooks` to review the real handlers and run a Codex turn that invokes
-a tool. See the official [Codex hooks reference](https://developers.openai.com/codex/hooks).
+a tool. On Windows, confirm that the displayed `commandWindows` does not begin
+with a quote. See the official
+[Codex hooks reference](https://developers.openai.com/codex/hooks).
+
+Codex Desktop remains unverified. The documented Codex notify integration is a
+stable fallback when completed-only notifications are sufficient.
