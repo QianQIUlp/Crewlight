@@ -52,18 +52,16 @@ bounded tool name where useful. It does not read or retain prompts,
 `transcript_path`, tool input, tool response/output, assistant messages, or the
 complete payload.
 
-Codex CLI 0.141.0 rejects `{}` as invalid output for a successful `Stop` hook.
-For `Stop`, AgentPulse therefore writes only `{"continue":true}` to stdout.
-This satisfies the required Stop JSON schema without requesting another turn or
-blocking the completed turn. Session, prompt, tool, and permission hooks write
-nothing to stdout. Invalid JSON and unsupported events also use empty stdout.
-Every path exits zero and writes nothing to stderr by default, including daemon
-delivery failures.
+AgentPulse treats Codex hooks as fire-and-forget observations. Every path exits
+zero and writes nothing to stdout or stderr by default, including successful
+events, invalid JSON, unsupported events, stdin failures, and daemon delivery
+failures. Recognized events are still delivered to the daemon when it is
+available.
 
-AgentPulse does not return `continue: false`, `stopReason`, `systemMessage`,
-`suppressOutput`, `decision`, `permissionDecision`, `additionalContext`,
-`updatedInput`, or `updatedPermissions`, so the integration remains
-observation-only.
+AgentPulse does not return hook response fields, warnings, debug text, prompts,
+tool input/output, transcripts, or complete payloads. This keeps the integration
+observation-only and prevents AgentPulse from blocking or modifying Codex
+behavior.
 
 ## Verify
 

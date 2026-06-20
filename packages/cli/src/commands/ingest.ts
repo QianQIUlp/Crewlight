@@ -8,8 +8,6 @@ import type { AgentPulseClient } from "../daemon-client.js";
 import type { CommandIo, StdinReader } from "./types.js";
 
 const WARNING_PREFIX = "AgentPulse ingest warning:";
-const CODEX_HOOK_STOP_RESPONSE = '{"continue":true}';
-const CODEX_HOOK_STOP_EVENTS = new Set(["Stop", "SubagentStop"]);
 
 function warn(io: CommandIo, message: string): void {
   io.warn(`${WARNING_PREFIX} ${message}`);
@@ -64,22 +62,12 @@ async function deliver(
 async function ingestCodexHook(
   platformArgs: readonly string[],
   client: AgentPulseClient,
-  io: CommandIo,
   readStdin: StdinReader,
 ): Promise<number> {
-  let response: string | undefined;
-
   try {
     if (platformArgs.length === 0) {
       const result = ingestCodexHookJson(await readStdin());
       if (result.kind === "event") {
-        if (
-          result.event.title &&
-          CODEX_HOOK_STOP_EVENTS.has(result.event.title)
-        ) {
-          response = CODEX_HOOK_STOP_RESPONSE;
-        }
-
         try {
           await client.emit(result.event);
         } catch {
@@ -91,9 +79,6 @@ async function ingestCodexHook(
     // Invalid or unreadable hook input must not interrupt Codex.
   }
 
-  if (response) {
-    io.writeRaw(response);
-  }
   return 0;
 }
 
@@ -131,7 +116,7 @@ async function ingest(
   }
 
   if (platform === "codex-hook") {
-    return ingestCodexHook(platformArgs, client, io, readStdin);
+    return ingestCodexHook(platformArgs, client, readStdin);
   }
 
   warn(

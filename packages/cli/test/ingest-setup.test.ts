@@ -22,7 +22,6 @@ function captureIo() {
   const warnings: string[] = [];
   const io: CommandIo = {
     write: (message) => output.push(message),
-    writeRaw: (message) => output.push(message),
     warn: (message) => warnings.push(message),
   };
   return { io, output, warnings };
@@ -51,20 +50,6 @@ function setupRuntime(overrides: Partial<SetupRuntime> = {}): SetupRuntime {
     platform: "linux",
     ...overrides,
   };
-}
-
-function expectCodexStopResponse(capture: ReturnType<typeof captureIo>): void {
-  expect(capture.output).toEqual(['{"continue":true}']);
-  const raw = capture.output[0] ?? "";
-  const normalized = raw.endsWith("\r\n")
-    ? raw.slice(0, -2)
-    : raw.endsWith("\n")
-      ? raw.slice(0, -1)
-      : raw;
-  const parsed = JSON.parse(normalized) as Record<string, unknown>;
-  expect(parsed).toEqual({ continue: true });
-  expect(Object.keys(parsed)).toEqual(["continue"]);
-  expect(capture.warnings).toEqual([]);
 }
 
 function expectSilentCodexHook(capture: ReturnType<typeof captureIo>): void {
@@ -144,7 +129,7 @@ describe("platform ingest commands", () => {
     expect(target.events[0]?.sessionId).toBe("codex-stdin");
   });
 
-  it("returns the Stop JSON response without leaking sensitive fields", async () => {
+  it("keeps Stop stdout and stderr empty without leaking sensitive fields", async () => {
     const capture = captureIo();
     const target = captureClient();
 
@@ -178,7 +163,7 @@ describe("platform ingest commands", () => {
     ]);
     expect(JSON.stringify(target.events)).not.toContain("secret");
     expect(JSON.stringify(capture)).not.toContain("secret");
-    expectCodexStopResponse(capture);
+    expectSilentCodexHook(capture);
   });
 
   it.each([
@@ -346,12 +331,9 @@ describe("platform ingest commands", () => {
     },
   );
 
-  it.each([
-    ["Stop", '{"continue":true}'],
-    ["PreToolUse", undefined],
-  ] as const)(
-    "preserves the %s response when the daemon is unavailable",
-    async (hookEventName, expectedResponse) => {
+  it.each(["Stop", "PreToolUse"] as const)(
+    "keeps %s stdout and stderr empty when the daemon is unavailable",
+    async (hookEventName) => {
       const capture = captureIo();
       const client: AgentPulseClient = {
         emit: async () => {
@@ -376,11 +358,7 @@ describe("platform ingest commands", () => {
 
       expect(code).toBe(0);
       expect(JSON.stringify(capture)).not.toContain("private");
-      if (expectedResponse) {
-        expectCodexStopResponse(capture);
-      } else {
-        expectSilentCodexHook(capture);
-      }
+      expectSilentCodexHook(capture);
     },
   );
 

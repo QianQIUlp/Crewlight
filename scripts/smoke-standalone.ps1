@@ -394,20 +394,10 @@ try {
 
   $hookPayload = '{"session_id":"windows-codex-hook","cwd":"C:\\demo","hook_event_name":"Stop","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"},"tool_response":"must-not-leak","transcript_path":"C:\\must-not-leak"}'
   $hook = Invoke-AgentPulse -Arguments @("ingest", "codex-hook") -Stdin $hookPayload
-  $hookStdout = [string](Convert-StreamToText -Value $hook.Stdout)
-  $hookStderr = [string](Convert-StreamToText -Value $hook.Stderr)
-  $hookResponse = $hookStdout | ConvertFrom-Json
-  $hookResponseProperties = @($hookResponse.PSObject.Properties)
-  if ((Get-ByteCount -Value $hook.StderrBytes) -ne 0 -or
-      $hookStdout -cne '{"continue":true}' -or
-      (Get-ByteCount -Value $hook.StdoutBytes) -ne 17 -or
-      $hook.StdoutBytes[0] -ne 0x7B -or
-      $hook.StdoutBytes[16] -ne 0x7D -or
-      $hookStdout.Contains("must-not-leak") -or
-      $hookResponseProperties.Count -ne 1 -or
-      $hookResponseProperties[0].Name -cne "continue" -or
-      $hookResponse.continue -ne $true) {
-    throw "Codex Stop hook ingest did not return the expected JSON."
+  if ($hook.ExitCode -ne 0 -or
+      (Get-ByteCount -Value $hook.StdoutBytes) -ne 0 -or
+      (Get-ByteCount -Value $hook.StderrBytes) -ne 0) {
+    throw "Codex Stop hook ingest should have empty stdout and stderr."
   }
 
   $toolHookPayload = '{"session_id":"windows-codex-tool-hook","cwd":"C:\\demo","hook_event_name":"PreToolUse","tool_name":"Bash","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"}}'
