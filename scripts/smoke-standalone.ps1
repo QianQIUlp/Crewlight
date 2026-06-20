@@ -37,6 +37,24 @@ function Convert-StreamToText {
   return [string]$Value
 }
 
+function Get-ByteCount {
+  param([object]$Value)
+
+  if ($null -eq $Value) {
+    return 0
+  }
+
+  if ($Value -is [byte[]]) {
+    return $Value.Length
+  }
+
+  if ($Value -is [array]) {
+    return $Value.Count
+  }
+
+  return 1
+}
+
 function Invoke-AgentPulse {
   param(
     [string[]]$Arguments,
@@ -66,6 +84,7 @@ function Invoke-AgentPulse {
   $stdoutValue = if (Test-Path $stdoutPath) { Get-Content $stdoutPath -Raw } else { $null }
   $stderrValue = if (Test-Path $stderrPath) { Get-Content $stderrPath -Raw } else { $null }
   $stdoutBytes = if (Test-Path $stdoutPath) { [System.IO.File]::ReadAllBytes($stdoutPath) } else { [byte[]]@() }
+  $stderrBytes = if (Test-Path $stderrPath) { [System.IO.File]::ReadAllBytes($stderrPath) } else { [byte[]]@() }
   $stdoutText = [string](Convert-StreamToText -Value $stdoutValue)
   $stderrText = [string](Convert-StreamToText -Value $stderrValue)
   $result = [pscustomobject]@{
@@ -73,6 +92,7 @@ function Invoke-AgentPulse {
     Stdout = [string]$stdoutText
     StdoutBytes = [byte[]]$stdoutBytes
     Stderr = [string]$stderrText
+    StderrBytes = [byte[]]$stderrBytes
   }
   if (-not $AllowFailure -and $result.ExitCode -ne 0) {
     throw "agentpulse $($Arguments -join ' ') failed with $($result.ExitCode): $stderrText"
@@ -378,9 +398,9 @@ try {
   $hookStderr = [string](Convert-StreamToText -Value $hook.Stderr)
   $hookResponse = $hookStdout | ConvertFrom-Json
   $hookResponseProperties = @($hookResponse.PSObject.Properties)
-  if ($hookStderr.Length -ne 0 -or
+  if ((Get-ByteCount -Value $hook.StderrBytes) -ne 0 -or
       $hookStdout -cne '{"continue":true}' -or
-      $hook.StdoutBytes.Count -ne 17 -or
+      (Get-ByteCount -Value $hook.StdoutBytes) -ne 17 -or
       $hook.StdoutBytes[0] -ne 0x7B -or
       $hook.StdoutBytes[16] -ne 0x7D -or
       $hookStdout.Contains("must-not-leak") -or
@@ -393,8 +413,8 @@ try {
   $toolHookPayload = '{"session_id":"windows-codex-tool-hook","cwd":"C:\\demo","hook_event_name":"PreToolUse","tool_name":"Bash","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"}}'
   $toolHook = Invoke-AgentPulse -Arguments @("ingest", "codex-hook") -Stdin $toolHookPayload
   if ($toolHook.ExitCode -ne 0 -or
-      $toolHook.StdoutBytes.Count -ne 0 -or
-      $toolHook.Stderr.Length -ne 0) {
+      (Get-ByteCount -Value $toolHook.StdoutBytes) -ne 0 -or
+      (Get-ByteCount -Value $toolHook.StderrBytes) -ne 0) {
     throw "Codex PreToolUse hook ingest should have empty stdout and stderr."
   }
 
