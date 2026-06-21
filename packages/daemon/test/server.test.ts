@@ -177,10 +177,15 @@ describe("daemon HTTP server", () => {
     expect(scriptBody).toContain(
       "workspace.textContent = session.identityLine",
     );
-    expect(scriptBody).toContain("title.textContent = session.sessionTitle");
+    expect(scriptBody).toContain("title.textContent = session.taskTitle");
     expect(scriptBody).toContain(
-      'session.displayName + " · " + session.sessionTitle',
+      'session.displayName + " · " + session.taskTitle',
     );
+    expect(scriptBody).toContain(
+      'activity.textContent = session.activityLabel || "Current activity unavailable"',
+    );
+    expect(scriptBody).not.toContain("session.error || session.lastMessage");
+    expect(scriptBody).not.toContain("session.lastMessage || session.error");
     expect(scriptBody).toContain(
       '"/dashboard?focus=" + encodeURIComponent(session.sessionKey)',
     );
@@ -234,7 +239,8 @@ describe("daemon HTTP server", () => {
         sessionId: "dashboard-session",
         projectPath: "/workspace/safe-project",
         status: "running",
-        title: "Review dashboard output",
+        taskTitle: "Review dashboard output",
+        title: "SessionStart",
         timestamp: 1_000,
         rawEvent: {
           prompt: "dashboard-secret-prompt",
@@ -252,6 +258,7 @@ describe("daemon HTTP server", () => {
         surface: "manual",
         sessionId: "dashboard-session",
         status: "completed",
+        title: "Stop",
         message: "safe summary",
         timestamp: 5_000,
       }),
@@ -288,7 +295,8 @@ describe("daemon HTTP server", () => {
     expect(completedSession).toMatchObject({
       displayName: "Custom",
       displayWorkspace: "safe-project",
-      sessionTitle: "Review dashboard output",
+      taskTitle: "Review dashboard output",
+      activityLabel: "Session completed",
       durationMs: 4_000,
       attention: "done",
       isStale: false,
@@ -309,7 +317,10 @@ describe("daemon HTTP server", () => {
       isStale: true,
       staleReason: "No event for at least 2 minutes.",
     });
-    expect(staleSession).not.toHaveProperty("sessionTitle");
+    expect(staleSession).not.toHaveProperty("taskTitle");
+    expect(staleSession).toMatchObject({
+      activityLabel: "Status unknown",
+    });
     expect(body).not.toContain("dashboard-secret");
     expect(body).not.toContain("rawEvent");
     expect(body).not.toContain("toolInput");

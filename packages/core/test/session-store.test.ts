@@ -40,14 +40,15 @@ describe("SessionStore", () => {
     expect(failed.completedAt).toBe(200);
   });
 
-  it("retains the latest normalized title across untitled events", () => {
+  it("retains task titles and keeps event titles scoped to the latest event", () => {
     const store = new SessionStore();
     const titled = normalizeAgentEvent({
       source: "custom",
       surface: "manual",
       sessionId: "session-1",
       status: "running",
-      title: "Review dashboard output",
+      taskTitle: "Review dashboard output",
+      title: "SessionStart",
       timestamp: 100,
     });
     const completed = normalizeAgentEvent({
@@ -59,7 +60,10 @@ describe("SessionStore", () => {
     });
 
     store.apply(titled);
-    expect(store.apply(completed).title).toBe("Review dashboard output");
+    const session = store.apply(completed);
+
+    expect(session.taskTitle).toBe("Review dashboard output");
+    expect(session).not.toHaveProperty("title");
   });
 
   it("ignores events older than the latest session event", () => {

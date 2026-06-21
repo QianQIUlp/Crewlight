@@ -22,11 +22,12 @@ export type {
   DashboardSession,
 } from "./dashboard.js";
 export {
+  getDashboardActivityLabel,
   getDashboardAttention,
   getDashboardDurationMs,
   getDashboardIdentityLine,
-  getDashboardSessionTitle,
   getDashboardStaleState,
+  getDashboardTaskTitle,
   getDisplayName,
   getDisplayWorkspace,
   getLastEventAgeMs,

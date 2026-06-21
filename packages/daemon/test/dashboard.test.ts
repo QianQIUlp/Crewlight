@@ -7,11 +7,12 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import {
+  getDashboardActivityLabel,
   getDashboardAttention,
   getDashboardDurationMs,
   getDashboardIdentityLine,
-  getDashboardSessionTitle,
   getDashboardStaleState,
+  getDashboardTaskTitle,
   getDisplayName,
   getDisplayWorkspace,
   getLastEventAgeMs,
@@ -115,15 +116,52 @@ describe("dashboard session derivation", () => {
     ).toBe("AgentPulse · IDE extension · #34567890");
   });
 
-  it("uses normalized safe titles and humanizes known adapter titles", () => {
+  it("uses only explicit normalized task titles", () => {
     expect(
-      getDashboardSessionTitle({
+      getDashboardTaskTitle({
         ...baseSession,
-        title: "  Review   dashboard output  ",
+        taskTitle: "  Review   dashboard output  ",
       }),
     ).toBe("Review dashboard output");
     expect(
-      getDashboardSessionTitle({
+      getDashboardTaskTitle({
+        ...baseSession,
+        title: "PermissionRequest",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("humanizes event titles as activity labels", () => {
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "SessionStart",
+      }),
+    ).toBe("Session started");
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "Stop",
+      }),
+    ).toBe("Session completed");
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "UserPromptSubmit",
+      }),
+    ).toBe("Request submitted");
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "PreToolUse",
+      }),
+    ).toBe("Using tool");
+    expect(
+      getDashboardActivityLabel({
         ...baseSession,
         source: "codex",
         title: "PermissionRequest",
@@ -131,29 +169,18 @@ describe("dashboard session derivation", () => {
     ).toBe("Permission requested");
   });
 
-  it("derives only narrow safe fallback titles", () => {
+  it("uses status activity fallbacks without promoting arbitrary messages", () => {
     expect(
-      getDashboardSessionTitle({
-        ...baseSession,
-        source: "codex",
-        status: "using_tool",
-        lastMessage: "Using tool: Read",
-      }),
-    ).toBe("Using tool: Read");
-    expect(
-      getDashboardSessionTitle({
+      getDashboardActivityLabel({
         ...baseSession,
         status: "waiting_input",
-        lastMessage: "raw prompt text must not become a title",
+        lastMessage: "arbitrary command body --token secret",
       }),
     ).toBe("Input requested");
-  });
-
-  it("omits titles when no safe source exists", () => {
     expect(
-      getDashboardSessionTitle({
+      getDashboardTaskTitle({
         ...baseSession,
-        lastMessage: "arbitrary command body --token secret",
+        lastMessage: "prompt-like arbitrary text",
       }),
     ).toBeUndefined();
   });
@@ -251,6 +278,7 @@ describe("dashboard session derivation", () => {
         source: "codex",
         status: "waiting_input",
         projectPath: "/workspace/safe-project",
+        taskTitle: "Review dashboard output",
         title: "PermissionRequest",
         lastMessage: "Safe status",
         "input-messages": ["input-message-secret"],
@@ -275,7 +303,8 @@ describe("dashboard session derivation", () => {
       displayName: "Codex",
       displayWorkspace: "safe-project",
       identityLine: "safe-project · Manual · #:session",
-      sessionTitle: "Permission requested",
+      taskTitle: "Review dashboard output",
+      activityLabel: "Permission requested",
       durationMs: 600_400,
       lastEventAgeMs: 600_000,
       isStale: true,
@@ -301,6 +330,7 @@ describe("dashboard session derivation", () => {
       isStale: false,
     });
     expect(serialized).not.toHaveProperty("staleReason");
-    expect(serialized).not.toHaveProperty("sessionTitle");
+    expect(serialized).not.toHaveProperty("taskTitle");
+    expect(serialized.activityLabel).toBe("Running");
   });
 });
