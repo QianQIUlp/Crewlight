@@ -128,6 +128,7 @@ describe("daemon HTTP server", () => {
     const script = await fetch(`${instance.url}/dashboard/app.js`);
     const api = await fetch(`${instance.url}/dashboard/api`);
     const pageBody = await page.text();
+    const stylesheetBody = await stylesheet.text();
     const scriptBody = await script.text();
     const body = await api.text();
     const parsed = JSON.parse(body) as DashboardApiResponse;
@@ -137,6 +138,15 @@ describe("daemon HTTP server", () => {
     expect(page.headers.get("content-security-policy")).toContain(
       "default-src 'none'",
     );
+    expect(pageBody).toContain('id="view-nav"');
+    expect(pageBody).toContain('id="overview-link" href="/dashboard"');
+    expect(pageBody).toContain(
+      'id="compact-link" href="/dashboard?view=compact"',
+    );
+    expect(pageBody).toContain('id="overview-root"');
+    expect(pageBody).toContain('id="compact-root"');
+    expect(pageBody).toContain('id="focus-root"');
+    expect(pageBody).toContain('id="compact-session-list"');
     expect(pageBody).toContain('id="action-needed"');
     expect(pageBody).toContain('id="setup-opencode"');
     expect(pageBody).toContain('id="setup-antigravity-probe"');
@@ -144,9 +154,26 @@ describe("daemon HTTP server", () => {
     expect(pageBody).toMatch(/not a\s+supported AgentPulse integration/u);
     expect(stylesheet.status).toBe(200);
     expect(stylesheet.headers.get("cache-control")).toBe("no-store");
+    expect(stylesheetBody).toContain(".compact-session-row");
+    expect(stylesheetBody).toContain('.view-nav a[aria-current="page"]');
     expect(script.status).toBe(200);
     expect(script.headers.get("cache-control")).toBe("no-store");
-    expect(scriptBody).toContain("URLSearchParams");
+    expect(scriptBody).toContain(
+      "const params = new URLSearchParams(window.location.search)",
+    );
+    expect(scriptBody).toContain('const focusKey = params.get("focus")');
+    expect(scriptBody).toContain('const view = params.get("view")');
+    expect(scriptBody).toContain("function createCompactSessionRow(session)");
+    expect(scriptBody).toContain("function compactRank(session)");
+    expect(scriptBody).toContain('else if (view === "compact")');
+    expect(scriptBody.indexOf("if (focusKey)")).toBeLessThan(
+      scriptBody.indexOf('else if (view === "compact")'),
+    );
+    expect(scriptBody).toContain('"&view=compact"');
+    expect(scriptBody).toContain('returnToCompact ? "compact" : "overview"');
+    expect(scriptBody).toContain('stale.textContent = "Possibly stale"');
+    expect(scriptBody).toContain("document.createElement");
+    expect(scriptBody).toContain(".textContent");
     expect(scriptBody).toContain(
       "workspace.textContent = session.identityLine",
     );

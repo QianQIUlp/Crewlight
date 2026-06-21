@@ -52,6 +52,29 @@ view. The Antigravity card is explicitly `research-only`: it prints a fixed,
 minimal manual probe command for local investigation and does not make
 Antigravity a supported setup platform or integration.
 
+### Compact Overview Mode
+
+Select the compact browser view with:
+
+```text
+http://127.0.0.1:3768/dashboard?view=compact
+```
+
+Compact Mode shows the same current in-memory sessions as dense linked rows.
+Each row includes the normalized status and attention state, display identity,
+an optional safe status message, duration, relative last-seen time, and a
+textual stale marker when applicable.
+
+Rows are ordered with action states first, followed by errors, stale
+non-terminal sessions, ordinary passive sessions, and completed sessions. The
+newest event appears first within each group. This ordering changes only the
+compact presentation; it does not change session status or attention.
+
+Selecting a row opens Focus Mode while retaining `view=compact` in the URL, so
+the return link goes back to Compact Mode. Compact Mode is a browser prototype
+for a possible future floating or desktop status surface. It does not add a
+desktop shell.
+
 ### Focus Mode
 
 Select one current session with:
@@ -63,6 +86,10 @@ http://127.0.0.1:3768/dashboard?focus=<sessionKey>
 Focus Mode shows one expanded card and a link back to the overview. A key that
 is not present in the current API response produces a focused-session-not-found
 state. There is no historical lookup or stale-session recovery.
+
+When `focus` and `view=compact` are both present, Focus Mode takes precedence.
+The retained `view` parameter only determines whether the return link targets
+Compact or Overview Mode.
 
 The browser requests `/dashboard/api` every two seconds and also provides a
 manual refresh button. This is ordinary HTTP polling. AgentPulse does not use
@@ -97,8 +124,8 @@ sessions are never marked stale. This heuristic does not change status or
 attention, recover sessions, inspect processes, or monitor whether an agent is
 still running.
 
-The attention mapping and future Compact/Floating Mode direction are documented
-in [Desktop Presence Product Design](product/desktop-presence.md).
+The attention mapping and future floating-mode direction are documented in
+[Desktop Presence Product Design](product/desktop-presence.md).
 
 ## Security and Data Boundaries
 
@@ -129,4 +156,7 @@ The dashboard reflects only the currently running daemon:
 Closing the daemon removes all in-memory sessions and makes the dashboard
 unavailable.
 
-Desktop/tray integration remains deferred to a later experimental PR.
+Desktop/tray integration remains deferred to a later experimental PR. The
+dashboard does not add persistence, dashboard mutation APIs, SSE/WebSocket,
+automatic config mutation, Electron, Tauri, tray integration, installers, or
+release automation.

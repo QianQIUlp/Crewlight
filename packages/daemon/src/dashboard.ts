@@ -230,6 +230,10 @@ const DASHBOARD_HTML = `<!doctype html>
         </div>
         <button id="refresh" type="button">Refresh</button>
       </header>
+      <nav id="view-nav" class="view-nav" aria-label="Dashboard views">
+        <a id="overview-link" href="/dashboard">Overview</a>
+        <a id="compact-link" href="/dashboard?view=compact">Compact</a>
+      </nav>
       <p id="request-status" class="request-status" aria-live="polite"></p>
       <section class="summary" aria-label="Daemon summary">
         <article>
@@ -246,45 +250,64 @@ const DASHBOARD_HTML = `<!doctype html>
           <p id="session-count">Loading…</p>
         </article>
       </section>
-      <section id="focus-view" class="primary-view" hidden>
+      <section id="focus-root" class="primary-view" hidden>
         <div class="section-heading">
           <div>
             <p class="eyebrow">Focus mode</p>
             <h2>Focused agent</h2>
           </div>
-          <a href="/dashboard">Back to overview</a>
+          <a id="focus-return" href="/dashboard">Back to overview</a>
         </div>
         <div id="focused-session"></div>
       </section>
-      <section id="empty-state" class="empty-state primary-view" hidden>
-        <p class="eyebrow">Ready for activity</p>
-        <h2>No agent sessions yet</h2>
-        <p>
-          AgentPulse is running. Connect an agent or emit an event to make its
-          current status visible here.
-        </p>
-        <a href="#setup">Review setup snippets</a>
-      </section>
-      <section id="action-section" class="primary-view" hidden>
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Needs you</p>
-            <h2>Action needed</h2>
+      <div id="overview-root">
+        <section id="empty-state" class="empty-state primary-view" hidden>
+          <p class="eyebrow">Ready for activity</p>
+          <h2>No agent sessions yet</h2>
+          <p>
+            AgentPulse is running. Connect an agent or emit an event to make its
+            current status visible here.
+          </p>
+          <a href="#setup">Review setup snippets</a>
+        </section>
+        <section id="action-section" class="primary-view" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Needs you</p>
+              <h2>Action needed</h2>
+            </div>
+            <p id="action-count" class="section-count"></p>
           </div>
-          <p id="action-count" class="section-count"></p>
-        </div>
-        <div id="action-needed" class="session-grid"></div>
-      </section>
-      <section id="overview-section" class="primary-view" hidden>
+          <div id="action-needed" class="session-grid"></div>
+        </section>
+        <section id="overview-section" class="primary-view" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Overview mode</p>
+              <h2>Agent status</h2>
+            </div>
+          </div>
+          <div id="sessions" class="session-grid"></div>
+        </section>
+      </div>
+      <section id="compact-root" class="primary-view" hidden>
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Overview mode</p>
+            <p class="eyebrow">Compact mode</p>
             <h2>Agent status</h2>
           </div>
         </div>
-        <div id="sessions" class="session-grid"></div>
+        <div id="compact-empty-state" class="empty-state" hidden>
+          <h3>No agent sessions yet</h3>
+          <p>
+            AgentPulse is running. Connect an agent or emit an event to make its
+            current status visible here.
+          </p>
+          <a href="#setup">Review setup snippets</a>
+        </div>
+        <div id="compact-session-list" class="compact-session-list"></div>
       </section>
-      <section id="setup">
+      <section id="setup" class="secondary-section">
         <h2>Setup snippets</h2>
         <div class="setup-grid">
           <article>
@@ -313,7 +336,7 @@ const DASHBOARD_HTML = `<!doctype html>
           </article>
         </div>
       </section>
-      <section>
+      <section id="doctor" class="secondary-section">
         <h2>Doctor</h2>
         <p id="doctor-summary"></p>
         <ul id="doctor-checks" class="checks"></ul>
@@ -347,9 +370,9 @@ body {
 }
 
 main {
-  width: min(1180px, calc(100% - 2rem));
+  width: min(1120px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 2.5rem 0 4rem;
+  padding: 2rem 0 3.5rem;
 }
 
 header,
@@ -358,7 +381,7 @@ header,
 .session-grid,
 .section-heading {
   display: grid;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 header {
@@ -375,7 +398,7 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: clamp(2.4rem, 8vw, 5rem);
+  font-size: clamp(2.4rem, 7vw, 4.4rem);
   letter-spacing: -0.06em;
 }
 
@@ -387,6 +410,12 @@ h2 {
 
 a {
   color: #a8cff7;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid #d6e9ff;
+  outline-offset: 3px;
 }
 
 .eyebrow,
@@ -416,12 +445,38 @@ button:focus-visible {
   background: #1c3657;
 }
 
+.view-nav {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+}
+
+.view-nav a {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  color: #a9bad0;
+  text-decoration: none;
+}
+
+.view-nav a:hover,
+.view-nav a:focus-visible {
+  background: #14243a;
+  color: #e8eef7;
+}
+
+.view-nav a[aria-current="page"] {
+  border-color: #58799f;
+  background: #172b45;
+  color: #f4f8fc;
+}
+
 section {
-  margin-top: 2rem;
+  margin-top: 1.75rem;
 }
 
 .primary-view {
-  margin-top: 2.5rem;
+  margin-top: 2.25rem;
 }
 
 .summary {
@@ -437,7 +492,7 @@ section > .checks,
 }
 
 article {
-  padding: 1.1rem;
+  padding: 1rem;
 }
 
 .summary article p:not(.muted) {
@@ -449,7 +504,7 @@ article {
 .section-heading {
   grid-template-columns: 1fr auto;
   align-items: end;
-  margin-bottom: 0.9rem;
+  margin-bottom: 0.75rem;
 }
 
 .section-heading h2,
@@ -464,32 +519,45 @@ article {
 
 .session-card {
   position: relative;
-  min-height: 15rem;
+  min-height: 13.5rem;
   border-color: #30465f;
-  border-top-width: 0.3rem;
+  border-top-width: 0.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.7rem;
 }
 
 .session-card.attention-action {
   border-color: #f0b35c;
-  background: linear-gradient(145deg, rgb(53 38 20 / 94%), rgb(18 27 39 / 94%));
+  background: linear-gradient(145deg, rgb(62 43 19 / 96%), rgb(18 27 39 / 96%));
+  box-shadow: 0 0.8rem 2rem rgb(4 8 13 / 30%);
 }
 
 .session-card.attention-error {
   border-color: #ef776f;
-  background: linear-gradient(145deg, rgb(55 26 29 / 94%), rgb(18 27 39 / 94%));
+  background: linear-gradient(145deg, rgb(53 27 30 / 92%), rgb(18 27 39 / 92%));
 }
 
 .session-card.attention-done {
-  border-color: #65bd8b;
+  border-color: #4f8067;
+  background: rgb(15 25 34 / 78%);
+}
+
+.session-card.attention-passive {
+  border-color: #293d53;
+  background: rgb(14 23 35 / 76%);
 }
 
 .session-card.status-unknown {
   border-color: #6c7685;
   border-style: dashed;
   background: rgb(24 29 37 / 88%);
+}
+
+.session-card.is-stale {
+  border-right-style: dashed;
+  border-bottom-style: dashed;
+  border-left-style: dashed;
 }
 
 .session-card.expanded {
@@ -578,8 +646,136 @@ article {
 
 .stale-note {
   margin-bottom: 0;
-  color: #91a4bd;
+  color: #c7b88e;
   font-size: 0.88rem;
+}
+
+.compact-session-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.compact-session-row {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1.3fr) minmax(10rem, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid #26394e;
+  border-left-width: 0.25rem;
+  border-radius: 0.7rem;
+  padding: 0.75rem 0.85rem;
+  background: rgb(14 23 35 / 82%);
+  color: inherit;
+  text-decoration: none;
+}
+
+.compact-session-row:hover,
+.compact-session-row:focus-visible {
+  border-color: #5f83aa;
+  background: rgb(21 35 53 / 94%);
+}
+
+.compact-session-row.attention-action {
+  border-left-color: #f0b35c;
+  background: linear-gradient(90deg, rgb(53 38 20 / 92%), rgb(14 23 35 / 86%));
+}
+
+.compact-session-row.attention-error {
+  border-left-color: #ef776f;
+}
+
+.compact-session-row.attention-done {
+  border-left-color: #4f8067;
+  color: #c4cfdb;
+}
+
+.compact-session-row.attention-passive {
+  border-left-color: #36526f;
+}
+
+.compact-session-row.is-stale {
+  border-top-style: dashed;
+  border-right-style: dashed;
+  border-bottom-style: dashed;
+}
+
+.compact-primary,
+.compact-message,
+.compact-meta {
+  min-width: 0;
+}
+
+.compact-heading {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.compact-heading h3,
+.compact-primary p,
+.compact-message,
+.compact-meta p {
+  margin-bottom: 0;
+}
+
+.compact-heading h3 {
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-identity {
+  overflow: hidden;
+  color: #91a4bd;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-attention {
+  color: #b7c7d9;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.attention-action .compact-attention {
+  color: #f7c67f;
+}
+
+.attention-error .compact-attention {
+  color: #ff9992;
+}
+
+.compact-message {
+  overflow: hidden;
+  color: #d8e2ef;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-message.no-message {
+  color: #71849c;
+}
+
+.compact-meta {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: end;
+  color: #9eafc3;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.compact-stale {
+  color: #c7b88e;
+  font-weight: 700;
 }
 
 .empty-state {
@@ -596,6 +792,21 @@ article {
 
 .setup-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.secondary-section {
+  margin-top: 2.75rem;
+  color: #c5d0dd;
+}
+
+.secondary-section > h2 {
+  color: #91a4bd;
+}
+
+.secondary-section article,
+.secondary-section > .checks {
+  border-color: #223247;
+  background: rgb(12 20 31 / 72%);
 }
 
 pre {
@@ -641,6 +852,17 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .compact-session-row {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+  }
+
+  .compact-meta {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    justify-content: start;
+    justify-items: start;
+  }
+
   .section-heading {
     grid-template-columns: 1fr;
     align-items: start;
@@ -677,6 +899,10 @@ function setHidden(id, hidden) {
   }
 }
 
+const params = new URLSearchParams(window.location.search);
+const focusKey = params.get("focus");
+const view = params.get("view");
+
 function statusLabel(status) {
   const labels = {
     idle: "Idle",
@@ -692,6 +918,33 @@ function statusLabel(status) {
   return labels[status] || "Unknown status";
 }
 
+function attentionLabel(session) {
+  if (session.attention === "action") {
+    return session.actionKind === "permission"
+      ? "Permission needed"
+      : "Input needed";
+  }
+  if (session.attention === "error") return "Needs review";
+  if (session.attention === "done") return "Complete";
+  return session.isStale ? "Check activity" : "Background";
+}
+
+function setActiveView(activeView) {
+  const overviewLink = byId("overview-link");
+  const compactLink = byId("compact-link");
+  for (const [link, linkView] of [
+    [overviewLink, "overview"],
+    [compactLink, "compact"],
+  ]) {
+    if (!link) continue;
+    if (linkView === activeView) {
+      link.setAttribute("aria-current", "page");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  }
+}
+
 function createSessionCard(session, expanded = false) {
   const card = document.createElement("article");
   card.className =
@@ -699,6 +952,7 @@ function createSessionCard(session, expanded = false) {
     session.attention +
     " status-" +
     session.status +
+    (session.isStale ? " is-stale" : "") +
     (expanded ? " expanded" : "");
 
   const heading = document.createElement("div");
@@ -768,8 +1022,79 @@ function createSessionCard(session, expanded = false) {
   return card;
 }
 
+function compactRank(session) {
+  if (session.attention === "action") return 0;
+  if (session.attention === "error") return 1;
+  if (session.isStale) return 2;
+  if (session.attention === "passive") return 3;
+  return 4;
+}
+
+function createCompactSessionRow(session) {
+  const row = document.createElement("a");
+  row.className =
+    "compact-session-row attention-" +
+    session.attention +
+    " status-" +
+    session.status +
+    (session.isStale ? " is-stale" : "");
+  row.href =
+    "/dashboard?focus=" +
+    encodeURIComponent(session.sessionKey) +
+    "&view=compact";
+
+  const primary = document.createElement("div");
+  primary.className = "compact-primary";
+  const heading = document.createElement("div");
+  heading.className = "compact-heading";
+  const status = document.createElement("span");
+  status.className = "status-badge";
+  status.textContent = statusLabel(session.status);
+  const name = document.createElement("h3");
+  name.textContent = session.displayName;
+  heading.append(status, name);
+  const identity = document.createElement("p");
+  identity.className = "compact-identity";
+  identity.textContent = session.identityLine;
+  const attention = document.createElement("span");
+  attention.className = "compact-attention";
+  attention.textContent = attentionLabel(session);
+  primary.append(heading, identity, attention);
+
+  const message = document.createElement("p");
+  message.className = "compact-message";
+  const safeMessage = session.lastMessage || session.error;
+  if (safeMessage) {
+    message.textContent = safeMessage;
+  } else {
+    message.className += " no-message";
+    message.textContent = "No additional status message";
+  }
+
+  const metadata = document.createElement("div");
+  metadata.className = "compact-meta";
+  const duration = document.createElement("p");
+  duration.textContent = "Duration " + formatDuration(session.durationMs);
+  const lastSeen = document.createElement("p");
+  lastSeen.textContent =
+    "Last seen " + formatDuration(session.lastEventAgeMs) + " ago";
+  metadata.append(duration, lastSeen);
+  if (session.isStale) {
+    const stale = document.createElement("p");
+    stale.className = "compact-stale";
+    stale.textContent = "Possibly stale";
+    metadata.append(stale);
+  }
+
+  row.append(primary, message, metadata);
+  return row;
+}
+
 function renderOverview(sessions) {
-  setHidden("focus-view", true);
+  setActiveView("overview");
+  setHidden("focus-root", true);
+  setHidden("compact-root", true);
+  setHidden("overview-root", false);
   setHidden("empty-state", sessions.length !== 0);
   setHidden("overview-section", sessions.length === 0);
 
@@ -806,16 +1131,44 @@ function renderOverview(sessions) {
   }
 }
 
-function renderFocus(sessions, focusKey) {
-  setHidden("empty-state", true);
-  setHidden("action-section", true);
-  setHidden("overview-section", true);
-  setHidden("focus-view", false);
+function renderCompact(sessions) {
+  setActiveView("compact");
+  setHidden("focus-root", true);
+  setHidden("overview-root", true);
+  setHidden("compact-root", false);
+  setHidden("compact-empty-state", sessions.length !== 0);
+
+  const compactList = byId("compact-session-list");
+  if (!compactList) return;
+  const compactSessions = [...sessions].sort((left, right) => {
+    const rankDifference = compactRank(left) - compactRank(right);
+    return rankDifference || right.lastEventAt - left.lastEventAt;
+  });
+  compactList.replaceChildren(
+    ...compactSessions.map((session) => createCompactSessionRow(session)),
+  );
+}
+
+function renderFocus(sessions, selectedFocusKey) {
+  const returnToCompact = view === "compact";
+  setActiveView(returnToCompact ? "compact" : "overview");
+  setHidden("overview-root", true);
+  setHidden("compact-root", true);
+  setHidden("focus-root", false);
+  const returnLink = byId("focus-return");
+  if (returnLink) {
+    returnLink.href = returnToCompact ? "/dashboard?view=compact" : "/dashboard";
+    returnLink.textContent = returnToCompact
+      ? "Back to compact"
+      : "Back to overview";
+  }
 
   const target = byId("focused-session");
   if (!target) return;
 
-  const session = sessions.find((candidate) => candidate.sessionKey === focusKey);
+  const session = sessions.find(
+    (candidate) => candidate.sessionKey === selectedFocusKey,
+  );
   if (session) {
     target.replaceChildren(createSessionCard(session, true));
     return;
@@ -866,9 +1219,10 @@ function render(data) {
   setText("setup-codex-hooks", data.setup.codexHooks);
   setText("setup-opencode", data.setup.openCode);
   setText("setup-antigravity-probe", data.setup.antigravityProbe);
-  const focusKey = new URLSearchParams(window.location.search).get("focus");
   if (focusKey) {
     renderFocus(data.sessions, focusKey);
+  } else if (view === "compact") {
+    renderCompact(data.sessions);
   } else {
     renderOverview(data.sessions);
   }

@@ -44,6 +44,24 @@ Focus Mode does not introduce historical lookup, persistence, or stale-session
 cleanup. Like Overview Mode, it reflects only the sessions held by the current
 daemon process.
 
+## Compact Overview Mode
+
+Compact Overview Mode is selected with:
+
+```text
+/dashboard?view=compact
+```
+
+It presents the current sessions as dense linked rows suitable for quick
+scanning. Action and error states remain strongest, stale non-terminal sessions
+are raised above ordinary passive work, and completed sessions are visually
+quiet. Selecting a row opens Focus Mode and preserves the compact return
+context.
+
+This browser-only view is the current prototype for a future floating status
+surface. It does not introduce a desktop shell, tray process, persistence, or
+new lifecycle behavior.
+
 ## Attention Model
 
 Attention is derived for presentation and does not change the normalized core
@@ -74,11 +92,10 @@ Duration is derived as follows:
 - end at `lastEventAt` for idle, unknown, and rate-limited states;
 - clamp the result to zero.
 
-## Future Compact and Floating Mode
+## Future Floating Mode
 
-A future Compact/Floating Mode may present a small always-available status
-surface using the same attention contract. It should prioritize action and
-error states while making passive activity glanceable.
+A future floating surface may reuse Compact Overview Mode's information
+hierarchy and the same attention contract in a small always-available window.
 
 Desktop windows, tray integration, lifecycle management, installers, and
 platform-specific notification behavior are deliberately deferred to a later
