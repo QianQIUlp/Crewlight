@@ -40,6 +40,28 @@ describe("SessionStore", () => {
     expect(failed.completedAt).toBe(200);
   });
 
+  it("retains the latest normalized title across untitled events", () => {
+    const store = new SessionStore();
+    const titled = normalizeAgentEvent({
+      source: "custom",
+      surface: "manual",
+      sessionId: "session-1",
+      status: "running",
+      title: "Review dashboard output",
+      timestamp: 100,
+    });
+    const completed = normalizeAgentEvent({
+      source: "custom",
+      surface: "manual",
+      sessionId: "session-1",
+      status: "completed",
+      timestamp: 200,
+    });
+
+    store.apply(titled);
+    expect(store.apply(completed).title).toBe("Review dashboard output");
+  });
+
   it("ignores events older than the latest session event", () => {
     const store = new SessionStore();
 

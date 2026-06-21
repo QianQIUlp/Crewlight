@@ -25,6 +25,7 @@ export {
   getDashboardAttention,
   getDashboardDurationMs,
   getDashboardIdentityLine,
+  getDashboardSessionTitle,
   getDashboardStaleState,
   getDisplayName,
   getDisplayWorkspace,

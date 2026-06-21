@@ -49,6 +49,7 @@ export interface DashboardSession {
   displayName: string;
   displayWorkspace: string;
   identityLine: string;
+  sessionTitle?: string;
   durationMs: number;
   attention: DashboardAttention;
   actionKind?: DashboardActionKind;
@@ -116,6 +117,44 @@ const ACTIVE_STATUSES = new Set<AgentStatus>([
   "waiting_permission",
 ]);
 
+const DASHBOARD_SESSION_TITLE_LIMIT = 120;
+
+const ADAPTER_TITLE_LABELS: Partial<
+  Record<AgentSource, Record<string, string>>
+> = {
+  "claude-code": {
+    SessionStart: "Session started",
+    UserPromptSubmit: "Request submitted",
+    PreToolUse: "Using tool",
+    PostToolUse: "Tool completed",
+    PermissionRequest: "Permission requested",
+    Notification: "Attention requested",
+    Stop: "Session completed",
+    StopFailure: "Session failed",
+  },
+  codex: {
+    SessionStart: "Session started",
+    UserPromptSubmit: "Request submitted",
+    PreToolUse: "Using tool",
+    PostToolUse: "Tool completed",
+    PermissionRequest: "Permission requested",
+    Stop: "Session completed",
+    "agent-turn-complete": "Turn completed",
+  },
+  opencode: {
+    "session.created": "Session started",
+    "session.updated": "Session updated",
+    "session.status": "Status updated",
+    "session.idle": "Session completed",
+    "session.error": "Session failed",
+    "permission.asked": "Permission requested",
+    "permission.replied": "Permission answered",
+    "tool.execute.before": "Using tool",
+    "tool.execute.after": "Tool completed",
+    "message.updated": "Activity updated",
+  },
+};
+
 export function getDisplayName(source: AgentSource): string {
   return DISPLAY_NAMES[source] ?? source;
 }
@@ -153,6 +192,46 @@ export function getDashboardIdentityLine(session: AgentSession): string {
     getSurfaceLabel(session.surface),
     `#${getShortSessionKey(session.sessionKey)}`,
   ].join(" · ");
+}
+
+function cleanDashboardSessionTitle(value: string): string | undefined {
+  const title = value.trim().replace(/\s+/g, " ");
+  if (!title) {
+    return undefined;
+  }
+  return title.length <= DASHBOARD_SESSION_TITLE_LIMIT
+    ? title
+    : `${title.slice(0, DASHBOARD_SESSION_TITLE_LIMIT - 1)}…`;
+}
+
+export function getDashboardSessionTitle(
+  session: AgentSession,
+): string | undefined {
+  if (session.title) {
+    const adapterTitle =
+      ADAPTER_TITLE_LABELS[session.source]?.[session.title] ?? session.title;
+    return cleanDashboardSessionTitle(adapterTitle);
+  }
+
+  if (
+    session.status === "using_tool" &&
+    (session.source === "claude-code" || session.source === "codex")
+  ) {
+    const toolMessage = session.lastMessage?.startsWith("Using tool: ")
+      ? session.lastMessage
+      : "Using tool";
+    return cleanDashboardSessionTitle(toolMessage);
+  }
+
+  if (session.status === "waiting_permission") {
+    return "Permission requested";
+  }
+
+  if (session.status === "waiting_input") {
+    return "Input requested";
+  }
+
+  return undefined;
 }
 
 export function getLastEventAgeMs(lastEventAt: number, now: number): number {
@@ -576,6 +655,13 @@ article {
   font-size: 1.35rem;
 }
 
+.session-title {
+  margin-bottom: 0.2rem;
+  color: #d8e2ef;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
 .status-badge {
   border: 1px solid currentColor;
   border-radius: 999px;
@@ -960,10 +1046,17 @@ function createSessionCard(session, expanded = false) {
   const identity = document.createElement("div");
   const name = document.createElement("h3");
   name.textContent = session.displayName;
+  identity.append(name);
+  if (session.sessionTitle) {
+    const title = document.createElement("p");
+    title.className = "session-title";
+    title.textContent = session.sessionTitle;
+    identity.append(title);
+  }
   const workspace = document.createElement("p");
   workspace.className = "muted";
   workspace.textContent = session.identityLine;
-  identity.append(name, workspace);
+  identity.append(workspace);
   const status = document.createElement("span");
   status.className = "status-badge";
   status.textContent = statusLabel(session.status);
@@ -1051,7 +1144,9 @@ function createCompactSessionRow(session) {
   status.className = "status-badge";
   status.textContent = statusLabel(session.status);
   const name = document.createElement("h3");
-  name.textContent = session.displayName;
+  name.textContent = session.sessionTitle
+    ? session.displayName + " · " + session.sessionTitle
+    : session.displayName;
   heading.append(status, name);
   const identity = document.createElement("p");
   identity.className = "compact-identity";
@@ -1280,6 +1375,7 @@ export function serializeDashboardSession(
   now: number,
 ): DashboardSession {
   const attention = getDashboardAttention(session.status);
+  const sessionTitle = getDashboardSessionTitle(session);
   const shortSessionKey = getShortSessionKey(session.sessionKey);
   const lastEventAgeMs = getLastEventAgeMs(session.lastEventAt, now);
   const staleState = getDashboardStaleState(session.status, lastEventAgeMs);
@@ -1296,6 +1392,7 @@ export function serializeDashboardSession(
     displayName: getDisplayName(session.source),
     displayWorkspace: getDisplayWorkspace(session),
     identityLine: getDashboardIdentityLine(session),
+    ...(sessionTitle ? { sessionTitle } : {}),
     durationMs: getDashboardDurationMs(session, now),
     ...attention,
     ...(session.sessionId ? { sessionId: session.sessionId } : {}),

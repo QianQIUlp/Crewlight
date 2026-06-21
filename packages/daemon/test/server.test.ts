@@ -177,6 +177,13 @@ describe("daemon HTTP server", () => {
     expect(scriptBody).toContain(
       "workspace.textContent = session.identityLine",
     );
+    expect(scriptBody).toContain("title.textContent = session.sessionTitle");
+    expect(scriptBody).toContain(
+      'session.displayName + " · " + session.sessionTitle',
+    );
+    expect(scriptBody).toContain(
+      '"/dashboard?focus=" + encodeURIComponent(session.sessionKey)',
+    );
     expect(scriptBody).toContain('"Last seen"');
     expect(scriptBody).toContain("Possibly stale · no event for ");
     expect(scriptBody).toContain("stale.textContent");
@@ -227,6 +234,7 @@ describe("daemon HTTP server", () => {
         sessionId: "dashboard-session",
         projectPath: "/workspace/safe-project",
         status: "running",
+        title: "Review dashboard output",
         timestamp: 1_000,
         rawEvent: {
           prompt: "dashboard-secret-prompt",
@@ -280,6 +288,7 @@ describe("daemon HTTP server", () => {
     expect(completedSession).toMatchObject({
       displayName: "Custom",
       displayWorkspace: "safe-project",
+      sessionTitle: "Review dashboard output",
       durationMs: 4_000,
       attention: "done",
       isStale: false,
@@ -300,10 +309,12 @@ describe("daemon HTTP server", () => {
       isStale: true,
       staleReason: "No event for at least 2 minutes.",
     });
+    expect(staleSession).not.toHaveProperty("sessionTitle");
     expect(body).not.toContain("dashboard-secret");
     expect(body).not.toContain("rawEvent");
     expect(body).not.toContain("toolInput");
     expect(body).not.toContain("transcript");
+    expect(body).not.toContain("input-messages");
   });
 
   it("rejects dashboard binding outside loopback", async () => {

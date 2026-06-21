@@ -106,6 +106,8 @@ presentation-only derived fields:
   `sessionKey`, or the complete key when shorter;
 - `identityLine`, formatted as
   `<workspace> · <surface label> · #<shortSessionKey>`;
+- optional `sessionTitle`, derived from an existing normalized title or a
+  narrow safe status/tool fallback and limited to 120 characters;
 - `durationMs`;
 - `lastEventAgeMs`, clamped to zero when the event timestamp is in the future;
 - `isStale`;
@@ -136,8 +138,10 @@ The attention mapping and future floating-mode direction are documented in
 - Session, setup, and doctor values are rendered with DOM `textContent`; they
   are never inserted as dynamic HTML.
 - API sessions are explicitly serialized from normalized AgentPulse fields.
+- Session titles never inspect arbitrary command bodies or unallowlisted
+  platform fields.
 - Complete platform payloads, prompts, transcripts, raw events, and tool
-  input/output are not included.
+  input/output, including Codex input messages, are not included.
 - There is no login because the dashboard is forcibly restricted to loopback.
 
 AgentPulse still accepts local event submissions through the daemon API. Do not

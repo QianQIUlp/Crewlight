@@ -79,6 +79,7 @@ export const agentSessionSchema = z
     projectPath: z.string().min(1).optional(),
     workspaceName: z.string().min(1).optional(),
     status: agentStatusSchema,
+    title: z.string().min(1).optional(),
     lastEventAt: z.number().int().nonnegative(),
     startedAt: z.number().int().nonnegative().optional(),
     completedAt: z.number().int().nonnegative().optional(),

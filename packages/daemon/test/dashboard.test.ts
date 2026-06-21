@@ -10,6 +10,7 @@ import {
   getDashboardAttention,
   getDashboardDurationMs,
   getDashboardIdentityLine,
+  getDashboardSessionTitle,
   getDashboardStaleState,
   getDisplayName,
   getDisplayWorkspace,
@@ -114,6 +115,49 @@ describe("dashboard session derivation", () => {
     ).toBe("AgentPulse · IDE extension · #34567890");
   });
 
+  it("uses normalized safe titles and humanizes known adapter titles", () => {
+    expect(
+      getDashboardSessionTitle({
+        ...baseSession,
+        title: "  Review   dashboard output  ",
+      }),
+    ).toBe("Review dashboard output");
+    expect(
+      getDashboardSessionTitle({
+        ...baseSession,
+        source: "codex",
+        title: "PermissionRequest",
+      }),
+    ).toBe("Permission requested");
+  });
+
+  it("derives only narrow safe fallback titles", () => {
+    expect(
+      getDashboardSessionTitle({
+        ...baseSession,
+        source: "codex",
+        status: "using_tool",
+        lastMessage: "Using tool: Read",
+      }),
+    ).toBe("Using tool: Read");
+    expect(
+      getDashboardSessionTitle({
+        ...baseSession,
+        status: "waiting_input",
+        lastMessage: "raw prompt text must not become a title",
+      }),
+    ).toBe("Input requested");
+  });
+
+  it("omits titles when no safe source exists", () => {
+    expect(
+      getDashboardSessionTitle({
+        ...baseSession,
+        lastMessage: "arbitrary command body --token secret",
+      }),
+    ).toBeUndefined();
+  });
+
   it("clamps negative last-event ages to zero", () => {
     expect(getLastEventAgeMs(1_000, 900)).toBe(0);
   });
@@ -207,13 +251,16 @@ describe("dashboard session derivation", () => {
         source: "codex",
         status: "waiting_input",
         projectPath: "/workspace/safe-project",
+        title: "PermissionRequest",
         lastMessage: "Safe status",
+        "input-messages": ["input-message-secret"],
         rawEvent: { prompt: "raw-event-secret" },
         prompt: "prompt-secret",
         transcript: "transcript-secret",
         toolInput: "tool-input-secret",
         toolOutput: "tool-output-secret",
       } as AgentSession & {
+        "input-messages": string[];
         prompt: string;
         rawEvent: unknown;
         toolInput: string;
@@ -228,6 +275,7 @@ describe("dashboard session derivation", () => {
       displayName: "Codex",
       displayWorkspace: "safe-project",
       identityLine: "safe-project · Manual · #:session",
+      sessionTitle: "Permission requested",
       durationMs: 600_400,
       lastEventAgeMs: 600_000,
       isStale: true,
@@ -238,6 +286,7 @@ describe("dashboard session derivation", () => {
     });
     expect(serialized).not.toHaveProperty("rawEvent");
     expect(serialized).not.toHaveProperty("prompt");
+    expect(serialized).not.toHaveProperty("input-messages");
     expect(serialized).not.toHaveProperty("transcript");
     expect(serialized).not.toHaveProperty("toolInput");
     expect(serialized).not.toHaveProperty("toolOutput");
@@ -252,5 +301,6 @@ describe("dashboard session derivation", () => {
       isStale: false,
     });
     expect(serialized).not.toHaveProperty("staleReason");
+    expect(serialized).not.toHaveProperty("sessionTitle");
   });
 });
