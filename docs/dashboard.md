@@ -39,7 +39,8 @@ The default `/dashboard` page shows:
 - selected notifier mode;
 - an **Action needed** section for actionable and error sessions;
 - status cards for all normalized sessions held in memory;
-- mergeable Claude Code, Codex notify, and Codex hooks setup snippets;
+- five setup cards: Claude Code, Codex notify, Codex hooks, OpenCode, and
+  Antigravity probe;
 - basic read-only doctor checks.
 
 Action-needed cards place waiting input or permission states before failures and
@@ -47,7 +48,9 @@ rate limits, then order each group by the newest event. The complete status
 overview retains the daemon's most-recent-first ordering.
 
 Setup snippets and doctor checks remain available below the primary status
-view.
+view. The Antigravity card is explicitly `research-only`: it prints a fixed,
+minimal manual probe command for local investigation and does not make
+Antigravity a supported setup platform or integration.
 
 ### Focus Mode
 

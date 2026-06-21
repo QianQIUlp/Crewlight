@@ -11,7 +11,11 @@ import {
 import { createNotifier } from "@agentpulse/notifier";
 
 import { createDoctorRuntime, runDoctor } from "./doctor.js";
-import { createSetupSnippets, formatCodexHooksSetup } from "./setup.js";
+import {
+  createAntigravityProbeCommand,
+  createSetupSnippets,
+  formatCodexHooksSetup,
+} from "./setup.js";
 import type { CommandIo } from "./types.js";
 
 export interface DaemonCommandOptions {
@@ -71,6 +75,8 @@ export async function executeDaemonCommand(
           claudeCode: setup.claudeCode,
           codex: setup.codex,
           codexHooks: formatCodexHooksSetup(setup.codexHooks),
+          openCode: setup.openCode,
+          antigravityProbe: createAntigravityProbeCommand(),
         },
         doctor: () => {
           doctorReport ??= runDoctor(

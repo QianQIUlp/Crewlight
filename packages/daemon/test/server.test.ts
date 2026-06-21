@@ -6,6 +6,7 @@ import {
   AgentPulseService,
   formatDaemonUrl,
   startDaemon,
+  type DashboardApiResponse,
   type DaemonInstance,
 } from "../src/index.js";
 
@@ -104,6 +105,9 @@ describe("daemon HTTP server", () => {
             codex: 'notify = ["agentpulse", "ingest", "codex"]',
             codexHooks:
               "Codex hooks setup unavailable.\nInstall AgentPulse into a simple no-space path.",
+            openCode: "export const AgentPulsePlugin = async () => ({});",
+            antigravityProbe:
+              "printf '%s\\n' '{}' | agentpulse ingest antigravity-probe --event manual.probe --surface desktop",
           },
           doctor: async () => ({
             ok: true,
@@ -126,6 +130,7 @@ describe("daemon HTTP server", () => {
     const pageBody = await page.text();
     const scriptBody = await script.text();
     const body = await api.text();
+    const parsed = JSON.parse(body) as DashboardApiResponse;
 
     expect(page.status).toBe(200);
     expect(page.headers.get("cache-control")).toBe("no-store");
@@ -133,6 +138,10 @@ describe("daemon HTTP server", () => {
       "default-src 'none'",
     );
     expect(pageBody).toContain('id="action-needed"');
+    expect(pageBody).toContain('id="setup-opencode"');
+    expect(pageBody).toContain('id="setup-antigravity-probe"');
+    expect(pageBody).toContain("Research-only");
+    expect(pageBody).toMatch(/not a\s+supported AgentPulse integration/u);
     expect(stylesheet.status).toBe(200);
     expect(stylesheet.headers.get("cache-control")).toBe("no-store");
     expect(script.status).toBe(200);
@@ -146,6 +155,15 @@ describe("daemon HTTP server", () => {
     expect(body).toContain('"status":"ok"');
     expect(body).toContain("Codex hooks setup unavailable");
     expect(body).toContain("simple no-space path");
+    expect(parsed.setup).toEqual({
+      claudeCode: '{"hooks":{"Stop":[]}}',
+      codex: 'notify = ["agentpulse", "ingest", "codex"]',
+      codexHooks:
+        "Codex hooks setup unavailable.\nInstall AgentPulse into a simple no-space path.",
+      openCode: "export const AgentPulsePlugin = async () => ({});",
+      antigravityProbe:
+        "printf '%s\\n' '{}' | agentpulse ingest antigravity-probe --event manual.probe --surface desktop",
+    });
   });
 
   it("exposes only normalized session fields through the dashboard API", async () => {
@@ -159,6 +177,8 @@ describe("daemon HTTP server", () => {
             claudeCode: "claude",
             codex: "codex",
             codexHooks: "codex-hooks",
+            openCode: "opencode",
+            antigravityProbe: "antigravity-probe",
           },
           doctor: async () => ({ ok: true, checks: [] }),
         },
@@ -228,6 +248,8 @@ describe("daemon HTTP server", () => {
               claudeCode: "claude",
               codex: "codex",
               codexHooks: "codex-hooks",
+              openCode: "opencode",
+              antigravityProbe: "antigravity-probe",
             },
             doctor: async () => ({ ok: true, checks: [] }),
           },
@@ -251,6 +273,8 @@ describe("daemon HTTP server", () => {
             claudeCode: "claude",
             codex: "codex",
             codexHooks: "codex-hooks",
+            openCode: "opencode",
+            antigravityProbe: "antigravity-probe",
           },
           doctor: async () => ({ ok: true, checks: [] }),
         },

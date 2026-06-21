@@ -27,6 +27,8 @@ export interface DashboardOptions {
     claudeCode: string;
     codex: string;
     codexHooks: string;
+    openCode: string;
+    antigravityProbe: string;
   };
   doctor(): Promise<DashboardDoctorReport>;
 }
@@ -66,6 +68,8 @@ export interface DashboardApiResponse {
     claudeCode: string;
     codex: string;
     codexHooks: string;
+    openCode: string;
+    antigravityProbe: string;
   };
   doctor: DashboardDoctorReport;
 }
@@ -236,6 +240,18 @@ const DASHBOARD_HTML = `<!doctype html>
           <article>
             <h3>Codex hooks</h3>
             <pre id="setup-codex-hooks"></pre>
+          </article>
+          <article>
+            <h3>OpenCode</h3>
+            <pre id="setup-opencode"></pre>
+          </article>
+          <article>
+            <h3>Antigravity probe</h3>
+            <p class="muted">
+              Research-only command for manual probing. Antigravity is not a
+              supported AgentPulse integration.
+            </p>
+            <pre id="setup-antigravity-probe"></pre>
           </article>
         </div>
       </section>
@@ -775,6 +791,8 @@ function render(data) {
   setText("setup-claude", data.setup.claudeCode);
   setText("setup-codex", data.setup.codex);
   setText("setup-codex-hooks", data.setup.codexHooks);
+  setText("setup-opencode", data.setup.openCode);
+  setText("setup-antigravity-probe", data.setup.antigravityProbe);
   const focusKey = new URLSearchParams(window.location.search).get("focus");
   if (focusKey) {
     renderFocus(data.sessions, focusKey);

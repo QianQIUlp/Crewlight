@@ -365,6 +365,39 @@ export const AgentPulsePlugin = async ({ directory }) => ({
 `;
 }
 
+function renderAntigravityProbe(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const ingestCommand = renderHookCommand(
+    [
+      ...command,
+      "ingest",
+      "antigravity-probe",
+      "--event",
+      "manual.probe",
+      "--surface",
+      "desktop",
+    ],
+    platform,
+  );
+  const payloadCommand =
+    platform === "win32"
+      ? "echo {}"
+      : renderHookCommand(["printf", "%s\\n", "{}"], platform);
+  return `${payloadCommand} | ${ingestCommand}`;
+}
+
+export function createAntigravityProbeCommand(
+  binary?: string,
+  runtime: SetupRuntime = currentSetupRuntime(),
+): string {
+  return renderAntigravityProbe(
+    resolveAgentPulseCommand(binary, runtime),
+    runtime.platform,
+  );
+}
+
 export function createSetupSnippets(
   binary?: string,
   runtime: SetupRuntime = currentSetupRuntime(),

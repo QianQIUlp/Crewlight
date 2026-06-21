@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import type { AgentPulseClient } from "../src/daemon-client.js";
 import { executeIngestCommand } from "../src/commands/ingest.js";
 import {
+  createAntigravityProbeCommand,
   createSetupSnippets,
   executeSetupCommand,
   renderHookCommand,
@@ -972,6 +973,38 @@ describe("setup snippet commands", () => {
       "pending real local verification",
     );
   });
+
+  it("renders a fixed minimal Antigravity dashboard probe", () => {
+    expect(createAntigravityProbeCommand(undefined, setupRuntime())).toBe(
+      "printf '%s\\n' '{}' | /usr/local/bin/node /workspace/AgentPulse/packages/cli/dist/index.js ingest antigravity-probe --event manual.probe --surface desktop",
+    );
+    expect(
+      createAntigravityProbeCommand(
+        undefined,
+        setupRuntime({
+          isSea: () => true,
+          execPath: "C:\\Agent Pulse\\agentpulse.exe",
+          entryPath: undefined,
+          platform: "win32",
+        }),
+      ),
+    ).toBe(
+      'echo {} | "C:\\Agent Pulse\\agentpulse.exe" "ingest" "antigravity-probe" "--event" "manual.probe" "--surface" "desktop"',
+    );
+  });
+
+  it.each(["antigravity", "antigravity-probe"])(
+    "keeps %s unavailable as a setup platform",
+    (platform) => {
+      expect(() =>
+        executeSetupCommand(
+          [platform, "--print"],
+          captureIo().io,
+          setupRuntime(),
+        ),
+      ).toThrow(`Unsupported setup platform: ${platform}`);
+    },
+  );
 
   it("runs the generated OpenCode plugin with sanitized argv-style input", async () => {
     const snippets = createSetupSnippets(undefined, setupRuntime());
