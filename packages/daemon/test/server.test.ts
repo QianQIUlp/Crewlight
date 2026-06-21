@@ -120,8 +120,11 @@ describe("daemon HTTP server", () => {
     );
 
     const page = await fetch(`${instance.url}/dashboard`);
+    const stylesheet = await fetch(`${instance.url}/dashboard/styles.css`);
     const script = await fetch(`${instance.url}/dashboard/app.js`);
     const api = await fetch(`${instance.url}/dashboard/api`);
+    const pageBody = await page.text();
+    const scriptBody = await script.text();
     const body = await api.text();
 
     expect(page.status).toBe(200);
@@ -129,9 +132,13 @@ describe("daemon HTTP server", () => {
     expect(page.headers.get("content-security-policy")).toContain(
       "default-src 'none'",
     );
+    expect(pageBody).toContain('id="action-needed"');
+    expect(stylesheet.status).toBe(200);
+    expect(stylesheet.headers.get("cache-control")).toBe("no-store");
     expect(script.status).toBe(200);
     expect(script.headers.get("cache-control")).toBe("no-store");
-    expect(await script.text()).not.toContain("innerHTML");
+    expect(scriptBody).toContain("URLSearchParams");
+    expect(scriptBody).not.toContain(".innerHTML");
     expect(api.status).toBe(200);
     expect(api.headers.get("cache-control")).toBe("no-store");
     expect(api.headers.get("content-type")).toContain("application/json");
@@ -165,8 +172,9 @@ describe("daemon HTTP server", () => {
         source: "custom",
         surface: "manual",
         sessionId: "dashboard-session",
-        status: "completed",
-        message: "safe summary",
+        projectPath: "/workspace/safe-project",
+        status: "running",
+        timestamp: 1_000,
         rawEvent: {
           prompt: "dashboard-secret-prompt",
           toolInput: "dashboard-secret-tool-input",
@@ -175,11 +183,33 @@ describe("daemon HTTP server", () => {
       }),
     });
 
+    await fetch(`${instance.url}/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        source: "custom",
+        surface: "manual",
+        sessionId: "dashboard-session",
+        status: "completed",
+        message: "safe summary",
+        timestamp: 5_000,
+      }),
+    });
+
     const response = await fetch(`${instance.url}/dashboard/api`);
     const body = await response.text();
+    const parsed = JSON.parse(body) as {
+      sessions: Array<Record<string, unknown>>;
+    };
 
     expect(body).toContain("dashboard-session");
     expect(body).toContain("safe summary");
+    expect(parsed.sessions[0]).toMatchObject({
+      displayName: "Custom",
+      displayWorkspace: "safe-project",
+      durationMs: 4_000,
+      attention: "done",
+    });
     expect(body).not.toContain("dashboard-secret");
     expect(body).not.toContain("rawEvent");
     expect(body).not.toContain("toolInput");
