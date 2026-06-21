@@ -26,7 +26,7 @@ describe("Codex hook adapter", () => {
       kind: "event",
       event: {
         source: "codex",
-        surface: "cli",
+        surface: "unknown",
         status,
         title: hookEventName,
         sessionId: "codex-session",
@@ -74,7 +74,7 @@ describe("Codex hook adapter", () => {
       kind: "event",
       event: {
         source: "codex",
-        surface: "cli",
+        surface: "unknown",
         status: "completed",
         title: "Stop",
         sessionId: "override-session",
@@ -89,7 +89,7 @@ describe("Codex hook adapter", () => {
         kind: "event",
         event: {
           source: "codex",
-          surface: "cli",
+          surface: "unknown",
           status: "completed",
           title: "Stop",
         },
@@ -113,6 +113,20 @@ describe("Codex hook adapter", () => {
     expect(result.kind).toBe("event");
     expect(JSON.stringify(result)).not.toContain("secret");
     expect(JSON.stringify(result)).not.toContain("rawEvent");
+  });
+
+  it("accepts an explicit desktop surface without changing event mapping", () => {
+    expect(
+      mapCodexHook({ hook_event_name: "Stop" }, undefined, "desktop"),
+    ).toEqual({
+      kind: "event",
+      event: {
+        source: "codex",
+        surface: "desktop",
+        status: "completed",
+        title: "Stop",
+      },
+    });
   });
 
   it("bounds the only tool detail that can become a message", () => {

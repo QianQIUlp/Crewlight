@@ -212,7 +212,7 @@ leading quotes.
 
 ```bash
 printf '%s' '{"session_id":"codex-hook-diagnostic","cwd":"/tmp"}' \
-  | agentpulse ingest codex-hook --hook PermissionRequest
+  | agentpulse ingest codex-hook --hook PermissionRequest --surface cli
 agentpulse status --json
 ```
 
@@ -232,7 +232,7 @@ C:\Users\<you>\Tools\AgentPulse\agentpulse.exe
 The generated `commandWindows` should resemble:
 
 ```text
-C:\Users\<you>\Tools\AgentPulse\agentpulse.exe ingest codex-hook --hook Stop
+C:\Users\<you>\Tools\AgentPulse\agentpulse.exe ingest codex-hook --hook Stop --surface cli
 ```
 
 It must not begin with a quote. If setup reports that the resolved command is

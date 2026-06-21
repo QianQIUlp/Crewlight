@@ -50,6 +50,15 @@ importers:
         specifier: workspace:^
         version: link:../../core
 
+  packages/adapters/opencode:
+    dependencies:
+      "@agentpulse/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
   packages/cli:
     dependencies:
       "@agentpulse/adapter-claude-code":
@@ -61,6 +70,9 @@ importers:
       "@agentpulse/adapter-generic-cli":
         specifier: workspace:^
         version: link:../adapters/generic-cli
+      "@agentpulse/adapter-opencode":
+        specifier: workspace:^
+        version: link:../adapters/opencode
       "@agentpulse/core":
         specifier: workspace:^
         version: link:../core

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import type {
   AgentEvent,
   AgentEventInput,
@@ -154,7 +156,7 @@ describe("platform ingest commands", () => {
     expect(target.events).toEqual([
       {
         source: "codex",
-        surface: "cli",
+        surface: "unknown",
         status: "completed",
         title: "Stop",
         sessionId: "codex-Stop",
@@ -189,7 +191,7 @@ describe("platform ingest commands", () => {
     expect(target.events).toEqual([
       {
         source: "codex",
-        surface: "cli",
+        surface: "unknown",
         status: "completed",
         title: "Stop",
         sessionId: "codex-override",
@@ -230,7 +232,7 @@ describe("platform ingest commands", () => {
       expect(target.events).toEqual([
         {
           source: "codex",
-          surface: "cli",
+          surface: "unknown",
           status: "completed",
           title: "Stop",
           ...(_description === "missing hook_event_name"
@@ -277,7 +279,7 @@ describe("platform ingest commands", () => {
       expect(target.events).toEqual([
         {
           source: "codex",
-          surface: "cli",
+          surface: "unknown",
           status,
           title: hookEventName,
           sessionId: `codex-${hookEventName}`,
@@ -502,6 +504,214 @@ describe("platform ingest commands", () => {
       expectSilentCodexHook(capture);
     },
   );
+
+  it("accepts an explicit Codex Desktop surface", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["codex-hook", "--surface", "desktop", "--hook", "PermissionRequest"],
+      target.client,
+      capture.io,
+      async () => JSON.stringify({ session_id: "desktop-session" }),
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([
+      {
+        source: "codex",
+        surface: "desktop",
+        status: "waiting_permission",
+        title: "PermissionRequest",
+        sessionId: "desktop-session",
+      },
+    ]);
+    expectSilentCodexHook(capture);
+  });
+
+  it.each([
+    ["--surface", "cloud"],
+    ["--surface", "desktop", "--surface", "cli"],
+  ])(
+    "silently ignores unsupported Codex surface arguments: %j",
+    async (...args) => {
+      const capture = captureIo();
+      const target = captureClient();
+
+      const code = await executeIngestCommand(
+        ["codex-hook", ...args],
+        target.client,
+        capture.io,
+        async () => {
+          throw new Error("stdin must not be read");
+        },
+      );
+
+      expect(code).toBe(0);
+      expect(target.events).toEqual([]);
+      expectSilentCodexHook(capture);
+    },
+  );
+
+  it("maps an OpenCode plugin event and strips sensitive fields", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["opencode-plugin", "--event", "permission.asked"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          cwd: "/tmp/opencode",
+          event: {
+            type: "message.updated",
+            properties: {
+              sessionID: "opencode-session",
+              prompt: "secret prompt",
+              message: "secret message",
+              args: { command: "secret command" },
+              result: "secret result",
+            },
+          },
+        }),
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([
+      {
+        source: "opencode",
+        surface: "unknown",
+        status: "waiting_permission",
+        title: "permission.asked",
+        message: "OpenCode permission requested",
+        sessionId: "opencode-session",
+        projectPath: "/tmp/opencode",
+      },
+    ]);
+    expect(JSON.stringify(target.events)).not.toContain("secret");
+    expectSilentCodexHook(capture);
+  });
+
+  it.each([
+    ["unknown event", JSON.stringify({ event: { type: "session.deleted" } })],
+    ["invalid stdin", "{"],
+    ["missing event", JSON.stringify({ cwd: "/tmp/demo" })],
+  ])("silently ignores OpenCode %s", async (_description, input) => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["opencode-plugin"],
+      target.client,
+      capture.io,
+      async () => input,
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([]);
+    expectSilentCodexHook(capture);
+  });
+
+  it("keeps OpenCode daemon failures silent", async () => {
+    const capture = captureIo();
+    const client: AgentPulseClient = {
+      emit: async () => {
+        throw new Error("private connection detail");
+      },
+      sessions: async () => [],
+    };
+
+    const code = await executeIngestCommand(
+      ["opencode-plugin", "--event", "session.idle"],
+      client,
+      capture.io,
+      async () => "",
+    );
+
+    expect(code).toBe(0);
+    expect(JSON.stringify(capture)).not.toContain("private");
+    expectSilentCodexHook(capture);
+  });
+
+  it("sends a sanitized Antigravity research probe", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["antigravity-probe", "--event", "SessionStart", "--surface", "desktop"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          session_id: "antigravity-session",
+          cwd: "/tmp/antigravity",
+          prompt: "secret prompt",
+          transcript: "secret transcript",
+          tool_input: { command: "secret command" },
+          env: { TOKEN: "secret token" },
+          rawEvent: { secret: true },
+        }),
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([
+      {
+        source: "antigravity",
+        surface: "desktop",
+        status: "unknown",
+        title: "SessionStart",
+        message: "Antigravity probe event observed",
+        sessionId: "antigravity-session",
+        projectPath: "/tmp/antigravity",
+      },
+    ]);
+    expect(JSON.stringify(target.events)).not.toContain("secret");
+    expectSilentCodexHook(capture);
+  });
+
+  it.each([
+    ["missing stdin", ""],
+    ["invalid stdin", "{"],
+    ["valid stdin", JSON.stringify({ event: { type: "SessionStart" } })],
+  ])(
+    "keeps Antigravity %s silent and successful",
+    async (_description, input) => {
+      const capture = captureIo();
+      const target = captureClient();
+
+      const code = await executeIngestCommand(
+        ["antigravity-probe"],
+        target.client,
+        capture.io,
+        async () => input,
+      );
+
+      expect(code).toBe(0);
+      expectSilentCodexHook(capture);
+    },
+  );
+
+  it("keeps Antigravity daemon failures silent", async () => {
+    const capture = captureIo();
+    const client: AgentPulseClient = {
+      emit: async () => {
+        throw new Error("private connection detail");
+      },
+      sessions: async () => [],
+    };
+
+    const code = await executeIngestCommand(
+      ["antigravity-probe", "--event", "Stop"],
+      client,
+      capture.io,
+      async () => "{",
+    );
+
+    expect(code).toBe(0);
+    expect(JSON.stringify(capture)).not.toContain("private");
+    expectSilentCodexHook(capture);
+  });
 });
 
 describe("setup snippet commands", () => {
@@ -605,10 +815,10 @@ describe("setup snippet commands", () => {
     const handler = parsed.hooks.Stop[0]?.hooks[0];
 
     expect(handler?.command).toBe(
-      '"C:\\Tools\\nodejs\\node.exe" "C:\\AgentPulse\\packages\\cli\\dist\\index.js" "ingest" "codex-hook" "--hook" "Stop"',
+      '"C:\\Tools\\nodejs\\node.exe" "C:\\AgentPulse\\packages\\cli\\dist\\index.js" "ingest" "codex-hook" "--hook" "Stop" "--surface" "cli"',
     );
     expect(handler?.commandWindows).toBe(
-      "C:\\Tools\\nodejs\\node.exe C:\\AgentPulse\\packages\\cli\\dist\\index.js ingest codex-hook --hook Stop",
+      "C:\\Tools\\nodejs\\node.exe C:\\AgentPulse\\packages\\cli\\dist\\index.js ingest codex-hook --hook Stop --surface cli",
     );
     expect(handler?.commandWindows).not.toMatch(/^"/u);
     expect(snippets.codex).toContain('"C:\\\\Tools\\\\nodejs\\\\node.exe"');
@@ -634,7 +844,7 @@ describe("setup snippet commands", () => {
     };
 
     expect(parsed.hooks.Stop[0]?.hooks[0]?.commandWindows).toBe(
-      "C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe ingest codex-hook --hook Stop",
+      "C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe ingest codex-hook --hook Stop --surface cli",
     );
   });
 
@@ -669,7 +879,7 @@ describe("setup snippet commands", () => {
       const handler = parsed.hooks[hookEventName]?.[0]?.hooks[0];
       expect(handler?.command).toContain(`"--hook" "${hookEventName}"`);
       expect(handler?.commandWindows).toBe(
-        `C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe ingest codex-hook --hook ${hookEventName}`,
+        `C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe ingest codex-hook --hook ${hookEventName} --surface cli`,
       );
       expect(handler?.commandWindows).not.toMatch(/^"/u);
     }
@@ -693,8 +903,156 @@ describe("setup snippet commands", () => {
       "Stop",
     ]) {
       expect(parsed.hooks[hookEventName]?.[0]?.hooks[0]?.command).toBe(
-        `/usr/local/bin/node /workspace/AgentPulse/packages/cli/dist/index.js ingest codex-hook --hook ${hookEventName}`,
+        `/usr/local/bin/node /workspace/AgentPulse/packages/cli/dist/index.js ingest codex-hook --hook ${hookEventName} --surface cli`,
       );
+    }
+  });
+
+  it("generates an explicit experimental Codex Desktop surface", () => {
+    const capture = captureIo();
+
+    expect(
+      executeSetupCommand(
+        ["codex-hooks", "--print", "--surface", "desktop"],
+        capture.io,
+        setupRuntime(),
+      ),
+    ).toBe(0);
+    expect(capture.output[0]).toContain("--surface desktop");
+    expect(capture.warnings.join("\n")).toContain(
+      "only for an explicit local Codex Desktop verification",
+    );
+  });
+
+  it("rejects setup surfaces outside Codex hooks", () => {
+    expect(() =>
+      executeSetupCommand(
+        ["opencode", "--print", "--surface", "desktop"],
+        captureIo().io,
+        setupRuntime(),
+      ),
+    ).toThrow("Usage:");
+    expect(() =>
+      executeSetupCommand(
+        ["codex-hooks", "--print", "--surface", "cloud"],
+        captureIo().io,
+        setupRuntime(),
+      ),
+    ).toThrow("Usage:");
+  });
+
+  it("prints a guarded argv-style OpenCode plugin", () => {
+    const capture = captureIo();
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+
+    expect(
+      executeSetupCommand(["opencode", "--print"], capture.io, setupRuntime()),
+    ).toBe(0);
+    expect(capture.output).toEqual([snippets.openCode]);
+    expect(snippets.openCode).toContain("globalThis.Bun");
+    expect(snippets.openCode).toContain('typeof bun.spawn !== "function"');
+    expect(snippets.openCode).toContain("bun.spawn(");
+    expect(snippets.openCode).toContain('"opencode-plugin"');
+    expect(snippets.openCode).toContain('"--event"');
+    expect(snippets.openCode).toContain('stdout: "ignore"');
+    expect(snippets.openCode).toContain('stderr: "ignore"');
+    expect(snippets.openCode).toContain('typeof proc.unref === "function"');
+    expect(snippets.openCode).toContain("catch {}");
+    expect(snippets.openCode).not.toContain("prompt");
+    expect(snippets.openCode).not.toContain("tool_input");
+    expect(snippets.openCode).not.toContain("tool_output");
+    expect(snippets.openCode).not.toContain("result:");
+    expect(capture.warnings.join("\n")).toContain(
+      ".opencode/plugins/agentpulse.js",
+    );
+    expect(capture.warnings.join("\n")).toContain(
+      "~/.config/opencode/plugins/agentpulse.js",
+    );
+    expect(capture.warnings.join("\n")).toContain(
+      "pending real local verification",
+    );
+  });
+
+  it("runs the generated OpenCode plugin with sanitized argv-style input", async () => {
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+    const calls: {
+      argv: string[];
+      options: { stdin: Blob; stdout: string; stderr: string };
+      unrefCalled: boolean;
+    }[] = [];
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      Bun?: {
+        spawn(
+          argv: string[],
+          options: { stdin: Blob; stdout: string; stderr: string },
+        ): { unref(): void };
+      };
+    };
+    const previousBun = runtimeGlobal.Bun;
+    runtimeGlobal.Bun = {
+      spawn: (argv, options) => {
+        const call = { argv, options, unrefCalled: false };
+        calls.push(call);
+        return {
+          unref: () => {
+            call.unrefCalled = true;
+          },
+        };
+      },
+    };
+
+    try {
+      const encoded = Buffer.from(snippets.openCode).toString("base64");
+      const pluginModule = (await import(
+        `data:text/javascript;base64,${encoded}`
+      )) as {
+        AgentPulsePlugin(input: { directory: string }): Promise<{
+          event(input: { event: unknown }): Promise<void>;
+          "tool.execute.before"(input: unknown): Promise<void>;
+        }>;
+      };
+      const plugin = await pluginModule.AgentPulsePlugin({
+        directory: "/safe/project",
+      });
+
+      await plugin.event({
+        event: {
+          type: "session.status",
+          properties: {
+            sessionID: "safe-session",
+            status: { type: "busy", message: "secret status message" },
+            prompt: "secret prompt",
+            args: { command: "secret command" },
+            result: "secret result",
+          },
+        },
+      });
+      await plugin["tool.execute.before"]({
+        sessionID: "safe-session",
+        args: { command: "secret command" },
+      });
+
+      expect(calls).toHaveLength(2);
+      expect(calls[0]?.argv).toEqual([
+        "/usr/local/bin/node",
+        "/workspace/AgentPulse/packages/cli/dist/index.js",
+        "ingest",
+        "opencode-plugin",
+        "--event",
+        "session.status",
+      ]);
+      expect(calls[0]?.options).toMatchObject({
+        stdout: "ignore",
+        stderr: "ignore",
+      });
+      expect(calls.every((call) => call.unrefCalled)).toBe(true);
+      const payload = await calls[0]?.options.stdin.text();
+      expect(payload).toContain('"sessionID":"safe-session"');
+      expect(payload).toContain('"type":"busy"');
+      expect(payload).toContain('"cwd":"/safe/project"');
+      expect(payload).not.toContain("secret");
+    } finally {
+      runtimeGlobal.Bun = previousBun;
     }
   });
 
@@ -795,5 +1153,37 @@ describe("setup snippet commands", () => {
         "linux",
       ),
     ).toBe("'/opt/Agent Pulse/agentpulse' ingest codex-hook");
+  });
+});
+
+describe("adapter documentation boundaries", () => {
+  it("documents OpenCode placement without claiming verified support", () => {
+    const content = readFileSync(
+      new URL("../../../docs/opencode.md", import.meta.url),
+      "utf8",
+    );
+
+    expect(content).toContain(".opencode/plugins/agentpulse.js");
+    expect(content).toContain("~/.config/opencode/plugins/agentpulse.js");
+    expect(content).toMatch(/pending real\s+local verification/u);
+    expect(content).toContain("OpenCode Desktop");
+    expect(content).toContain("`experimental`");
+  });
+
+  it("marks Codex Desktop experimental and Antigravity research-only", () => {
+    const codexDesktop = readFileSync(
+      new URL("../../../docs/codex-desktop.md", import.meta.url),
+      "utf8",
+    );
+    const antigravity = readFileSync(
+      new URL("../../../docs/antigravity.md", import.meta.url),
+      "utf8",
+    );
+
+    expect(codexDesktop).toContain("`experimental`");
+    expect(codexDesktop).toContain("--surface desktop");
+    expect(antigravity).toContain("`research-only`");
+    expect(antigravity).toMatch(/has not\s+verified/u);
+    expect(antigravity).not.toContain("supported integration");
   });
 });

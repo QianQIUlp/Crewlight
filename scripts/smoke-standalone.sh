@@ -74,7 +74,13 @@ run_binary setup codex --print >"$WORK/codex-setup.txt" 2>"$WORK/codex-guidance.
 run_binary setup codex-hooks --print >"$WORK/codex-hooks-setup.txt" 2>"$WORK/codex-hooks-guidance.txt"
 "$GREP" -qF "$BIN ingest codex-hook --hook Stop" "$WORK/codex-hooks-setup.txt"
 "$GREP" -qF "$BIN ingest codex-hook --hook PreToolUse" "$WORK/codex-hooks-setup.txt"
+"$GREP" -qF -- "--surface cli" "$WORK/codex-hooks-setup.txt"
 "$GREP" -qF "reviewed and trusted" "$WORK/codex-hooks-guidance.txt"
+run_binary setup opencode --print >"$WORK/opencode-setup.js" 2>"$WORK/opencode-guidance.txt"
+"$GREP" -qF "bun.spawn(" "$WORK/opencode-setup.js"
+"$GREP" -qF '"opencode-plugin"' "$WORK/opencode-setup.js"
+"$GREP" -qF '"--event"' "$WORK/opencode-setup.js"
+"$GREP" -qF "pending real local verification" "$WORK/opencode-guidance.txt"
 
 if "$ENV_COMMAND" -i \
   PATH="$BIN_DIR" \
@@ -125,6 +131,7 @@ test ! -s "$WORK/codex-hook.stderr"
 run_binary status --json >"$WORK/codex-hook-status.json"
 "$GREP" -qF '"sessionId": "standalone-codex-hook"' "$WORK/codex-hook-status.json"
 "$GREP" -qF '"status": "completed"' "$WORK/codex-hook-status.json"
+"$GREP" -qF '"surface": "unknown"' "$WORK/codex-hook-status.json"
 if "$GREP" -qF "must-not-leak" "$WORK/codex-hook-status.json"; then
   echo "Codex hook sensitive fields leaked into status output" >&2
   exit 1
@@ -139,6 +146,33 @@ run_binary status --json >"$WORK/codex-tool-hook-status.json"
 "$GREP" -qF '"status": "using_tool"' "$WORK/codex-tool-hook-status.json"
 if "$GREP" -qF "must-not-leak" "$WORK/codex-tool-hook-status.json"; then
   echo "Codex tool hook sensitive fields leaked into status output" >&2
+  exit 1
+fi
+
+printf '%s' '{"cwd":"/tmp/opencode","event":{"type":"tool.execute.before","properties":{"sessionID":"standalone-opencode","prompt":"must-not-leak","args":{"command":"must-not-leak"},"result":"must-not-leak","rawEvent":{"secret":"must-not-leak"}}}}' \
+  | run_binary ingest opencode-plugin --event session.idle >"$WORK/opencode.stdout" 2>"$WORK/opencode.stderr"
+test ! -s "$WORK/opencode.stdout"
+test ! -s "$WORK/opencode.stderr"
+run_binary status --json >"$WORK/opencode-status.json"
+"$GREP" -qF '"sessionId": "standalone-opencode"' "$WORK/opencode-status.json"
+"$GREP" -qF '"status": "completed"' "$WORK/opencode-status.json"
+if "$GREP" -qF "must-not-leak" "$WORK/opencode-status.json"; then
+  echo "OpenCode sensitive fields leaked into status output" >&2
+  exit 1
+fi
+
+printf '%s' '{"session_id":"standalone-antigravity","cwd":"/tmp/antigravity","prompt":"must-not-leak","transcript":"must-not-leak","tool_input":{"command":"must-not-leak"},"env":{"TOKEN":"must-not-leak"}}' \
+  | run_binary ingest antigravity-probe --event SessionStart --surface cli >"$WORK/antigravity.stdout" 2>"$WORK/antigravity.stderr"
+test ! -s "$WORK/antigravity.stdout"
+test ! -s "$WORK/antigravity.stderr"
+printf '%s' '{' | run_binary ingest antigravity-probe >"$WORK/antigravity-invalid.stdout" 2>"$WORK/antigravity-invalid.stderr"
+test ! -s "$WORK/antigravity-invalid.stdout"
+test ! -s "$WORK/antigravity-invalid.stderr"
+run_binary status --json >"$WORK/antigravity-status.json"
+"$GREP" -qF '"sessionId": "standalone-antigravity"' "$WORK/antigravity-status.json"
+"$GREP" -qF '"status": "unknown"' "$WORK/antigravity-status.json"
+if "$GREP" -qF "must-not-leak" "$WORK/antigravity-status.json"; then
+  echo "Antigravity probe sensitive fields leaked into status output" >&2
   exit 1
 fi
 

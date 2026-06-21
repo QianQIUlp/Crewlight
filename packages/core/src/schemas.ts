@@ -20,11 +20,13 @@ export const agentSourceSchema = z.enum([
   "vscode-agent",
   "gemini-cli",
   "aider",
+  "antigravity",
   "generic-cli",
   "custom",
 ]);
 
 export const agentSurfaceSchema = z.enum([
+  "unknown",
   "cli",
   "ide-extension",
   "desktop",

@@ -16,6 +16,7 @@
     "@agentpulse/adapter-claude-code": "workspace:^",
     "@agentpulse/adapter-codex": "workspace:^",
     "@agentpulse/adapter-generic-cli": "workspace:^",
+    "@agentpulse/adapter-opencode": "workspace:^",
     "@agentpulse/core": "workspace:^",
     "@agentpulse/daemon": "workspace:^",
     "@agentpulse/notifier": "workspace:^",
