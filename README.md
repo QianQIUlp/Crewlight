@@ -17,6 +17,10 @@ optional browser dashboard.
 The recommended user installation is a standalone Linux x64 or Windows x64
 release binary. It does not require Node.js, npm, or pnpm.
 
+AgentPulse v0.3.0 is currently unreleased. Until its release assets are
+published, the download commands below intentionally reference the latest
+published release, v0.2.3.
+
 1. Download the archive and matching `.sha256` file from
    [GitHub Releases](https://github.com/QianQIUlp/AgentPulse/releases):
 
@@ -264,13 +268,21 @@ See [architecture](docs/architecture.md),
 Codex hooks are observation-only: AgentPulse never returns permission decisions,
 context, updated tool input, or turn-control output.
 
-## v0.2.3 Scope Boundaries
+## Known Limitations
 
-v0.2.3 does not claim verified OpenCode Desktop, Codex Desktop, or Antigravity
-support. It also does not include Cursor adapters, a VS Code extension, Tauri,
-Electron, a desktop tray, persistence, SSE/WebSocket, session garbage
-collection, hardware output, automatic user-config mutation, OCR, screen
-scraping, window watching, or private API reverse engineering.
+- OpenCode is implemented but requires verification against a real local
+  installation before it can be labeled supported.
+- Codex Desktop remains experimental.
+- Antigravity remains research-only and is not a stable adapter or setup path.
+
+## v0.3.0 Release-Candidate Scope Boundaries
+
+The unreleased v0.3.0 release candidate does not promote OpenCode to verified
+support, Codex Desktop beyond experimental, or Antigravity beyond research-only.
+It also does not include Cursor adapters, a VS Code extension, Tauri, Electron,
+a desktop tray, persistence, SSE/WebSocket, session garbage collection,
+hardware output, automatic user-config mutation, OCR, screen scraping, window
+watching, or private API reverse engineering.
 
 ## License
 

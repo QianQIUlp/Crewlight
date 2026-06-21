@@ -45,18 +45,18 @@ jobs:
           {
             echo "## Linux x64 standalone build"
             echo '```text'
-            cat release/agentpulse-v0.2.3-linux-x64/BUILD-INFO.txt
+            cat release/agentpulse-v0.3.0-linux-x64/BUILD-INFO.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Smoke test without Node or pnpm on PATH
         run: pnpm smoke:standalone
       - uses: actions/upload-artifact@v4
         with:
-          name: agentpulse-v0.2.3-linux-x64
+          name: agentpulse-v0.3.0-linux-x64
           if-no-files-found: error
           path: |
-            release/agentpulse-v0.2.3-linux-x64.tar.gz
-            release/agentpulse-v0.2.3-linux-x64.tar.gz.sha256
+            release/agentpulse-v0.3.0-linux-x64.tar.gz
+            release/agentpulse-v0.3.0-linux-x64.tar.gz.sha256
 
   standalone-windows-x64:
     runs-on: windows-latest
@@ -82,7 +82,7 @@ jobs:
           @(
             "## Windows x64 standalone build"
             '```text'
-            (Get-Content release/agentpulse-v0.2.3-windows-x64/BUILD-INFO.txt -Raw)
+            (Get-Content release/agentpulse-v0.3.0-windows-x64/BUILD-INFO.txt -Raw)
             '```'
           ) | Add-Content $env:GITHUB_STEP_SUMMARY
       - name: Smoke test without Node or pnpm on PATH
@@ -90,8 +90,8 @@ jobs:
         run: pnpm smoke:standalone:windows
       - uses: actions/upload-artifact@v4
         with:
-          name: agentpulse-v0.2.3-windows-x64
+          name: agentpulse-v0.3.0-windows-x64
           if-no-files-found: error
           path: |
-            release/agentpulse-v0.2.3-windows-x64.zip
-            release/agentpulse-v0.2.3-windows-x64.zip.sha256
+            release/agentpulse-v0.3.0-windows-x64.zip
+            release/agentpulse-v0.3.0-windows-x64.zip.sha256

@@ -1,6 +1,10 @@
 # Install AgentPulse Without Node.js
 
-The recommended v0.2.3 user path is a standalone Linux x64 or Windows x64
+AgentPulse v0.3.0 is currently unreleased. Until its release assets are
+published, this guide intentionally documents the latest published release,
+v0.2.3.
+
+The recommended published user path is a standalone Linux x64 or Windows x64
 release archive. The executable embeds its Node runtime; users do not need
 Node.js, npm, pnpm, Corepack, or the source repository.
 

@@ -8,7 +8,7 @@ import { executeSetupCommand } from "./commands/setup.js";
 import { executeStatusCommand } from "./commands/status.js";
 import { consoleIo, readStdin, type CommandIo } from "./commands/types.js";
 
-const USAGE = `AgentPulse v0.2.3
+const USAGE = `AgentPulse v0.3.0
 
 Usage:
   agentpulse daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard] [--dashboard-task-titles prompt-preview]
