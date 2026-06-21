@@ -11,6 +11,7 @@ import {
   type NotifierKind,
   type OsNotifierProbeResult,
 } from "@agentpulse/notifier";
+import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@agentpulse/shared";
 
 import { DaemonClient } from "../daemon-client.js";
 import { createSetupSnippets, type CodexHooksSetupResult } from "./setup.js";
@@ -36,6 +37,10 @@ export interface DoctorRuntime {
   pnpmVersion(): string | undefined;
   cliBuilt(): Promise<boolean>;
   daemonReachable(): Promise<boolean>;
+  dashboardCapabilities(): Promise<{ taskTitleMode: string } | undefined>;
+  pathResolvedAgentpulse(): string | undefined;
+  entryPath(): string | undefined;
+  daemonEnv(): { host: string; port: number };
   osNotifier(): Promise<OsNotifierProbeResult>;
   claudeSnippet(): string;
   codexSnippet(): string;
@@ -50,6 +55,9 @@ export function createDoctorRuntime(
   options: DoctorRuntimeOptions = {},
 ): DoctorRuntime {
   const setup = createSetupSnippets();
+  const client = new DaemonClient(
+    options.baseUrl ? { baseUrl: options.baseUrl } : {},
+  );
   return {
     standalone: isSea,
     nodeVersion: () => process.versions.node,
@@ -76,13 +84,41 @@ export function createDoctorRuntime(
     },
     daemonReachable: async () => {
       try {
-        await new DaemonClient(
-          options.baseUrl ? { baseUrl: options.baseUrl } : {},
-        ).sessions();
+        await client.sessions();
         return true;
       } catch {
         return false;
       }
+    },
+    dashboardCapabilities: async () => {
+      try {
+        return await client.dashboardCapabilities?.();
+      } catch {
+        return undefined;
+      }
+    },
+    pathResolvedAgentpulse: () => {
+      try {
+        const result = spawnSync(
+          process.platform === "win32" ? "where" : "which",
+          ["agentpulse"],
+          {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+          },
+        );
+        return result.status === 0
+          ? result.stdout.trim().split("\n")[0]
+          : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    entryPath: () => process.argv[1],
+    daemonEnv: () => {
+      const host = process.env.AGENTPULSE_HOST ?? DEFAULT_DAEMON_HOST;
+      const port = Number(process.env.AGENTPULSE_PORT ?? DEFAULT_DAEMON_PORT);
+      return { host, port };
     },
     osNotifier: probeOsNotifier,
     claudeSnippet: () => setup.claudeCode,
@@ -253,8 +289,106 @@ async function notifierCheck(
   };
 }
 
+function runtimeChecks(runtime: DoctorRuntime): DoctorCheck[] {
+  const checks: DoctorCheck[] = [];
+  const env = runtime.daemonEnv();
+
+  if (env.port !== DEFAULT_DAEMON_PORT) {
+    checks.push({
+      id: "daemon-port",
+      status: "ok", // info
+      message: `Daemon is configured to use a non-default port (${env.port}). Ensure ingest commands specify this port.`,
+    });
+  }
+
+  if (
+    env.host !== "127.0.0.1" &&
+    env.host !== "::1" &&
+    env.host !== "localhost"
+  ) {
+    checks.push({
+      id: "daemon-host",
+      status: "ok", // info
+      message: `Daemon is listening on ${env.host}. Note that Codespaces/remote environments may require port forwarding configurations.`,
+    });
+  }
+
+  const entry = runtime.entryPath();
+  const pathResolved = runtime.pathResolvedAgentpulse();
+  if (
+    entry &&
+    pathResolved &&
+    !entry.includes(pathResolved) &&
+    !pathResolved.includes(entry)
+  ) {
+    checks.push({
+      id: "cli-resolution",
+      status: "warning",
+      message: `The current process entry (${entry}) differs from the PATH-resolved agentpulse (${pathResolved}).`,
+      action:
+        "Ensure your shell hooks and ingest commands invoke the intended AgentPulse installation.",
+    });
+  } else if (pathResolved) {
+    checks.push({
+      id: "cli-resolution",
+      status: "ok",
+      message: `PATH-resolved agentpulse: ${pathResolved}`,
+    });
+  }
+
+  return checks;
+}
+
+async function capabilitiesChecks(
+  runtime: DoctorRuntime,
+  expectTaskTitles: string | undefined,
+): Promise<DoctorCheck[]> {
+  const checks: DoctorCheck[] = [];
+  const caps = await runtime.dashboardCapabilities();
+  if (!caps) {
+    checks.push({
+      id: "capabilities-endpoint",
+      status: "error",
+      message: "AgentPulse capabilities endpoint is unreachable.",
+      action: "Start `agentpulse daemon` and ensure the dashboard is enabled.",
+    });
+    return checks;
+  }
+  checks.push({
+    id: "capabilities-endpoint",
+    status: "ok",
+    message: "AgentPulse capabilities endpoint is reachable.",
+  });
+
+  if (expectTaskTitles !== undefined) {
+    if (caps.taskTitleMode === expectTaskTitles) {
+      checks.push({
+        id: "task-titles",
+        status: "ok",
+        message: `Task titles mode matches expectation (${expectTaskTitles}).`,
+      });
+    } else {
+      checks.push({
+        id: "task-titles",
+        status: "warning",
+        message: `Task titles mode is '${caps.taskTitleMode}', but expected '${expectTaskTitles}'.`,
+        action: `Start daemon with \`--dashboard-task-titles ${expectTaskTitles}\`.`,
+      });
+    }
+  } else {
+    checks.push({
+      id: "task-titles",
+      status: "ok",
+      message: `Task titles mode is: ${caps.taskTitleMode}. Run doctor with --expect-task-titles to verify expectations.`,
+    });
+  }
+
+  return checks;
+}
+
 export async function runDoctor(
   notifier: NotifierKind,
+  expectTaskTitles?: string,
   runtime: DoctorRuntime = createDoctorRuntime(),
 ): Promise<DoctorReport> {
   const standalone = runtime.standalone();
@@ -286,6 +420,7 @@ export async function runDoctor(
             action:
               "Run `pnpm build`, then invoke `node packages/cli/dist/index.js doctor`.",
           },
+    ...runtimeChecks(runtime),
     (await runtime.daemonReachable())
       ? {
           id: "daemon",
@@ -300,6 +435,7 @@ export async function runDoctor(
           action:
             "Start `agentpulse daemon --notifier console`, verify AGENTPULSE_HOST/PORT, then rerun doctor.",
         },
+    ...(await capabilitiesChecks(runtime, expectTaskTitles)),
     await notifierCheck(notifier, runtime),
     ...setupChecks(runtime),
   ];
@@ -334,6 +470,7 @@ export async function executeDoctorCommand(
     options: {
       json: { type: "boolean", default: false },
       notifier: { type: "string", default: "console" },
+      "expect-task-titles": { type: "string" },
     },
     strict: true,
   });
@@ -342,7 +479,11 @@ export async function executeDoctorCommand(
     throw new Error(`Invalid notifier kind: ${values.notifier}`);
   }
 
-  const report = await runDoctor(values.notifier, runtime);
+  const report = await runDoctor(
+    values.notifier,
+    values["expect-task-titles"],
+    runtime,
+  );
   if (values.json) {
     io.write(JSON.stringify(report, null, 2));
   } else {

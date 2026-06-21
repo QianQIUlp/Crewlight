@@ -102,10 +102,16 @@ export async function executeDaemonCommand(
           codexHooks: formatCodexHooksSetup(setup.codexHooks),
           openCode: setup.openCode,
           antigravityProbe: createAntigravityProbeCommand(),
+          verification: {
+            claudeCode: setup.verification.claudeCode,
+            codex: setup.verification.codex,
+            antigravityProbe: createAntigravityProbeCommand(),
+          },
         },
         doctor: () => {
           doctorReport ??= runDoctor(
             config.notifier,
+            undefined,
             createDoctorRuntime({
               baseUrl: formatDaemonUrl(config.host, config.port),
             }),

@@ -26,6 +26,10 @@ export interface SetupSnippets {
   codex: string;
   codexHooks: CodexHooksSetupResult;
   openCode: string;
+  verification: {
+    claudeCode: string;
+    codex: string;
+  };
 }
 
 export interface SetupUnavailableReason {
@@ -404,6 +408,37 @@ export function createSetupSnippets(
   codexHooksSurface: CodexHookSurface = "cli",
 ): SetupSnippets {
   const command = resolveAgentPulseCommand(binary, runtime);
+  const ingestClaude = renderHookCommand(
+    [...command, "ingest", "claude-code"],
+    runtime.platform,
+  );
+  const ingestCodex = renderHookCommand(
+    [...command, "ingest", "codex"],
+    runtime.platform,
+  );
+
+  const claudePayload = JSON.stringify({
+    hook_event_name: "UserPromptSubmit",
+    prompt: "AgentPulse verification test",
+    session_id: "agentpulse-verify-claude-code",
+  });
+
+  const codexPayload = JSON.stringify({
+    notify: "activity",
+    message: "AgentPulse verification test",
+    source: "codex",
+    session_id: "agentpulse-verify-codex",
+  });
+
+  const claudeEcho =
+    runtime.platform === "win32"
+      ? `echo ${claudePayload}`
+      : renderHookCommand(["printf", "%s\\n", claudePayload], runtime.platform);
+  const codexEcho =
+    runtime.platform === "win32"
+      ? `echo ${codexPayload}`
+      : renderHookCommand(["printf", "%s\\n", codexPayload], runtime.platform);
+
   return {
     claudeCode: createClaudeCodeSnippet(command, runtime.platform),
     codex: createCodexNotifySnippet(command),
@@ -413,6 +448,10 @@ export function createSetupSnippets(
       codexHooksSurface,
     ),
     openCode: createOpenCodePlugin(command),
+    verification: {
+      claudeCode: `${claudeEcho} | ${ingestClaude}`,
+      codex: `${codexEcho} | ${ingestCodex}`,
+    },
   };
 }
 
