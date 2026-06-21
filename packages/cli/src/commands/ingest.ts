@@ -5,11 +5,17 @@ import {
   isCodexHookEventName,
   type CodexHookEventName,
 } from "@agentpulse/adapter-codex";
+import {
+  ingestOpenCodePluginJson,
+  isOpenCodeEventType,
+} from "@agentpulse/adapter-opencode";
+import type { AgentEventInput, AgentSurface } from "@agentpulse/core";
 
 import type { AgentPulseClient } from "../daemon-client.js";
 import type { CommandIo, StdinReader } from "./types.js";
 
 const WARNING_PREFIX = "AgentPulse ingest warning:";
+type ProbeSurface = Extract<AgentSurface, "unknown" | "cli" | "desktop">;
 
 function warn(io: CommandIo, message: string): void {
   io.warn(`${WARNING_PREFIX} ${message}`);
@@ -66,21 +72,24 @@ async function ingestCodexHook(
   client: AgentPulseClient,
   readStdin: StdinReader,
 ): Promise<number> {
-  const hookArg = platformArgs[1];
+  const options = parseUniqueOptions(platformArgs, ["--hook", "--surface"]);
+  if (!options) {
+    return 0;
+  }
+
+  const hookArg = options["--hook"];
   const hookSelection:
     | { kind: "stdin" }
     | { kind: "override"; hook: CodexHookEventName }
     | { kind: "ignore" } =
-    platformArgs.length === 0
+    hookArg === undefined
       ? { kind: "stdin" }
-      : platformArgs.length === 2 &&
-          platformArgs[0] === "--hook" &&
-          hookArg !== undefined &&
-          isCodexHookEventName(hookArg)
+      : isCodexHookEventName(hookArg)
         ? { kind: "override", hook: hookArg }
         : { kind: "ignore" };
+  const surface = parseProbeSurface(options["--surface"]);
 
-  if (hookSelection.kind === "ignore") {
+  if (hookSelection.kind === "ignore" || !surface) {
     return 0;
   }
 
@@ -97,6 +106,7 @@ async function ingestCodexHook(
     const result = ingestCodexHookJson(
       json,
       hookSelection.kind === "override" ? hookSelection.hook : undefined,
+      surface,
     );
     if (result.kind === "event") {
       try {
@@ -110,6 +120,181 @@ async function ingestCodexHook(
   }
 
   return 0;
+}
+
+function parseUniqueOptions(
+  args: readonly string[],
+  allowed: readonly string[],
+): Record<string, string> | undefined {
+  if (args.length % 2 !== 0) {
+    return undefined;
+  }
+
+  const result: Record<string, string> = {};
+  const allowedSet = new Set(allowed);
+  for (let index = 0; index < args.length; index += 2) {
+    const option = args[index];
+    const value = args[index + 1];
+    if (
+      !option ||
+      !value ||
+      !allowedSet.has(option) ||
+      result[option] !== undefined
+    ) {
+      return undefined;
+    }
+    result[option] = value;
+  }
+  return result;
+}
+
+function parseProbeSurface(
+  value: string | undefined,
+): ProbeSurface | undefined {
+  if (value === undefined) {
+    return "unknown";
+  }
+  return value === "unknown" || value === "cli" || value === "desktop"
+    ? value
+    : undefined;
+}
+
+async function deliverSilently(
+  event: AgentEventInput | undefined,
+  client: AgentPulseClient,
+): Promise<number> {
+  if (!event) {
+    return 0;
+  }
+
+  try {
+    await client.emit(event);
+  } catch {
+    // Platform hooks and probes must not block when the daemon is unavailable.
+  }
+  return 0;
+}
+
+async function ingestOpenCodePlugin(
+  platformArgs: readonly string[],
+  client: AgentPulseClient,
+  readStdin: StdinReader,
+): Promise<number> {
+  const options = parseUniqueOptions(platformArgs, ["--event"]);
+  const eventOverride = options?.["--event"];
+  if (
+    !options ||
+    (eventOverride !== undefined && !isOpenCodeEventType(eventOverride))
+  ) {
+    return 0;
+  }
+
+  let json = "";
+  try {
+    json = await readStdin();
+  } catch {
+    // An explicit event can still produce a safe best-effort observation.
+  }
+
+  try {
+    const result = ingestOpenCodePluginJson(json, eventOverride);
+    return deliverSilently(
+      result.kind === "event" ? result.event : undefined,
+      client,
+    );
+  } catch {
+    return 0;
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function safeText(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function safeTimestamp(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+    ? value
+    : undefined;
+}
+
+function antigravityProbeEvent(
+  input: unknown,
+  eventOverride: string | undefined,
+  surface: ProbeSurface,
+): AgentEventInput | undefined {
+  const payload = asRecord(input);
+  const event = asRecord(payload?.event);
+  const properties = asRecord(event?.properties);
+  const info = asRecord(properties?.info);
+  const eventType = eventOverride ?? safeText(event?.type);
+  if (!eventType) {
+    return undefined;
+  }
+
+  const sessionId =
+    safeText(payload?.sessionId) ??
+    safeText(payload?.sessionID) ??
+    safeText(payload?.session_id) ??
+    safeText(properties?.sessionID) ??
+    safeText(properties?.sessionId) ??
+    safeText(info?.id);
+  const projectPath =
+    safeText(payload?.cwd) ??
+    safeText(payload?.directory) ??
+    safeText(payload?.projectPath);
+  const timestamp =
+    safeTimestamp(payload?.timestamp) ??
+    safeTimestamp(event?.timestamp) ??
+    safeTimestamp(properties?.timestamp);
+
+  return {
+    source: "antigravity",
+    surface,
+    status: "unknown",
+    title: eventType,
+    message: "Antigravity probe event observed",
+    ...(sessionId ? { sessionId } : {}),
+    ...(projectPath ? { projectPath } : {}),
+    ...(timestamp !== undefined ? { timestamp } : {}),
+  };
+}
+
+async function ingestAntigravityProbe(
+  platformArgs: readonly string[],
+  client: AgentPulseClient,
+  readStdin: StdinReader,
+): Promise<number> {
+  const options = parseUniqueOptions(platformArgs, ["--event", "--surface"]);
+  const surface = options ? parseProbeSurface(options["--surface"]) : undefined;
+  if (!options || !surface) {
+    return 0;
+  }
+
+  let input: unknown;
+  try {
+    input = JSON.parse(await readStdin());
+  } catch {
+    // Missing and malformed probe input are intentionally ignored.
+  }
+
+  try {
+    return deliverSilently(
+      antigravityProbeEvent(input, safeText(options["--event"]), surface),
+      client,
+    );
+  } catch {
+    return 0;
+  }
 }
 
 async function ingest(
@@ -149,9 +334,17 @@ async function ingest(
     return ingestCodexHook(platformArgs, client, readStdin);
   }
 
+  if (platform === "opencode-plugin") {
+    return ingestOpenCodePlugin(platformArgs, client, readStdin);
+  }
+
+  if (platform === "antigravity-probe") {
+    return ingestAntigravityProbe(platformArgs, client, readStdin);
+  }
+
   warn(
     io,
-    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, or `codex-hook`, then run `agentpulse doctor`.",
+    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `opencode-plugin`, or `antigravity-probe`, then run `agentpulse doctor`.",
   );
   return 0;
 }

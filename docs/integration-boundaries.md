@@ -47,6 +47,27 @@ are separate interfaces and are not used by this adapter.
 The adapter never copies complete `input-messages`; it uses a bounded
 `last-assistant-message` when available.
 
+## OpenCode plugin MVP
+
+The OpenCode adapter consumes documented plugin events and maps only session,
+permission, tool lifecycle, and message activity states. The generated plugin
+uses an argv-array child process call and sends only event type, session ID,
+status type, cwd, and timestamp.
+
+Prompts, message content, tool arguments, tool output, file contents,
+environment data, and raw events are not sent to AgentPulse. The implementation
+is pending real local verification and is not yet labeled `supported`.
+
+## Experimental and research-only surfaces
+
+Codex Desktop reuses the Codex hooks adapter with `surface=desktop`. It remains
+experimental until a real Desktop test confirms hook loading and payload
+behavior.
+
+The Antigravity probe emits only caller-observed, sanitized metadata with
+`status=unknown`. It is research scaffolding, not a formal adapter. AgentPulse
+does not claim a verified Antigravity hook configuration or payload contract.
+
 ## Best-effort integration
 
 The generic CLI wrapper reports only the process it starts:
@@ -75,11 +96,11 @@ whitelisted `AgentEventInput`. They must not:
 - claim lifecycle states the source interface does not expose.
 
 Claude Code hook and Codex notify ingest commands warn and return zero for
-invalid input, unsupported event types, or daemon delivery failure. Codex hook
-ingest instead returns no stdout or stderr output and exits zero so platform
-lifecycle execution continues without hook-failure noise. Generated Codex hook
-commands pass the lifecycle event in `--hook`; stdin is optional payload and is
-not the sole event source.
+invalid input, unsupported event types, or daemon delivery failure. Codex hook,
+OpenCode plugin, and Antigravity probe ingest instead return no stdout or stderr
+output and exit zero so platform lifecycle execution continues without
+hook-failure noise. Generated Codex hook commands pass the lifecycle event in
+`--hook`; stdin is optional payload and is not the sole event source.
 
 ## Prohibited foundations
 

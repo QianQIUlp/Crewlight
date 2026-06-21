@@ -13,6 +13,7 @@
     { "path": "../daemon" },
     { "path": "../adapters/claude-code" },
     { "path": "../adapters/codex" },
-    { "path": "../adapters/generic-cli" }
+    { "path": "../adapters/generic-cli" },
+    { "path": "../adapters/opencode" }
   ]
 }

@@ -1,4 +1,8 @@
-import type { AgentEventInput, AgentStatus } from "@agentpulse/core";
+import type {
+  AgentEventInput,
+  AgentStatus,
+  AgentSurface,
+} from "@agentpulse/core";
 
 import { codexHookInputSchema } from "./codex-hook-input.js";
 import type { CodexAdapterResult } from "./map-codex-notification.js";
@@ -44,6 +48,7 @@ function safeToolName(toolName: string | undefined): string | undefined {
 export function mapCodexHook(
   input: unknown,
   hookEventOverride?: string,
+  surface: AgentSurface = "unknown",
 ): CodexAdapterResult {
   const parsed = codexHookInputSchema.safeParse(input);
   if (!parsed.success) {
@@ -63,7 +68,7 @@ export function mapCodexHook(
   const toolName = safeToolName(payload.tool_name);
   const event: AgentEventInput = {
     source: "codex",
-    surface: "cli",
+    surface,
     status,
     title: hookEventName,
     ...(payload.session_id ? { sessionId: payload.session_id } : {}),

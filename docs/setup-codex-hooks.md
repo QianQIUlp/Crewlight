@@ -36,7 +36,7 @@ C:\Users\<you>\Tools\AgentPulse\agentpulse.exe
 The generated command is:
 
 ```text
-C:\Users\<you>\Tools\AgentPulse\agentpulse.exe ingest codex-hook --hook Stop
+C:\Users\<you>\Tools\AgentPulse\agentpulse.exe ingest codex-hook --hook Stop --surface cli
 ```
 
 If the path contains whitespace or command-sensitive characters, setup fails
@@ -71,10 +71,11 @@ AgentPulse does not bypass or weaken this review flow.
 | `Stop`              | `completed`          |
 
 Each generated hook command passes its event name explicitly, for example
-`--hook Stop`. This argv value takes precedence over `hook_event_name` in stdin.
+`--hook Stop`, and setup also passes `--surface cli`. The event argv value takes
+precedence over `hook_event_name` in stdin.
 When `--hook` is absent for backward compatibility, AgentPulse falls back to the
-stdin event name. Missing, malformed, or changed stdin does not block a valid
-explicit hook event.
+stdin event name and uses `surface=unknown`. Missing, malformed, or changed
+stdin does not block a valid explicit hook event.
 
 The stdin payload is used only for the session ID, working directory, and a
 bounded tool name where useful. AgentPulse does not read or retain prompts,
@@ -104,7 +105,7 @@ Synthetic check:
 
 ```bash
 printf '%s' '{"session_id":"codex-hook-demo","cwd":"/tmp/demo"}' \
-  | agentpulse ingest codex-hook --hook PermissionRequest
+  | agentpulse ingest codex-hook --hook PermissionRequest --surface cli
 agentpulse status --json
 ```
 
@@ -113,5 +114,8 @@ a tool. On Windows, confirm that the displayed `commandWindows` does not begin
 with a quote. See the official
 [Codex hooks reference](https://developers.openai.com/codex/hooks).
 
-Codex Desktop remains unverified. The documented Codex notify integration is a
-stable fallback when completed-only notifications are sufficient.
+Codex Desktop remains experimental. For a controlled Desktop test, use
+`agentpulse setup codex-hooks --print --surface desktop` and follow the
+[manual verification checklist](codex-desktop.md). The documented Codex notify
+integration is a stable fallback when completed-only notifications are
+sufficient.

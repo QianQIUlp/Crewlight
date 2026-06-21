@@ -1,9 +1,10 @@
 # AgentPulse
 
 AgentPulse is a local activity hub for AI coding agents. It receives supported
-Claude Code, Codex, generic CLI, and manual events, aggregates them into
-in-memory sessions, and exposes their current state through notifications, CLI
-commands, and an optional browser dashboard.
+Claude Code and Codex events, an OpenCode plugin MVP, generic CLI observations,
+research probes, and manual events. It aggregates them into in-memory sessions
+and exposes their current state through notifications, CLI commands, and an
+optional browser dashboard.
 
 ## Quick Start
 
@@ -95,6 +96,12 @@ Print a Codex lifecycle hooks snippet:
 agentpulse setup codex-hooks --print
 ```
 
+Print an OpenCode local plugin:
+
+```bash
+agentpulse setup opencode --print
+```
+
 These commands only print mergeable snippets. They never read or modify user
 configuration. By default they include the absolute current standalone binary
 path, or the absolute Node executable plus CLI entry path for source mode. Use
@@ -104,10 +111,11 @@ platform-specific merge instructions:
 - [Claude Code setup](docs/setup-claude-code.md)
 - [Codex notify setup](docs/setup-codex.md)
 - [Codex hooks setup](docs/setup-codex-hooks.md)
+- [OpenCode plugin MVP](docs/opencode.md)
 
-The ingest commands are intended to be called by those integrations. Malformed
-input, unsupported events, and daemon connection failures warn safely without
-interrupting the host platform.
+The ingest commands are intended to be called by those integrations. Hook-style
+OpenCode and Codex lifecycle ingest remains silent and non-blocking even for
+malformed input or daemon failures.
 
 ## CLI Usage
 
@@ -240,6 +248,10 @@ See [architecture](docs/architecture.md),
   permission, and stop events after the user reviews and trusts the commands.
 - **Narrow official notify:** Codex `notify` remains available for
   `agent-turn-complete`.
+- **Implemented, verification pending:** OpenCode uses documented local plugin
+  events but still requires a real local verification before a supported label.
+- **Experimental:** Codex Desktop reuses Codex hooks with an explicit surface.
+- **Research-only:** Antigravity exposes only a sanitized probe command.
 - **Best-effort:** the generic CLI wrapper observes only the command it starts.
 - **Manual:** callers explicitly submit normalized events.
 
@@ -248,8 +260,9 @@ context, updated tool input, or turn-control output.
 
 ## v0.2.3 Scope Boundaries
 
-v0.2.3 does not include OpenCode or Cursor adapters, a VS Code extension,
-Tauri, Electron, a desktop tray, persistence, SSE/WebSocket, session garbage
+v0.2.3 does not claim verified OpenCode Desktop, Codex Desktop, or Antigravity
+support. It also does not include Cursor adapters, a VS Code extension, Tauri,
+Electron, a desktop tray, persistence, SSE/WebSocket, session garbage
 collection, hardware output, automatic user-config mutation, OCR, screen
 scraping, window watching, or private API reverse engineering.
 

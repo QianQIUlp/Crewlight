@@ -16,10 +16,13 @@ Usage:
   agentpulse emit --source SOURCE --surface SURFACE --status STATUS [options]
   agentpulse ingest claude-code
   agentpulse ingest codex [json]
-  agentpulse ingest codex-hook [--hook EVENT]
+  agentpulse ingest codex-hook [--hook EVENT] [--surface unknown|cli|desktop]
+  agentpulse ingest opencode-plugin [--event EVENT]
+  agentpulse ingest antigravity-probe [--event EVENT] [--surface unknown|cli|desktop]
   agentpulse setup claude-code --print [--binary PATH]
   agentpulse setup codex --print [--binary PATH]
-  agentpulse setup codex-hooks --print [--binary PATH]
+  agentpulse setup codex-hooks --print [--binary PATH] [--surface unknown|cli|desktop]
+  agentpulse setup opencode --print [--binary PATH]
   agentpulse status [--json]
   agentpulse run [--source generic-cli] [--cwd PATH] -- <command> [args...]
 `;

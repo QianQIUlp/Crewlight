@@ -69,4 +69,21 @@ describe("normalizeAgentEvent", () => {
       normalizeAgentEvent({ ...baseInput, status: "waiting_input" }).urgency,
     ).toBe("high");
   });
+
+  it("accepts unknown surfaces for research-only sources", () => {
+    const event = normalizeAgentEvent({
+      source: "antigravity",
+      surface: "unknown",
+      status: "unknown",
+      sessionId: "probe-session",
+    });
+
+    expect(event).toMatchObject({
+      source: "antigravity",
+      surface: "unknown",
+      status: "unknown",
+      sessionId: "probe-session",
+    });
+    expect(event.sessionKey).not.toBe("probe-session");
+  });
 });

@@ -10,8 +10,9 @@ import {
 
 import type { CommandIo } from "./types.js";
 
-type SetupPlatform = "claude-code" | "codex" | "codex-hooks";
+type SetupPlatform = "claude-code" | "codex" | "codex-hooks" | "opencode";
 type RuntimePlatform = NodeJS.Platform;
+type CodexHookSurface = "unknown" | "cli" | "desktop";
 
 export interface SetupRuntime {
   isSea(): boolean;
@@ -24,6 +25,7 @@ export interface SetupSnippets {
   claudeCode: string;
   codex: string;
   codexHooks: CodexHooksSetupResult;
+  openCode: string;
 }
 
 export interface SetupUnavailableReason {
@@ -37,7 +39,7 @@ export type CodexHooksSetupResult =
   | { available: false; reason: SetupUnavailableReason };
 
 const SETUP_USAGE =
-  "Usage: agentpulse setup <claude-code|codex|codex-hooks> --print [--binary <absolute-path|agentpulse>]";
+  "Usage: agentpulse setup <claude-code|codex|codex-hooks|opencode> --print [--binary <absolute-path|agentpulse>] [--surface <unknown|cli|desktop>]";
 const WINDOWS_CODEX_HOOK_SIMPLE_TOKEN = /^[\p{L}\p{N}:\\/._-]+$/u;
 const WINDOWS_CODEX_HOOKS_UNAVAILABLE: SetupUnavailableReason = {
   code: "windows-codex-hooks-unsafe-command",
@@ -210,6 +212,7 @@ function createCodexNotifySnippet(command: readonly string[]): string {
 function createCodexHooksSnippet(
   command: readonly string[],
   platform: RuntimePlatform,
+  surface: CodexHookSurface,
 ): CodexHooksSetupResult {
   const windowsCommandAvailable =
     platform !== "win32" ||
@@ -222,7 +225,15 @@ function createCodexHooksSnippet(
   }
 
   const group = (hookEventName: CodexHookEventName) => {
-    const argv = [...command, "ingest", "codex-hook", "--hook", hookEventName];
+    const argv = [
+      ...command,
+      "ingest",
+      "codex-hook",
+      "--hook",
+      hookEventName,
+      "--surface",
+      surface,
+    ];
     const rendered = renderHookCommand(argv, platform);
     const commandWindows = platform === "win32" ? argv.join(" ") : undefined;
     return hookGroup(rendered, undefined, commandWindows);
@@ -245,15 +256,130 @@ function createCodexHooksSnippet(
   };
 }
 
+function createOpenCodePlugin(command: readonly string[]): string {
+  const commandJson = JSON.stringify(command);
+  return `const AGENTPULSE_COMMAND = ${commandJson};
+const EVENT_TYPES = new Set([
+  "session.created",
+  "session.updated",
+  "session.status",
+  "session.idle",
+  "session.error",
+  "permission.asked",
+  "permission.replied",
+  "message.updated",
+]);
+
+function safeText(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function safeSessionID(event) {
+  const properties = event?.properties;
+  return (
+    safeText(properties?.sessionID) ??
+    safeText(properties?.sessionId) ??
+    safeText(properties?.info?.id)
+  );
+}
+
+function safeStatusType(event) {
+  const status = event?.properties?.status;
+  return safeText(typeof status === "string" ? status : status?.type);
+}
+
+function publish(eventType, sessionID, statusType, cwd) {
+  try {
+    const bun = globalThis.Bun;
+    if (!bun || typeof bun.spawn !== "function") {
+      return;
+    }
+
+    const properties = {
+      ...(sessionID ? { sessionID } : {}),
+      ...(statusType ? { status: { type: statusType } } : {}),
+    };
+    const payload = {
+      event: { type: eventType, properties },
+      ...(safeText(cwd) ? { cwd: safeText(cwd) } : {}),
+      timestamp: Date.now(),
+    };
+    const proc = bun.spawn(
+      [
+        ...AGENTPULSE_COMMAND,
+        "ingest",
+        "opencode-plugin",
+        "--event",
+        eventType,
+      ],
+      {
+        stdin: new Blob([JSON.stringify(payload)], {
+          type: "application/json",
+        }),
+        stdout: "ignore",
+        stderr: "ignore",
+      },
+    );
+    if (typeof proc.unref === "function") {
+      proc.unref();
+    }
+  } catch {}
+}
+
+export const AgentPulsePlugin = async ({ directory }) => ({
+  event: async ({ event }) => {
+    try {
+      const eventType = safeText(event?.type);
+      if (!eventType || !EVENT_TYPES.has(eventType)) {
+        return;
+      }
+      publish(
+        eventType,
+        safeSessionID(event),
+        safeStatusType(event),
+        directory,
+      );
+    } catch {}
+  },
+  "tool.execute.before": async (input) => {
+    try {
+      publish(
+        "tool.execute.before",
+        safeText(input?.sessionID),
+        undefined,
+        directory,
+      );
+    } catch {}
+  },
+  "tool.execute.after": async (input) => {
+    try {
+      publish(
+        "tool.execute.after",
+        safeText(input?.sessionID),
+        undefined,
+        directory,
+      );
+    } catch {}
+  },
+});
+`;
+}
+
 export function createSetupSnippets(
   binary?: string,
   runtime: SetupRuntime = currentSetupRuntime(),
+  codexHooksSurface: CodexHookSurface = "cli",
 ): SetupSnippets {
   const command = resolveAgentPulseCommand(binary, runtime);
   return {
     claudeCode: createClaudeCodeSnippet(command, runtime.platform),
     codex: createCodexNotifySnippet(command),
-    codexHooks: createCodexHooksSnippet(command, runtime.platform),
+    codexHooks: createCodexHooksSnippet(
+      command,
+      runtime.platform,
+      codexHooksSurface,
+    ),
+    openCode: createOpenCodePlugin(command),
   };
 }
 
@@ -283,8 +409,15 @@ Merge it manually into ~/.codex/hooks.json or a trusted project .codex/hooks.jso
 Codex requires non-managed command hooks to be reviewed and trusted. Open \`/hooks\`, inspect the exact AgentPulse commands, and trust them only if they match your installation.
 AgentPulse observes hook events only. It does not return permission decisions, context, or turn-control output, and it does not bypass Codex hook trust.
 Each generated command passes its matching lifecycle event through \`--hook <EventName>\`; stdin is treated as optional payload data.
+The default setup marks events as \`--surface cli\`, which preserves the verified Codex CLI path. Use \`--surface desktop\` only for an explicit local Codex Desktop verification.
 On Windows, Codex hooks execute the \`commandWindows\` field. Codex CLI 0.141.0 requires AgentPulse to be installed at a simple no-space path so this field can use an unquoted executable command.
 Use \`--binary agentpulse\` only when Codex can reliably resolve AgentPulse from PATH.`;
+
+const OPENCODE_SETUP_GUIDANCE = `AgentPulse only printed an OpenCode plugin file; it did not read or modify OpenCode configuration.
+Save it as .opencode/plugins/agentpulse.js for one project or ~/.config/opencode/plugins/agentpulse.js for global use.
+The plugin uses an argv-array Bun.spawn call, sends only whitelisted session metadata, ignores child output, and swallows all errors.
+Use \`--binary agentpulse\` only when OpenCode can reliably resolve AgentPulse from PATH.
+OpenCode support is implemented but pending real local verification before it receives a supported label.`;
 
 export function executeSetupCommand(
   args: readonly string[],
@@ -296,6 +429,7 @@ export function executeSetupCommand(
     options: {
       binary: { type: "string" },
       print: { type: "boolean", default: false },
+      surface: { type: "string" },
     },
     allowPositionals: true,
     strict: true,
@@ -309,12 +443,25 @@ export function executeSetupCommand(
   if (
     platform !== "claude-code" &&
     platform !== "codex" &&
-    platform !== "codex-hooks"
+    platform !== "codex-hooks" &&
+    platform !== "opencode"
   ) {
     throw new Error(`Unsupported setup platform: ${platform}`);
   }
 
-  const snippets = createSetupSnippets(values.binary, runtime);
+  const surface = values.surface ?? "cli";
+  if (
+    (values.surface !== undefined && platform !== "codex-hooks") ||
+    (surface !== "unknown" && surface !== "cli" && surface !== "desktop")
+  ) {
+    throw new Error(SETUP_USAGE);
+  }
+
+  const snippets = createSetupSnippets(
+    values.binary,
+    runtime,
+    surface as CodexHookSurface,
+  );
   const selected = platform as SetupPlatform;
   if (selected === "claude-code") {
     io.write(snippets.claudeCode);
@@ -322,13 +469,16 @@ export function executeSetupCommand(
   } else if (selected === "codex") {
     io.write(snippets.codex);
     io.warn(CODEX_SETUP_GUIDANCE);
-  } else {
+  } else if (selected === "codex-hooks") {
     if (!snippets.codexHooks.available) {
       io.warn(formatCodexHooksSetup(snippets.codexHooks));
       return 1;
     }
     io.write(snippets.codexHooks.snippet);
     io.warn(CODEX_HOOKS_SETUP_GUIDANCE);
+  } else {
+    io.write(snippets.openCode);
+    io.warn(OPENCODE_SETUP_GUIDANCE);
   }
 
   return 0;

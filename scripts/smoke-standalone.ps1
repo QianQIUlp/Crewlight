@@ -370,11 +370,19 @@ try {
   foreach ($hookEventName in @("Stop", "PreToolUse")) {
     $codexHooksCommand = Get-HookCommand -Parsed $codexHooksSetup -EventName $hookEventName -FieldName "commandWindows"
     Assert-SetupCommand -Command $codexHooksCommand -Description "Codex hooks $hookEventName setup" -IngestTarget "codex-hook"
-    $expectedCodexHooksCommand = "$Bin ingest codex-hook --hook $hookEventName"
+    $expectedCodexHooksCommand = "$Bin ingest codex-hook --hook $hookEventName --surface cli"
     if ($codexHooksCommand.StartsWith('"', [System.StringComparison]::Ordinal) -or
         -not $codexHooksCommand.Equals($expectedCodexHooksCommand, [System.StringComparison]::OrdinalIgnoreCase)) {
       throw "Codex hooks $hookEventName commandWindows must use the unquoted standalone executable path and matching --hook argument. Expected: $expectedCodexHooksCommand. Actual: $codexHooksCommand"
     }
+  }
+
+  $opencode = Invoke-AgentPulse -Arguments @("setup", "opencode", "--print")
+  if ($opencode.Stdout -notmatch "bun\.spawn\(" -or
+      $opencode.Stdout -notmatch '"opencode-plugin"' -or
+      $opencode.Stdout -notmatch '"--event"' -or
+      $opencode.Stderr -notmatch "pending real local verification") {
+    throw "OpenCode plugin setup output is incomplete."
   }
 
   $env:AGENTPULSE_HOST = "0.0.0.0"
@@ -416,6 +424,22 @@ try {
     throw "Codex PreToolUse hook ingest should have empty stdout and stderr."
   }
 
+  $openCodePayload = '{"cwd":"C:\\demo","event":{"type":"tool.execute.before","properties":{"sessionID":"windows-opencode","prompt":"must-not-leak","args":{"command":"must-not-leak"},"result":"must-not-leak"}}}'
+  $openCode = Invoke-AgentPulse -Arguments @("ingest", "opencode-plugin", "--event", "session.idle") -Stdin $openCodePayload
+  if ($openCode.ExitCode -ne 0 -or
+      (Get-ByteCount -Value $openCode.StdoutBytes) -ne 0 -or
+      (Get-ByteCount -Value $openCode.StderrBytes) -ne 0) {
+    throw "OpenCode plugin ingest should have empty stdout and stderr."
+  }
+
+  $antigravityPayload = '{"session_id":"windows-antigravity","cwd":"C:\\demo","prompt":"must-not-leak","transcript":"must-not-leak","env":{"TOKEN":"must-not-leak"}}'
+  $antigravity = Invoke-AgentPulse -Arguments @("ingest", "antigravity-probe", "--event", "SessionStart", "--surface", "desktop") -Stdin $antigravityPayload
+  if ($antigravity.ExitCode -ne 0 -or
+      (Get-ByteCount -Value $antigravity.StdoutBytes) -ne 0 -or
+      (Get-ByteCount -Value $antigravity.StderrBytes) -ne 0) {
+    throw "Antigravity probe ingest should have empty stdout and stderr."
+  }
+
   Invoke-AgentPulse -Arguments @(
     "emit", "--source", "custom", "--surface", "manual", "--status", "completed",
     "--session-id", "windows-standalone-smoke", "--message", "done"
@@ -424,11 +448,17 @@ try {
   $sessions = @($status.Stdout | ConvertFrom-Json)
   $hookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-hook" })
   $toolHookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-tool-hook" })
+  $openCodeSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-opencode" })
+  $antigravitySessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-antigravity" })
   $manualSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-standalone-smoke" })
   if ($hookSessions.Count -ne 1 -or
       $hookSessions[0].status -cne "completed" -or
       $toolHookSessions.Count -ne 1 -or
       $toolHookSessions[0].status -cne "using_tool" -or
+      $openCodeSessions.Count -ne 1 -or
+      $openCodeSessions[0].status -cne "completed" -or
+      $antigravitySessions.Count -ne 1 -or
+      $antigravitySessions[0].status -cne "unknown" -or
       $manualSessions.Count -ne 1 -or
       $status.Stdout -match "must-not-leak") {
     throw "Status output is missing smoke sessions or leaked sensitive hook data."
