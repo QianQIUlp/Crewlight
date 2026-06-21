@@ -1,11 +1,21 @@
-import type { AgentSession, AgentSource, AgentStatus } from "@agentpulse/core";
+import type {
+  AgentSession,
+  AgentSource,
+  AgentStatus,
+  AgentSurface,
+} from "@agentpulse/core";
 import { describe, expect, it } from "vitest";
 
 import {
   getDashboardAttention,
   getDashboardDurationMs,
+  getDashboardIdentityLine,
+  getDashboardStaleState,
   getDisplayName,
   getDisplayWorkspace,
+  getLastEventAgeMs,
+  getShortSessionKey,
+  getSurfaceLabel,
   serializeDashboardSession,
 } from "../src/index.js";
 
@@ -54,6 +64,22 @@ describe("dashboard session derivation", () => {
     expect(getDisplayName("future-agent" as AgentSource)).toBe("future-agent");
   });
 
+  it("uses the final eight session-key characters or the complete short key", () => {
+    expect(getShortSessionKey("session:1234567890")).toBe("34567890");
+    expect(getShortSessionKey("short")).toBe("short");
+  });
+
+  it.each<[AgentSurface, string]>([
+    ["cli", "CLI"],
+    ["ide-extension", "IDE extension"],
+    ["desktop", "Desktop"],
+    ["cloud", "Cloud"],
+    ["manual", "Manual"],
+    ["unknown", "Unknown"],
+  ])("formats the %s surface label", (surface, label) => {
+    expect(getSurfaceLabel(surface)).toBe(label);
+  });
+
   it("prefers workspace names and supports Unix and Windows paths", () => {
     expect(
       getDisplayWorkspace({
@@ -75,6 +101,65 @@ describe("dashboard session derivation", () => {
       }),
     ).toBe("agent-pulse");
     expect(getDisplayWorkspace(baseSession)).toBe("Unknown workspace");
+  });
+
+  it("formats the complete dashboard identity line", () => {
+    expect(
+      getDashboardIdentityLine({
+        ...baseSession,
+        sessionKey: "session:1234567890",
+        surface: "ide-extension",
+        workspaceName: "AgentPulse",
+      }),
+    ).toBe("AgentPulse · IDE extension · #34567890");
+  });
+
+  it("clamps negative last-event ages to zero", () => {
+    expect(getLastEventAgeMs(1_000, 900)).toBe(0);
+  });
+
+  it.each<[AgentStatus, number, string]>([
+    ["running", 5 * 60 * 1000, "No event for at least 5 minutes."],
+    ["using_tool", 5 * 60 * 1000, "No event for at least 5 minutes."],
+    ["waiting_input", 10 * 60 * 1000, "No event for at least 10 minutes."],
+    ["waiting_permission", 10 * 60 * 1000, "No event for at least 10 minutes."],
+    ["unknown", 2 * 60 * 1000, "No event for at least 2 minutes."],
+  ])(
+    "applies the inclusive stale threshold for %s",
+    (status, thresholdMs, staleReason) => {
+      expect(getDashboardStaleState(status, thresholdMs - 1)).toEqual({
+        isStale: false,
+      });
+      expect(getDashboardStaleState(status, thresholdMs)).toEqual({
+        isStale: true,
+        staleReason,
+      });
+      expect(getDashboardStaleState(status, thresholdMs + 1)).toEqual({
+        isStale: true,
+        staleReason,
+      });
+    },
+  );
+
+  it.each<AgentStatus>(["completed", "failed", "idle", "rate_limited"])(
+    "keeps %s sessions non-stale regardless of age",
+    (status) => {
+      expect(getDashboardStaleState(status, Number.MAX_SAFE_INTEGER)).toEqual({
+        isStale: false,
+      });
+    },
+  );
+
+  it("includes stale reasons only for stale sessions", () => {
+    expect(getDashboardStaleState("running", 5 * 60 * 1000)).toHaveProperty(
+      "staleReason",
+    );
+    expect(
+      getDashboardStaleState("running", 5 * 60 * 1000 - 1),
+    ).not.toHaveProperty("staleReason");
+    expect(
+      getDashboardStaleState("completed", Number.MAX_SAFE_INTEGER),
+    ).not.toHaveProperty("staleReason");
   });
 
   it("calculates durations from status-specific end times", () => {
@@ -123,20 +208,49 @@ describe("dashboard session derivation", () => {
         status: "waiting_input",
         projectPath: "/workspace/safe-project",
         lastMessage: "Safe status",
-        rawEvent: { prompt: "secret" },
-      } as AgentSession & { rawEvent: unknown },
-      900,
+        rawEvent: { prompt: "raw-event-secret" },
+        prompt: "prompt-secret",
+        transcript: "transcript-secret",
+        toolInput: "tool-input-secret",
+        toolOutput: "tool-output-secret",
+      } as AgentSession & {
+        prompt: string;
+        rawEvent: unknown;
+        toolInput: string;
+        toolOutput: string;
+        transcript: string;
+      },
+      600_500,
     );
 
     expect(serialized).toMatchObject({
+      shortSessionKey: ":session",
       displayName: "Codex",
       displayWorkspace: "safe-project",
-      durationMs: 800,
+      identityLine: "safe-project · Manual · #:session",
+      durationMs: 600_400,
+      lastEventAgeMs: 600_000,
+      isStale: true,
+      staleReason: "No event for at least 10 minutes.",
       attention: "action",
       actionKind: "input",
       lastMessage: "Safe status",
     });
     expect(serialized).not.toHaveProperty("rawEvent");
+    expect(serialized).not.toHaveProperty("prompt");
+    expect(serialized).not.toHaveProperty("transcript");
+    expect(serialized).not.toHaveProperty("toolInput");
+    expect(serialized).not.toHaveProperty("toolOutput");
     expect(JSON.stringify(serialized)).not.toContain("secret");
+  });
+
+  it("omits stale reasons from serialized non-stale sessions", () => {
+    const serialized = serializeDashboardSession(baseSession, 900);
+
+    expect(serialized).toMatchObject({
+      lastEventAgeMs: 400,
+      isStale: false,
+    });
+    expect(serialized).not.toHaveProperty("staleReason");
   });
 });

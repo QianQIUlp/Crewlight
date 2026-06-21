@@ -75,9 +75,27 @@ presentation-only derived fields:
 
 - `displayName`;
 - `displayWorkspace`;
+- `shortSessionKey`, the final eight characters of the AgentPulse-owned
+  `sessionKey`, or the complete key when shorter;
+- `identityLine`, formatted as
+  `<workspace> · <surface label> · #<shortSessionKey>`;
 - `durationMs`;
+- `lastEventAgeMs`, clamped to zero when the event timestamp is in the future;
+- `isStale`;
+- optional `staleReason`, present only when the session is considered stale;
 - `attention`, one of `passive`, `done`, `action`, or `error`;
 - optional `actionKind`, either `input` or `permission`.
+
+Surface labels are `CLI`, `IDE extension`, `Desktop`, `Cloud`, `Manual`, and
+`Unknown`.
+
+Staleness is a dashboard presentation heuristic based on time since the latest
+event. `running` and `using_tool` become stale at five minutes,
+`waiting_input` and `waiting_permission` at ten minutes, and `unknown` at two
+minutes. Thresholds are inclusive. Completed, failed, idle, and rate-limited
+sessions are never marked stale. This heuristic does not change status or
+attention, recover sessions, inspect processes, or monitor whether an agent is
+still running.
 
 The attention mapping and future Compact/Floating Mode direction are documented
 in [Desktop Presence Product Design](product/desktop-presence.md).

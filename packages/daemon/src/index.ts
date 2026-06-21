@@ -24,8 +24,13 @@ export type {
 export {
   getDashboardAttention,
   getDashboardDurationMs,
+  getDashboardIdentityLine,
+  getDashboardStaleState,
   getDisplayName,
   getDisplayWorkspace,
+  getLastEventAgeMs,
+  getShortSessionKey,
+  getSurfaceLabel,
   serializeDashboardSession,
 } from "./dashboard.js";
 export { AgentPulseService, type IngestResult } from "./service.js";

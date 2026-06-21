@@ -147,6 +147,12 @@ describe("daemon HTTP server", () => {
     expect(script.status).toBe(200);
     expect(script.headers.get("cache-control")).toBe("no-store");
     expect(scriptBody).toContain("URLSearchParams");
+    expect(scriptBody).toContain(
+      "workspace.textContent = session.identityLine",
+    );
+    expect(scriptBody).toContain('"Last seen"');
+    expect(scriptBody).toContain("Possibly stale · no event for ");
+    expect(scriptBody).toContain("stale.textContent");
     expect(scriptBody).not.toContain(".innerHTML");
     expect(api.status).toBe(200);
     expect(api.headers.get("cache-control")).toBe("no-store");
@@ -216,6 +222,19 @@ describe("daemon HTTP server", () => {
       }),
     });
 
+    await fetch(`${instance.url}/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        source: "custom",
+        surface: "cloud",
+        sessionId: "stale-dashboard-session",
+        workspaceName: "Stale workspace",
+        status: "unknown",
+        timestamp: 1_000,
+      }),
+    });
+
     const response = await fetch(`${instance.url}/dashboard/api`);
     const body = await response.text();
     const parsed = JSON.parse(body) as {
@@ -224,11 +243,35 @@ describe("daemon HTTP server", () => {
 
     expect(body).toContain("dashboard-session");
     expect(body).toContain("safe summary");
-    expect(parsed.sessions[0]).toMatchObject({
+    const completedSession = parsed.sessions.find(
+      (session) => session.sessionId === "dashboard-session",
+    );
+    const staleSession = parsed.sessions.find(
+      (session) => session.sessionId === "stale-dashboard-session",
+    );
+
+    expect(completedSession).toMatchObject({
       displayName: "Custom",
       displayWorkspace: "safe-project",
       durationMs: 4_000,
       attention: "done",
+      isStale: false,
+    });
+    expect(completedSession?.shortSessionKey).toBe(
+      String(completedSession?.sessionKey).slice(-8),
+    );
+    expect(completedSession?.identityLine).toBe(
+      `safe-project · Manual · #${String(completedSession?.shortSessionKey)}`,
+    );
+    expect(completedSession?.lastEventAgeMs).toEqual(expect.any(Number));
+    expect(completedSession).not.toHaveProperty("staleReason");
+    expect(staleSession).toMatchObject({
+      displayWorkspace: "Stale workspace",
+      identityLine: `Stale workspace · Cloud · #${String(
+        staleSession?.shortSessionKey,
+      )}`,
+      isStale: true,
+      staleReason: "No event for at least 2 minutes.",
     });
     expect(body).not.toContain("dashboard-secret");
     expect(body).not.toContain("rawEvent");

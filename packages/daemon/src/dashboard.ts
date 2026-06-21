@@ -38,12 +38,17 @@ export type DashboardActionKind = "input" | "permission";
 
 export interface DashboardSession {
   sessionKey: string;
+  shortSessionKey: string;
   source: AgentSource;
   surface: AgentSurface;
   status: AgentStatus;
   lastEventAt: number;
+  lastEventAgeMs: number;
+  isStale: boolean;
+  staleReason?: string;
   displayName: string;
   displayWorkspace: string;
+  identityLine: string;
   durationMs: number;
   attention: DashboardAttention;
   actionKind?: DashboardActionKind;
@@ -87,6 +92,23 @@ const DISPLAY_NAMES: Record<AgentSource, string> = {
   custom: "Custom",
 };
 
+const SURFACE_LABELS: Record<AgentSurface, string> = {
+  unknown: "Unknown",
+  cli: "CLI",
+  "ide-extension": "IDE extension",
+  desktop: "Desktop",
+  cloud: "Cloud",
+  manual: "Manual",
+};
+
+const STALE_THRESHOLDS_MS: Partial<Record<AgentStatus, number>> = {
+  running: 5 * 60 * 1000,
+  using_tool: 5 * 60 * 1000,
+  waiting_input: 10 * 60 * 1000,
+  waiting_permission: 10 * 60 * 1000,
+  unknown: 2 * 60 * 1000,
+};
+
 const ACTIVE_STATUSES = new Set<AgentStatus>([
   "running",
   "using_tool",
@@ -96,6 +118,14 @@ const ACTIVE_STATUSES = new Set<AgentStatus>([
 
 export function getDisplayName(source: AgentSource): string {
   return DISPLAY_NAMES[source] ?? source;
+}
+
+export function getShortSessionKey(sessionKey: string): string {
+  return sessionKey.slice(-8);
+}
+
+export function getSurfaceLabel(surface: AgentSurface): string {
+  return SURFACE_LABELS[surface] ?? "Unknown";
 }
 
 export function getDisplayWorkspace(session: AgentSession): string {
@@ -115,6 +145,34 @@ export function getDisplayWorkspace(session: AgentSession): string {
   }
 
   return "Unknown workspace";
+}
+
+export function getDashboardIdentityLine(session: AgentSession): string {
+  return [
+    getDisplayWorkspace(session),
+    getSurfaceLabel(session.surface),
+    `#${getShortSessionKey(session.sessionKey)}`,
+  ].join(" · ");
+}
+
+export function getLastEventAgeMs(lastEventAt: number, now: number): number {
+  return Math.max(0, now - lastEventAt);
+}
+
+export function getDashboardStaleState(
+  status: AgentStatus,
+  lastEventAgeMs: number,
+): { isStale: boolean; staleReason?: string } {
+  const thresholdMs = STALE_THRESHOLDS_MS[status];
+  if (thresholdMs === undefined || lastEventAgeMs < thresholdMs) {
+    return { isStale: false };
+  }
+
+  const thresholdMinutes = thresholdMs / (60 * 1000);
+  return {
+    isStale: true,
+    staleReason: `No event for at least ${thresholdMinutes} minutes.`,
+  };
 }
 
 export function getDashboardAttention(status: AgentStatus): {
@@ -518,6 +576,12 @@ article {
   font-size: 0.88rem;
 }
 
+.stale-note {
+  margin-bottom: 0;
+  color: #91a4bd;
+  font-size: 0.88rem;
+}
+
 .empty-state {
   padding: clamp(1.5rem, 5vw, 3.5rem);
   text-align: center;
@@ -644,7 +708,7 @@ function createSessionCard(session, expanded = false) {
   name.textContent = session.displayName;
   const workspace = document.createElement("p");
   workspace.className = "muted";
-  workspace.textContent = session.displayWorkspace;
+  workspace.textContent = session.identityLine;
   identity.append(name, workspace);
   const status = document.createElement("span");
   status.className = "status-badge";
@@ -666,11 +730,20 @@ function createSessionCard(session, expanded = false) {
     card.append(confidence);
   }
 
+  if (session.isStale) {
+    const stale = document.createElement("p");
+    stale.className = "stale-note";
+    stale.textContent =
+      "Possibly stale · no event for " +
+      formatDuration(session.lastEventAgeMs);
+    card.append(stale);
+  }
+
   const metadata = document.createElement("dl");
   metadata.className = "card-meta";
   const values = [
     ["Duration", formatDuration(session.durationMs)],
-    ["Last update", formatDate(session.lastEventAt)],
+    ["Last seen", formatDate(session.lastEventAt)],
   ];
   for (const [label, value] of values) {
     const group = document.createElement("div");
@@ -853,15 +926,22 @@ export function serializeDashboardSession(
   now: number,
 ): DashboardSession {
   const attention = getDashboardAttention(session.status);
+  const shortSessionKey = getShortSessionKey(session.sessionKey);
+  const lastEventAgeMs = getLastEventAgeMs(session.lastEventAt, now);
+  const staleState = getDashboardStaleState(session.status, lastEventAgeMs);
 
   return {
     sessionKey: session.sessionKey,
+    shortSessionKey,
     source: session.source,
     surface: session.surface,
     status: session.status,
     lastEventAt: session.lastEventAt,
+    lastEventAgeMs,
+    ...staleState,
     displayName: getDisplayName(session.source),
     displayWorkspace: getDisplayWorkspace(session),
+    identityLine: getDashboardIdentityLine(session),
     durationMs: getDashboardDurationMs(session, now),
     ...attention,
     ...(session.sessionId ? { sessionId: session.sessionId } : {}),
