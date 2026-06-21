@@ -87,10 +87,14 @@ describe("daemon HTTP server", () => {
     const healthResponse = await fetch(`${daemon.url}/health`);
     const dashboardResponse = await fetch(`${daemon.url}/dashboard`);
     const dashboardApiResponse = await fetch(`${daemon.url}/dashboard/api`);
+    const dashboardCapabilitiesResponse = await fetch(
+      `${daemon.url}/dashboard/capabilities`,
+    );
 
     expect(healthResponse.status).toBe(404);
     expect(dashboardResponse.status).toBe(404);
     expect(dashboardApiResponse.status).toBe(404);
+    expect(dashboardCapabilitiesResponse.status).toBe(404);
   });
 
   it("serves dashboard routes only when enabled with no-store responses", async () => {
@@ -100,6 +104,7 @@ describe("daemon HTTP server", () => {
       {
         dashboard: {
           notifier: "none",
+          taskTitleMode: "off",
           setup: {
             claudeCode: '{"hooks":{"Stop":[]}}',
             codex: 'notify = ["agentpulse", "ingest", "codex"]',
@@ -127,16 +132,28 @@ describe("daemon HTTP server", () => {
     const stylesheet = await fetch(`${instance.url}/dashboard/styles.css`);
     const script = await fetch(`${instance.url}/dashboard/app.js`);
     const api = await fetch(`${instance.url}/dashboard/api`);
+    const capabilities = await fetch(`${instance.url}/dashboard/capabilities`);
     const pageBody = await page.text();
+    const stylesheetBody = await stylesheet.text();
     const scriptBody = await script.text();
     const body = await api.text();
     const parsed = JSON.parse(body) as DashboardApiResponse;
+    const parsedCapabilities = await capabilities.json();
 
     expect(page.status).toBe(200);
     expect(page.headers.get("cache-control")).toBe("no-store");
     expect(page.headers.get("content-security-policy")).toContain(
       "default-src 'none'",
     );
+    expect(pageBody).toContain('id="view-nav"');
+    expect(pageBody).toContain('id="overview-link" href="/dashboard"');
+    expect(pageBody).toContain(
+      'id="compact-link" href="/dashboard?view=compact"',
+    );
+    expect(pageBody).toContain('id="overview-root"');
+    expect(pageBody).toContain('id="compact-root"');
+    expect(pageBody).toContain('id="focus-root"');
+    expect(pageBody).toContain('id="compact-session-list"');
     expect(pageBody).toContain('id="action-needed"');
     expect(pageBody).toContain('id="setup-opencode"');
     expect(pageBody).toContain('id="setup-antigravity-probe"');
@@ -144,11 +161,40 @@ describe("daemon HTTP server", () => {
     expect(pageBody).toMatch(/not a\s+supported AgentPulse integration/u);
     expect(stylesheet.status).toBe(200);
     expect(stylesheet.headers.get("cache-control")).toBe("no-store");
+    expect(stylesheetBody).toContain(".compact-session-row");
+    expect(stylesheetBody).toContain('.view-nav a[aria-current="page"]');
     expect(script.status).toBe(200);
     expect(script.headers.get("cache-control")).toBe("no-store");
-    expect(scriptBody).toContain("URLSearchParams");
+    expect(scriptBody).toContain(
+      "const params = new URLSearchParams(window.location.search)",
+    );
+    expect(scriptBody).toContain('const focusKey = params.get("focus")');
+    expect(scriptBody).toContain('const view = params.get("view")');
+    expect(scriptBody).toContain("function createCompactSessionRow(session)");
+    expect(scriptBody).toContain("function compactRank(session)");
+    expect(scriptBody).toContain('else if (view === "compact")');
+    expect(scriptBody.indexOf("if (focusKey)")).toBeLessThan(
+      scriptBody.indexOf('else if (view === "compact")'),
+    );
+    expect(scriptBody).toContain('"&view=compact"');
+    expect(scriptBody).toContain('returnToCompact ? "compact" : "overview"');
+    expect(scriptBody).toContain('stale.textContent = "Possibly stale"');
+    expect(scriptBody).toContain("document.createElement");
+    expect(scriptBody).toContain(".textContent");
     expect(scriptBody).toContain(
       "workspace.textContent = session.identityLine",
+    );
+    expect(scriptBody).toContain("title.textContent = session.taskTitle");
+    expect(scriptBody).toContain(
+      'session.displayName + " · " + session.taskTitle',
+    );
+    expect(scriptBody).toContain(
+      'activity.textContent = session.activityLabel || "Current activity unavailable"',
+    );
+    expect(scriptBody).not.toContain("session.error || session.lastMessage");
+    expect(scriptBody).not.toContain("session.lastMessage || session.error");
+    expect(scriptBody).toContain(
+      '"/dashboard?focus=" + encodeURIComponent(session.sessionKey)',
     );
     expect(scriptBody).toContain('"Last seen"');
     expect(scriptBody).toContain("Possibly stale · no event for ");
@@ -170,6 +216,41 @@ describe("daemon HTTP server", () => {
       antigravityProbe:
         "printf '%s\\n' '{}' | agentpulse ingest antigravity-probe --event manual.probe --surface desktop",
     });
+    expect(capabilities.status).toBe(200);
+    expect(capabilities.headers.get("cache-control")).toBe("no-store");
+    expect(capabilities.headers.get("content-type")).toContain(
+      "application/json",
+    );
+    expect(parsedCapabilities).toEqual({ taskTitleMode: "off" });
+  });
+
+  it("reports prompt-preview capability only when explicitly enabled", async () => {
+    instance = await startDaemon(
+      { host: "127.0.0.1", port: 0 },
+      new AgentPulseService({ notifier: new SilentNotifier() }),
+      {
+        dashboard: {
+          notifier: "none",
+          taskTitleMode: "prompt-preview",
+          setup: {
+            claudeCode: "claude",
+            codex: "codex",
+            codexHooks: "codex-hooks",
+            openCode: "opencode",
+            antigravityProbe: "antigravity-probe",
+          },
+          doctor: async () => ({ ok: true, checks: [] }),
+        },
+      },
+    );
+
+    const response = await fetch(`${instance.url}/dashboard/capabilities`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({
+      taskTitleMode: "prompt-preview",
+    });
   });
 
   it("exposes only normalized session fields through the dashboard API", async () => {
@@ -179,6 +260,7 @@ describe("daemon HTTP server", () => {
       {
         dashboard: {
           notifier: "none",
+          taskTitleMode: "off",
           setup: {
             claudeCode: "claude",
             codex: "codex",
@@ -200,6 +282,8 @@ describe("daemon HTTP server", () => {
         sessionId: "dashboard-session",
         projectPath: "/workspace/safe-project",
         status: "running",
+        taskTitle: "Review dashboard output",
+        title: "SessionStart",
         timestamp: 1_000,
         rawEvent: {
           prompt: "dashboard-secret-prompt",
@@ -217,6 +301,7 @@ describe("daemon HTTP server", () => {
         surface: "manual",
         sessionId: "dashboard-session",
         status: "completed",
+        title: "Stop",
         message: "safe summary",
         timestamp: 5_000,
       }),
@@ -253,6 +338,8 @@ describe("daemon HTTP server", () => {
     expect(completedSession).toMatchObject({
       displayName: "Custom",
       displayWorkspace: "safe-project",
+      taskTitle: "Review dashboard output",
+      activityLabel: "Session completed",
       durationMs: 4_000,
       attention: "done",
       isStale: false,
@@ -273,10 +360,15 @@ describe("daemon HTTP server", () => {
       isStale: true,
       staleReason: "No event for at least 2 minutes.",
     });
+    expect(staleSession).not.toHaveProperty("taskTitle");
+    expect(staleSession).toMatchObject({
+      activityLabel: "Status unknown",
+    });
     expect(body).not.toContain("dashboard-secret");
     expect(body).not.toContain("rawEvent");
     expect(body).not.toContain("toolInput");
     expect(body).not.toContain("transcript");
+    expect(body).not.toContain("input-messages");
   });
 
   it("rejects dashboard binding outside loopback", async () => {
@@ -287,6 +379,7 @@ describe("daemon HTTP server", () => {
         {
           dashboard: {
             notifier: "none",
+            taskTitleMode: "off",
             setup: {
               claudeCode: "claude",
               codex: "codex",
@@ -312,6 +405,7 @@ describe("daemon HTTP server", () => {
       {
         dashboard: {
           notifier: "none",
+          taskTitleMode: "off",
           setup: {
             claudeCode: "claude",
             codex: "codex",

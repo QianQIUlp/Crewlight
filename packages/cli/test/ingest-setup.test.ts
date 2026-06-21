@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 
-import type {
-  AgentEvent,
-  AgentEventInput,
-  AgentSession,
+import {
+  normalizeAgentEvent,
+  SessionStore,
+  type AgentEvent,
+  type AgentEventInput,
+  type AgentSession,
 } from "@agentpulse/core";
-import type { IngestResult } from "@agentpulse/daemon";
+import type { DashboardTaskTitleMode, IngestResult } from "@agentpulse/daemon";
 import { describe, expect, it } from "vitest";
 
 import type { AgentPulseClient } from "../src/daemon-client.js";
@@ -30,9 +32,18 @@ function captureIo() {
   return { io, output, warnings };
 }
 
-function captureClient() {
+function captureClient(taskTitleMode?: DashboardTaskTitleMode) {
+  const capabilityRequests: string[] = [];
   const events: AgentEventInput[] = [];
   const client: AgentPulseClient = {
+    ...(taskTitleMode
+      ? {
+          dashboardCapabilities: async () => {
+            capabilityRequests.push("dashboard");
+            return { taskTitleMode };
+          },
+        }
+      : {}),
     emit: async (event): Promise<IngestResult> => {
       events.push(event);
       return {
@@ -42,7 +53,7 @@ function captureClient() {
     },
     sessions: async () => [],
   };
-  return { client, events };
+  return { capabilityRequests, client, events };
 }
 
 function setupRuntime(overrides: Partial<SetupRuntime> = {}): SetupRuntime {
@@ -88,6 +99,90 @@ describe("platform ingest commands", () => {
     ]);
     expect(capture.output).toEqual([]);
     expect(capture.warnings).toEqual([]);
+  });
+
+  it("keeps Claude prompt titles disabled by default", async () => {
+    const capture = captureIo();
+    const target = captureClient("off");
+
+    await executeIngestCommand(
+      ["claude-code"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          session_id: "claude-prompt-default",
+          hook_event_name: "UserPromptSubmit",
+          prompt: "private prompt",
+        }),
+    );
+
+    expect(target.events).toEqual([
+      {
+        source: "claude-code",
+        surface: "cli",
+        status: "running",
+        title: "UserPromptSubmit",
+        sessionId: "claude-prompt-default",
+      },
+    ]);
+    expect(JSON.stringify(target.events)).not.toContain("private prompt");
+    expect(target.capabilityRequests).toEqual(["dashboard"]);
+  });
+
+  it("derives and refreshes Claude prompt titles only when opted in", async () => {
+    const capture = captureIo();
+    const target = captureClient("prompt-preview");
+
+    for (const [prompt, timestamp] of [
+      ["  查看\nAGENTS.md  ", 100],
+      ["创建 temp 文件", 200],
+    ] as const) {
+      await executeIngestCommand(
+        ["claude-code"],
+        target.client,
+        capture.io,
+        async () =>
+          JSON.stringify({
+            session_id: "claude-prompt-opt-in",
+            hook_event_name: "UserPromptSubmit",
+            prompt,
+            timestamp,
+          }),
+      );
+    }
+    await executeIngestCommand(
+      ["claude-code"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          session_id: "claude-prompt-opt-in",
+          hook_event_name: "Stop",
+          prompt: "must not be used",
+        }),
+    );
+
+    expect(target.events).toMatchObject([
+      { taskTitle: "查看 AGENTS.md", title: "UserPromptSubmit" },
+      { taskTitle: "创建 temp 文件", title: "UserPromptSubmit" },
+      { title: "Stop" },
+    ]);
+    expect(target.events[2]).not.toHaveProperty("taskTitle");
+    expect(target.capabilityRequests).toEqual(["dashboard", "dashboard"]);
+    expect(JSON.stringify(target.events)).not.toContain("must not be used");
+
+    const store = new SessionStore();
+    for (const [index, event] of target.events.entries()) {
+      store.apply(
+        normalizeAgentEvent({
+          ...event,
+          timestamp: (index + 1) * 100,
+        }),
+      );
+    }
+    expect(store.list()[0]?.taskTitle).toBe("创建 temp 文件");
+    expect(store.list()[0]?.status).toBe("completed");
   });
 
   it("accepts Codex JSON from argv", async () => {
@@ -245,6 +340,39 @@ describe("platform ingest commands", () => {
       expectSilentCodexHook(capture);
     },
   );
+
+  it("derives Codex hook prompt titles only when opted in", async () => {
+    const capture = captureIo();
+    const target = captureClient("prompt-preview");
+
+    await executeIngestCommand(
+      ["codex-hook", "--hook", "UserPromptSubmit", "--surface", "cli"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          session_id: "codex-prompt-opt-in",
+          prompt: "  修复\n dashboard  ",
+          tool_input: { command: "secret command" },
+          transcript_path: "/private/transcript",
+          rawEvent: { secret: true },
+        }),
+    );
+
+    expect(target.events).toEqual([
+      {
+        source: "codex",
+        surface: "cli",
+        status: "running",
+        taskTitle: "修复 dashboard",
+        title: "UserPromptSubmit",
+        sessionId: "codex-prompt-opt-in",
+      },
+    ]);
+    expect(target.capabilityRequests).toEqual(["dashboard"]);
+    expect(JSON.stringify(target.events)).not.toContain("secret");
+    expect(JSON.stringify(target.events)).not.toContain("transcript");
+  });
 
   it.each([
     ["SessionStart", "running", undefined],

@@ -206,8 +206,39 @@ describe("CLI commands", () => {
       resolveDaemonCommandOptions(["--dashboard", "--notifier", "none"], {}),
     ).toMatchObject({
       dashboard: true,
+      dashboardTaskTitleMode: "off",
       config: { host: "127.0.0.1", notifier: "none" },
     });
+  });
+
+  it("enables prompt-preview task titles only with the dashboard", () => {
+    expect(
+      resolveDaemonCommandOptions(
+        [
+          "--dashboard",
+          "--dashboard-task-titles",
+          "prompt-preview",
+          "--notifier",
+          "none",
+        ],
+        {},
+      ),
+    ).toMatchObject({
+      dashboard: true,
+      dashboardTaskTitleMode: "prompt-preview",
+    });
+    expect(() =>
+      resolveDaemonCommandOptions(
+        ["--dashboard-task-titles", "prompt-preview"],
+        {},
+      ),
+    ).toThrow("requires `--dashboard`");
+    expect(() =>
+      resolveDaemonCommandOptions(
+        ["--dashboard", "--dashboard-task-titles", "unsupported"],
+        {},
+      ),
+    ).toThrow("Use `prompt-preview`");
   });
 
   it("allows both explicit loopback dashboard hosts", () => {

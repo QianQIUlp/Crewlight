@@ -58,6 +58,17 @@ describe("normalizeAgentEvent", () => {
     expect(JSON.stringify(event)).not.toContain("transient");
   });
 
+  it("retains explicit normalized task titles separately from event titles", () => {
+    const event = normalizeAgentEvent({
+      ...baseInput,
+      taskTitle: "Review dashboard output",
+      title: "SessionStart",
+    });
+
+    expect(event.taskTitle).toBe("Review dashboard output");
+    expect(event.title).toBe("SessionStart");
+  });
+
   it("applies the default urgency policy", () => {
     expect(
       normalizeAgentEvent({ ...baseInput, status: "using_tool" }).urgency,

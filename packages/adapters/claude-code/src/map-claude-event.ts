@@ -1,4 +1,8 @@
-import type { AgentEventInput, AgentStatus } from "@agentpulse/core";
+import {
+  formatPromptPreviewTaskTitle,
+  type AgentEventInput,
+  type AgentStatus,
+} from "@agentpulse/core";
 
 import {
   claudeHookInputSchema,
@@ -9,6 +13,10 @@ export type ClaudeAdapterResult =
   | { kind: "event"; event: AgentEventInput }
   | { kind: "ignored"; reason: string }
   | { kind: "invalid"; reason: string };
+
+export interface ClaudeAdapterOptions {
+  promptPreview?: boolean;
+}
 
 const SIMPLE_STATUS = new Map<string, AgentStatus>([
   ["SessionStart", "running"],
@@ -28,6 +36,10 @@ function eventMessage(
   input: ClaudeHookInput,
   status: AgentStatus,
 ): string | undefined {
+  if (input.hook_event_name === "UserPromptSubmit") {
+    return undefined;
+  }
+
   const explicit =
     optionalText(input.message) ??
     optionalText(input.last_assistant_message) ??
@@ -44,10 +56,18 @@ function eventMessage(
   return undefined;
 }
 
-function toEvent(input: ClaudeHookInput, status: AgentStatus): AgentEventInput {
+function toEvent(
+  input: ClaudeHookInput,
+  status: AgentStatus,
+  options: ClaudeAdapterOptions,
+): AgentEventInput {
   const title =
     optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
+  const taskTitle =
+    options.promptPreview && input.hook_event_name === "UserPromptSubmit"
+      ? formatPromptPreviewTaskTitle(input.prompt)
+      : undefined;
 
   return {
     source: "claude-code",
@@ -55,12 +75,16 @@ function toEvent(input: ClaudeHookInput, status: AgentStatus): AgentEventInput {
     status,
     ...(input.session_id ? { sessionId: input.session_id } : {}),
     ...(input.cwd ? { projectPath: input.cwd } : {}),
+    ...(taskTitle ? { taskTitle } : {}),
     ...(title ? { title } : {}),
     ...(message ? { message } : {}),
   };
 }
 
-export function mapClaudeEvent(input: unknown): ClaudeAdapterResult {
+export function mapClaudeEvent(
+  input: unknown,
+  options: ClaudeAdapterOptions = {},
+): ClaudeAdapterResult {
   const parsed = claudeHookInputSchema.safeParse(input);
   if (!parsed.success) {
     return { kind: "invalid", reason: "Invalid Claude Code hook payload" };
@@ -77,11 +101,17 @@ export function mapClaudeEvent(input: unknown): ClaudeAdapterResult {
 
   if (payload.hook_event_name === "Notification") {
     if (payload.notification_type === "permission_prompt") {
-      return { kind: "event", event: toEvent(payload, "waiting_permission") };
+      return {
+        kind: "event",
+        event: toEvent(payload, "waiting_permission", options),
+      };
     }
 
     if (payload.notification_type === "idle_prompt") {
-      return { kind: "event", event: toEvent(payload, "waiting_input") };
+      return {
+        kind: "event",
+        event: toEvent(payload, "waiting_input", options),
+      };
     }
 
     return {
@@ -94,7 +124,7 @@ export function mapClaudeEvent(input: unknown): ClaudeAdapterResult {
     const errorType = payload.error ?? payload.error_type;
     const status: AgentStatus =
       errorType === "rate_limit" ? "rate_limited" : "failed";
-    return { kind: "event", event: toEvent(payload, status) };
+    return { kind: "event", event: toEvent(payload, status, options) };
   }
 
   const status = SIMPLE_STATUS.get(payload.hook_event_name);
@@ -105,5 +135,5 @@ export function mapClaudeEvent(input: unknown): ClaudeAdapterResult {
     };
   }
 
-  return { kind: "event", event: toEvent(payload, status) };
+  return { kind: "event", event: toEvent(payload, status, options) };
 }

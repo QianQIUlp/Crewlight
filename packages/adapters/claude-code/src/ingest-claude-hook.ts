@@ -1,9 +1,13 @@
 import {
   mapClaudeEvent,
+  type ClaudeAdapterOptions,
   type ClaudeAdapterResult,
 } from "./map-claude-event.js";
 
-export function ingestClaudeHookJson(json: string): ClaudeAdapterResult {
+export function ingestClaudeHookJson(
+  json: string,
+  options: ClaudeAdapterOptions = {},
+): ClaudeAdapterResult {
   let payload: unknown;
 
   try {
@@ -12,5 +16,5 @@ export function ingestClaudeHookJson(json: string): ClaudeAdapterResult {
     return { kind: "invalid", reason: "Invalid Claude Code hook JSON" };
   }
 
-  return mapClaudeEvent(payload);
+  return mapClaudeEvent(payload, options);
 }

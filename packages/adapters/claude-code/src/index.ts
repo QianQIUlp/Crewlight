@@ -5,5 +5,6 @@ export {
 export { ingestClaudeHookJson } from "./ingest-claude-hook.js";
 export {
   mapClaudeEvent,
+  type ClaudeAdapterOptions,
   type ClaudeAdapterResult,
 } from "./map-claude-event.js";

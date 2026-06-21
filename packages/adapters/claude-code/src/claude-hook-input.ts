@@ -10,6 +10,7 @@ export const claudeHookInputSchema = z
     last_assistant_message: z.string().min(1).optional(),
     message: z.string().min(1).optional(),
     notification_type: z.string().min(1).optional(),
+    prompt: z.string().min(1).optional(),
     session_id: z.string().min(1).optional(),
     title: z.string().min(1).optional(),
     tool_name: z.string().min(1).optional(),

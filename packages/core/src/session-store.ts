@@ -40,6 +40,10 @@ export class SessionStore {
       ...((event.workspaceName ?? current?.workspaceName)
         ? { workspaceName: event.workspaceName ?? current?.workspaceName }
         : {}),
+      ...((event.taskTitle ?? current?.taskTitle)
+        ? { taskTitle: event.taskTitle ?? current?.taskTitle }
+        : {}),
+      ...(event.title ? { title: event.title } : {}),
       ...((event.message ?? current?.lastMessage)
         ? { lastMessage: event.message ?? current?.lastMessage }
         : {}),

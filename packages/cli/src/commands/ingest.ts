@@ -16,6 +16,12 @@ import type { CommandIo, StdinReader } from "./types.js";
 
 const WARNING_PREFIX = "AgentPulse ingest warning:";
 type ProbeSurface = Extract<AgentSurface, "unknown" | "cli" | "desktop">;
+type IngestAdapter = (
+  json: string,
+) =>
+  | ReturnType<typeof ingestClaudeHookJson>
+  | ReturnType<typeof ingestCodexNotifyJson>
+  | ReturnType<typeof ingestCodexHookJson>;
 
 function warn(io: CommandIo, message: string): void {
   io.warn(`${WARNING_PREFIX} ${message}`);
@@ -41,10 +47,7 @@ function warnAdapterResult(
 
 async function deliver(
   json: string,
-  adapter:
-    | typeof ingestClaudeHookJson
-    | typeof ingestCodexNotifyJson
-    | typeof ingestCodexHookJson,
+  adapter: IngestAdapter,
   client: AgentPulseClient,
   io: CommandIo,
 ): Promise<number> {
@@ -65,6 +68,34 @@ async function deliver(
   }
 
   return 0;
+}
+
+function hookEventNameFromJson(json: string): string | undefined {
+  try {
+    return safeText(asRecord(JSON.parse(json))?.hook_event_name);
+  } catch {
+    return undefined;
+  }
+}
+
+async function promptPreviewEnabled(
+  client: AgentPulseClient,
+  hookEventName: string | undefined,
+): Promise<boolean> {
+  if (
+    hookEventName !== "UserPromptSubmit" ||
+    client.dashboardCapabilities === undefined
+  ) {
+    return false;
+  }
+
+  try {
+    return (
+      (await client.dashboardCapabilities()).taskTitleMode === "prompt-preview"
+    );
+  } catch {
+    return false;
+  }
 }
 
 async function ingestCodexHook(
@@ -103,10 +134,16 @@ async function ingestCodexHook(
   }
 
   try {
+    const hookEventName =
+      hookSelection.kind === "override"
+        ? hookSelection.hook
+        : hookEventNameFromJson(json);
+    const promptPreview = await promptPreviewEnabled(client, hookEventName);
     const result = ingestCodexHookJson(
       json,
       hookSelection.kind === "override" ? hookSelection.hook : undefined,
       surface,
+      { promptPreview },
     );
     if (result.kind === "event") {
       try {
@@ -314,7 +351,17 @@ async function ingest(
       return 0;
     }
 
-    return deliver(await readStdin(), ingestClaudeHookJson, client, io);
+    const json = await readStdin();
+    const promptPreview = await promptPreviewEnabled(
+      client,
+      hookEventNameFromJson(json),
+    );
+    return deliver(
+      json,
+      (input) => ingestClaudeHookJson(input, { promptPreview }),
+      client,
+      io,
+    );
   }
 
   if (platform === "codex") {

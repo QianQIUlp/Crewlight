@@ -7,10 +7,12 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import {
+  getDashboardActivityLabel,
   getDashboardAttention,
   getDashboardDurationMs,
   getDashboardIdentityLine,
   getDashboardStaleState,
+  getDashboardTaskTitle,
   getDisplayName,
   getDisplayWorkspace,
   getLastEventAgeMs,
@@ -114,6 +116,75 @@ describe("dashboard session derivation", () => {
     ).toBe("AgentPulse · IDE extension · #34567890");
   });
 
+  it("uses only explicit normalized task titles", () => {
+    expect(
+      getDashboardTaskTitle({
+        ...baseSession,
+        taskTitle: "  Review   dashboard output  ",
+      }),
+    ).toBe("Review dashboard output");
+    expect(
+      getDashboardTaskTitle({
+        ...baseSession,
+        title: "PermissionRequest",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("humanizes event titles as activity labels", () => {
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "SessionStart",
+      }),
+    ).toBe("Session started");
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "Stop",
+      }),
+    ).toBe("Session completed");
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "UserPromptSubmit",
+      }),
+    ).toBe("Request submitted");
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "PreToolUse",
+      }),
+    ).toBe("Using tool");
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        source: "codex",
+        title: "PermissionRequest",
+      }),
+    ).toBe("Permission requested");
+  });
+
+  it("uses status activity fallbacks without promoting arbitrary messages", () => {
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        status: "waiting_input",
+        lastMessage: "arbitrary command body --token secret",
+      }),
+    ).toBe("Input requested");
+    expect(
+      getDashboardTaskTitle({
+        ...baseSession,
+        lastMessage: "prompt-like arbitrary text",
+      }),
+    ).toBeUndefined();
+  });
+
   it("clamps negative last-event ages to zero", () => {
     expect(getLastEventAgeMs(1_000, 900)).toBe(0);
   });
@@ -207,13 +278,17 @@ describe("dashboard session derivation", () => {
         source: "codex",
         status: "waiting_input",
         projectPath: "/workspace/safe-project",
+        taskTitle: "Review dashboard output",
+        title: "PermissionRequest",
         lastMessage: "Safe status",
+        "input-messages": ["input-message-secret"],
         rawEvent: { prompt: "raw-event-secret" },
         prompt: "prompt-secret",
         transcript: "transcript-secret",
         toolInput: "tool-input-secret",
         toolOutput: "tool-output-secret",
       } as AgentSession & {
+        "input-messages": string[];
         prompt: string;
         rawEvent: unknown;
         toolInput: string;
@@ -228,6 +303,8 @@ describe("dashboard session derivation", () => {
       displayName: "Codex",
       displayWorkspace: "safe-project",
       identityLine: "safe-project · Manual · #:session",
+      taskTitle: "Review dashboard output",
+      activityLabel: "Permission requested",
       durationMs: 600_400,
       lastEventAgeMs: 600_000,
       isStale: true,
@@ -238,6 +315,7 @@ describe("dashboard session derivation", () => {
     });
     expect(serialized).not.toHaveProperty("rawEvent");
     expect(serialized).not.toHaveProperty("prompt");
+    expect(serialized).not.toHaveProperty("input-messages");
     expect(serialized).not.toHaveProperty("transcript");
     expect(serialized).not.toHaveProperty("toolInput");
     expect(serialized).not.toHaveProperty("toolOutput");
@@ -252,5 +330,7 @@ describe("dashboard session derivation", () => {
       isStale: false,
     });
     expect(serialized).not.toHaveProperty("staleReason");
+    expect(serialized).not.toHaveProperty("taskTitle");
+    expect(serialized.activityLabel).toBe("Running");
   });
 });

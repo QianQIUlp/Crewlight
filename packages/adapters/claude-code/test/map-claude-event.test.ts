@@ -109,17 +109,70 @@ describe("Claude Code adapter", () => {
     });
   });
 
+  it("derives a task title from UserPromptSubmit only when opted in", () => {
+    const payload = {
+      hook_event_name: "UserPromptSubmit",
+      message: "private prompt",
+      prompt: "  查看\nAGENTS.md  ",
+      session_id: "prompt-session",
+    };
+
+    expect(mapClaudeEvent(payload)).toEqual({
+      kind: "event",
+      event: {
+        source: "claude-code",
+        surface: "cli",
+        status: "running",
+        title: "UserPromptSubmit",
+        sessionId: "prompt-session",
+      },
+    });
+    expect(mapClaudeEvent(payload, { promptPreview: true })).toEqual({
+      kind: "event",
+      event: {
+        source: "claude-code",
+        surface: "cli",
+        status: "running",
+        taskTitle: "查看 AGENTS.md",
+        title: "UserPromptSubmit",
+        sessionId: "prompt-session",
+      },
+    });
+    expect(
+      JSON.stringify(mapClaudeEvent(payload, { promptPreview: true })),
+    ).not.toContain("private prompt");
+  });
+
+  it("does not use prompts for non-user-request events", () => {
+    const result = mapClaudeEvent(
+      {
+        hook_event_name: "Stop",
+        prompt: "private prompt",
+      },
+      { promptPreview: true },
+    );
+
+    expect(result.kind).toBe("event");
+    expect(JSON.stringify(result)).not.toContain("private prompt");
+    if (result.kind === "event") {
+      expect(result.event).not.toHaveProperty("taskTitle");
+      expect(result.event).not.toHaveProperty("prompt");
+    }
+  });
+
   it("does not include passthrough fields or raw payloads", () => {
     const result = mapClaudeEvent({
       hook_event_name: "Stop",
       rawEvent: { secret: "raw-secret" },
       transcript_path: "/private/transcript.jsonl",
       tool_input: { command: "private-command" },
+      prompt: "private-prompt",
     });
 
     expect(result.kind).toBe("event");
     expect(JSON.stringify(result)).not.toContain("raw-secret");
     expect(JSON.stringify(result)).not.toContain("private-command");
+    expect(JSON.stringify(result)).not.toContain("private-prompt");
     expect(JSON.stringify(result)).not.toContain("transcript");
   });
 

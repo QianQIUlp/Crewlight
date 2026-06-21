@@ -13,6 +13,7 @@ export {
   CODEX_HOOK_TOOL_NAME_LIMIT,
   isCodexHookEventName,
   mapCodexHook,
+  type CodexHookAdapterOptions,
   type CodexHookEventName,
 } from "./map-codex-hook.js";
 export {

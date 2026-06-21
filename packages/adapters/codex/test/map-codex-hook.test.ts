@@ -82,6 +82,76 @@ describe("Codex hook adapter", () => {
     });
   });
 
+  it("derives a task title from UserPromptSubmit only when opted in", () => {
+    const payload = {
+      hook_event_name: "UserPromptSubmit",
+      prompt: "  创建\n temp 文件  ",
+      session_id: "prompt-session",
+    };
+
+    expect(mapCodexHook(payload)).toEqual({
+      kind: "event",
+      event: {
+        source: "codex",
+        surface: "unknown",
+        status: "running",
+        title: "UserPromptSubmit",
+        sessionId: "prompt-session",
+      },
+    });
+    expect(
+      mapCodexHook(payload, undefined, "unknown", { promptPreview: true }),
+    ).toEqual({
+      kind: "event",
+      event: {
+        source: "codex",
+        surface: "unknown",
+        status: "running",
+        taskTitle: "创建 temp 文件",
+        title: "UserPromptSubmit",
+        sessionId: "prompt-session",
+      },
+    });
+  });
+
+  it("bounds opted-in prompt titles by Unicode code points", () => {
+    const result = mapCodexHook(
+      {
+        hook_event_name: "UserPromptSubmit",
+        prompt: "😀".repeat(70),
+      },
+      undefined,
+      "unknown",
+      { promptPreview: true },
+    );
+
+    expect(result).toMatchObject({
+      kind: "event",
+      event: {
+        taskTitle: `${"😀".repeat(59)}…`,
+      },
+    });
+  });
+
+  it("does not use prompts for non-user-request events", () => {
+    const result = mapCodexHook(
+      {
+        hook_event_name: "Stop",
+        prompt: "private prompt",
+      },
+      undefined,
+      "unknown",
+      { promptPreview: true },
+    );
+
+    expect(result.kind).toBe("event");
+    expect(JSON.stringify(result)).not.toContain("private prompt");
+    if (result.kind === "event") {
+      expect(result.event).not.toHaveProperty("taskTitle");
+      expect(result.event).not.toHaveProperty("prompt");
+    }
+  });
+
   it.each(["", "{", JSON.stringify({ session_id: 42 })])(
     "creates a best-effort event from an explicit hook when stdin is unusable",
     (json) => {

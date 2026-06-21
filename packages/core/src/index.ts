@@ -8,6 +8,10 @@ export {
   urgencySchema,
 } from "./schemas.js";
 export { defaultUrgency, normalizeAgentEvent } from "./normalize-event.js";
+export {
+  formatPromptPreviewTaskTitle,
+  PROMPT_PREVIEW_TASK_TITLE_LIMIT,
+} from "./prompt-preview.js";
 export { deriveSessionKey, normalizeProjectPath } from "./session-key.js";
 export { SessionStore } from "./session-store.js";
 export type {

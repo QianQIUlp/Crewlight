@@ -63,6 +63,25 @@ The command hook does not return a permission decision. Delivery failures only
 produce a warning and return zero, so AgentPulse does not block Claude Code or
 change its permission behavior.
 
+## Optional prompt-preview task titles
+
+Task titles derived from prompts are disabled by default. To opt in for the
+local browser dashboard, start the daemon with:
+
+```bash
+agentpulse daemon --dashboard --dashboard-task-titles prompt-preview
+```
+
+On `UserPromptSubmit`, the updated ingest command reads the documented `prompt`
+field in memory, collapses whitespace, and emits only a preview of at most 60
+Unicode code points as `taskTitle`. It does not emit, store, log, forward, or
+return the complete prompt. Other hook events do not inspect the prompt.
+
+The existing hook snippet does not need regeneration when it already invokes
+the updated AgentPulse binary or CLI. Ingest discovers the opt-in mode from the
+same daemon host and port used for event delivery and silently treats lookup
+failure or a 200ms timeout as disabled.
+
 ## Verify
 
 First build/link AgentPulse and run the read-only diagnostics:

@@ -1,4 +1,5 @@
-import type {
+import {
+  formatPromptPreviewTaskTitle,
   AgentEventInput,
   AgentStatus,
   AgentSurface,
@@ -17,6 +18,10 @@ export const CODEX_HOOK_EVENT_NAMES = [
 ] as const;
 
 export type CodexHookEventName = (typeof CODEX_HOOK_EVENT_NAMES)[number];
+
+export interface CodexHookAdapterOptions {
+  promptPreview?: boolean;
+}
 
 const CODEX_HOOK_STATUS = new Map<CodexHookEventName, AgentStatus>([
   ["SessionStart", "running"],
@@ -49,6 +54,7 @@ export function mapCodexHook(
   input: unknown,
   hookEventOverride?: string,
   surface: AgentSurface = "unknown",
+  options: CodexHookAdapterOptions = {},
 ): CodexAdapterResult {
   const parsed = codexHookInputSchema.safeParse(input);
   if (!parsed.success) {
@@ -66,6 +72,10 @@ export function mapCodexHook(
   }
 
   const toolName = safeToolName(payload.tool_name);
+  const taskTitle =
+    options.promptPreview && hookEventName === "UserPromptSubmit"
+      ? formatPromptPreviewTaskTitle(payload.prompt)
+      : undefined;
   const event: AgentEventInput = {
     source: "codex",
     surface,
@@ -73,6 +83,7 @@ export function mapCodexHook(
     title: hookEventName,
     ...(payload.session_id ? { sessionId: payload.session_id } : {}),
     ...(payload.cwd ? { projectPath: payload.cwd } : {}),
+    ...(taskTitle ? { taskTitle } : {}),
     ...(status === "using_tool" && toolName
       ? { message: `Using tool: ${toolName}` }
       : {}),

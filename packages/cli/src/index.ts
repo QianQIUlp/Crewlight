@@ -25,5 +25,8 @@ if (isMainModule(import.meta.url, process.argv[1])) {
 }
 
 export { main } from "./app.js";
-export { DaemonClient } from "./daemon-client.js";
+export {
+  DASHBOARD_CAPABILITIES_TIMEOUT_MS,
+  DaemonClient,
+} from "./daemon-client.js";
 export type { AgentPulseClient } from "./daemon-client.js";

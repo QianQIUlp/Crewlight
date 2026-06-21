@@ -11,7 +11,7 @@ import { consoleIo, readStdin, type CommandIo } from "./commands/types.js";
 const USAGE = `AgentPulse v0.2.3
 
 Usage:
-  agentpulse daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard]
+  agentpulse daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard] [--dashboard-task-titles prompt-preview]
   agentpulse doctor [--json] [--notifier KIND]
   agentpulse emit --source SOURCE --surface SURFACE --status STATUS [options]
   agentpulse ingest claude-code

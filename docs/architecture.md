@@ -60,8 +60,8 @@ validates it, supplies defaults, derives `sessionKey`, and produces a safe
 
 Platform adapters use passthrough input schemas because upstream platforms may
 add fields. Their outputs are explicit allowlists containing only normalized
-identity, status, title, and message fields. They do not attach complete
-payloads as `rawEvent`.
+identity, status, explicit task title, event title, and message fields. They do
+not attach complete payloads as `rawEvent`.
 
 `AgentEvent` and `AgentSession` never contain `rawEvent`. No platform prompt,
 transcript, tool input/output, or complete Codex `input-messages` collection is

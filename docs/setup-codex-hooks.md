@@ -77,10 +77,30 @@ When `--hook` is absent for backward compatibility, AgentPulse falls back to the
 stdin event name and uses `surface=unknown`. Missing, malformed, or changed
 stdin does not block a valid explicit hook event.
 
-The stdin payload is used only for the session ID, working directory, and a
-bounded tool name where useful. AgentPulse does not read or retain prompts,
-`transcript_path`, tool input, tool response/output, assistant messages, or the
-complete payload.
+By default, the stdin payload is used only for the session ID, working
+directory, and a bounded tool name where useful. AgentPulse does not read or
+retain prompts, `transcript_path`, tool input, tool response/output, assistant
+messages, or the complete payload.
+
+### Optional prompt-preview task titles
+
+Prompt-derived titles remain disabled unless the local daemon starts with:
+
+```bash
+agentpulse daemon --dashboard --dashboard-task-titles prompt-preview
+```
+
+When enabled, only the documented `UserPromptSubmit.prompt` string is read in
+memory. AgentPulse collapses whitespace and sends only a preview of at most 60
+Unicode code points as `taskTitle`; the complete prompt is never serialized
+into an AgentPulse event, stored, logged, forwarded, or included in dashboard
+responses. Tool events, Stop, transcripts, tool input/output, assistant output,
+and Codex notify `input-messages` are not title sources.
+
+Existing hooks do not need regeneration when their command invokes the updated
+AgentPulse binary or CLI. Capability lookup reuses the same daemon address as
+event delivery, waits no more than 200ms, and silently defaults to disabled on
+any failure.
 
 AgentPulse treats Codex hooks as fire-and-forget observations. Every path exits
 zero and writes nothing to stdout or stderr by default, including successful

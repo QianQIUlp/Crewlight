@@ -7,6 +7,7 @@ import {
   resolveDaemonConfig,
   startDaemon,
   type DaemonConfig,
+  type DashboardTaskTitleMode,
 } from "@agentpulse/daemon";
 import { createNotifier } from "@agentpulse/notifier";
 
@@ -21,6 +22,7 @@ import type { CommandIo } from "./types.js";
 export interface DaemonCommandOptions {
   config: DaemonConfig;
   dashboard: boolean;
+  dashboardTaskTitleMode: DashboardTaskTitleMode;
 }
 
 export function resolveDaemonCommandOptions(
@@ -31,6 +33,7 @@ export function resolveDaemonCommandOptions(
     args: [...args],
     options: {
       dashboard: { type: "boolean", default: false },
+      "dashboard-task-titles": { type: "string" },
       host: { type: "string" },
       notifier: { type: "string" },
       port: { type: "string" },
@@ -45,6 +48,23 @@ export function resolveDaemonCommandOptions(
     },
     env,
   );
+  const requestedTaskTitleMode = values["dashboard-task-titles"];
+  if (
+    requestedTaskTitleMode !== undefined &&
+    requestedTaskTitleMode !== "prompt-preview"
+  ) {
+    throw new Error(
+      "Unsupported --dashboard-task-titles value. Use `prompt-preview`.",
+    );
+  }
+  const dashboardTaskTitleMode: DashboardTaskTitleMode =
+    requestedTaskTitleMode ?? "off";
+
+  if (dashboardTaskTitleMode !== "off" && !values.dashboard) {
+    throw new Error(
+      "`--dashboard-task-titles prompt-preview` requires `--dashboard`.",
+    );
+  }
 
   if (values.dashboard && !isLoopbackHost(config.host)) {
     throw new Error(
@@ -52,7 +72,11 @@ export function resolveDaemonCommandOptions(
     );
   }
 
-  return { config, dashboard: values.dashboard };
+  return {
+    config,
+    dashboard: values.dashboard,
+    dashboardTaskTitleMode,
+  };
 }
 
 export async function executeDaemonCommand(
@@ -71,6 +95,7 @@ export async function executeDaemonCommand(
   const dashboard = options.dashboard
     ? {
         notifier: config.notifier,
+        taskTitleMode: options.dashboardTaskTitleMode,
         setup: {
           claudeCode: setup.claudeCode,
           codex: setup.codex,

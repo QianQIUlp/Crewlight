@@ -17,6 +17,13 @@ failure. Unsupported events are ignored.
 could overwrite a terminal session state. The setup snippet does not register
 that hook.
 
+When the daemon explicitly enables `--dashboard-task-titles prompt-preview`,
+Claude Code
+[`UserPromptSubmit.prompt`](https://docs.anthropic.com/en/docs/claude-code/hooks)
+may be read in hook-process memory to produce a whitespace-normalized,
+60-code-point `taskTitle`. The complete prompt is never emitted or retained.
+Default behavior does not inspect prompt content.
+
 ## Precise integration: Codex hooks
 
 The Codex hooks adapter consumes documented lifecycle JSON from stdin and maps
@@ -31,8 +38,12 @@ The setup command prints a mergeable fragment only. Users must review and trust
 the exact command through Codex `/hooks`; AgentPulse does not bypass that trust
 mechanism.
 
-The adapter does not read prompts, transcript files or paths, tool input,
-tool response/output, assistant messages, or complete payloads.
+By default the adapter does not read prompts, transcript files or paths, tool
+input, tool response/output, assistant messages, or complete payloads. With
+explicit prompt-preview opt-in, only `UserPromptSubmit.prompt` is read in
+memory, and only the bounded derived `taskTitle` leaves the hook process. The
+event and field are documented in the official
+[Codex hooks reference](https://developers.openai.com/codex/hooks).
 
 ## Narrow official integration: Codex notify
 
@@ -46,6 +57,8 @@ are separate interfaces and are not used by this adapter.
 
 The adapter never copies complete `input-messages`; it uses a bounded
 `last-assistant-message` when available.
+
+Codex notify is never a prompt-preview title source.
 
 ## OpenCode plugin MVP
 
@@ -94,6 +107,11 @@ whitelisted `AgentEventInput`. They must not:
 - send notifications directly;
 - influence platform permission decisions;
 - claim lifecycle states the source interface does not expose.
+
+Prompt-preview capability discovery uses the same configured daemon endpoint as
+event delivery. It has a 200ms timeout and resolves to disabled on timeout,
+connection failure, invalid JSON, unexpected response shape, or non-success
+status so host workflows remain non-blocking.
 
 Claude Code hook and Codex notify ingest commands warn and return zero for
 invalid input, unsupported event types, or daemon delivery failure. Codex hook,
