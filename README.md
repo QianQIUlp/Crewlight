@@ -1,24 +1,85 @@
-# AgentPulse
+<p align="center">
+  <img src="assets/readme/agentpulse-mark.svg" width="112" alt="AgentPulse pulse mark">
+</p>
 
-AgentPulse is a local activity hub for AI coding agents. It receives supported
-Claude Code and Codex events, an OpenCode plugin MVP, generic CLI observations,
-research probes, and manual events. It aggregates them into in-memory sessions
-and exposes their current state through notifications, CLI commands, and an
-optional browser dashboard.
+<h1 align="center">AgentPulse</h1>
 
-## Documentation
+<p align="center"><strong>Universal activity monitor for AI coding agents.</strong></p>
 
-- [简体中文 README](README.zh-CN.md)
-- [Contributing guide](CONTRIBUTING.md)
-- [中文贡献指南](CONTRIBUTING.zh-CN.md)
+<p align="center">
+  <a href="README.md">English</a>
+  ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/QianQIUlp/AgentPulse/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/published_preview-v0.3.0-7c3aed" alt="Published preview v0.3.0"></a>
+  <img src="https://img.shields.io/badge/platform-Linux_x64_%7C_Windows_x64-334155" alt="Platforms: Linux x64 and Windows x64">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/QianQIUlp/AgentPulse" alt="MIT license"></a>
+  <a href="https://github.com/QianQIUlp/AgentPulse/actions/workflows/ci.yml"><img src="https://github.com/QianQIUlp/AgentPulse/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+</p>
+
+AgentPulse is a local activity hub that normalizes supported AI coding-agent
+events into one current view, with safe notifications, CLI inspection, and an
+optional read-only dashboard.
+
+<p align="center">
+  <img src="assets/readme/agentpulse-flow.svg" width="100%" alt="AgentPulse flow from bounded agent integrations through allowlisted adapters and a local daemon to read-only status outputs">
+</p>
+
+## Feature Overview
+
+- **One local activity view:** aggregate supported agent lifecycle events into
+  AgentPulse-owned, namespaced sessions.
+- **Status-first dashboard:** inspect current work, action-needed states,
+  failures, stale activity, setup snippets, and basic doctor output.
+- **Flexible notifications:** select console, OS, or no-op output without
+  coupling notification failures to event ingestion.
+- **Safe adapter boundary:** translate only allowlisted status, identity,
+  location, and short safe-message fields.
+- **Non-blocking integrations:** malformed input and daemon failures degrade
+  safely so hook and notify workflows can continue.
+- **Standalone preview builds:** run the supported Linux x64 and Windows x64
+  artifacts without installing Node.js, npm, or pnpm.
+
+The browser dashboard is opt-in, read-only, and restricted to loopback. It
+reflects only the current daemon's in-memory state.
+
+## Supported Integrations and Levels
+
+AgentPulse distinguishes verified interfaces from experiments and bounded
+fallbacks:
+
+| Integration              | Level                             | Current boundary                                                                  |
+| ------------------------ | --------------------------------- | --------------------------------------------------------------------------------- |
+| Claude Code              | Precise                           | Documented lifecycle hooks; observation only                                      |
+| Codex hooks              | Precise lifecycle                 | Documented session, prompt, tool, permission, and stop events after user trust    |
+| Codex `notify`           | Narrow official                   | Maps the documented `agent-turn-complete` notification                            |
+| OpenCode                 | Implemented, verification pending | Documented local plugin events; not yet labeled supported                         |
+| Codex Desktop            | Experimental                      | Reuses Codex hooks with an explicit desktop surface; real verification is pending |
+| Antigravity              | Research-only                     | Sanitized manual probe scaffolding, not a supported adapter                       |
+| Generic CLI wrapper      | Best-effort                       | Observes only the process started by `agentpulse run`                             |
+| Manual normalized events | Manual                            | Caller-supplied events through `agentpulse emit`                                  |
+
+Codex hooks are observation-only. AgentPulse does not return permission
+decisions, context, updated tool input, or turn-control output.
+
+See [integration boundaries](docs/integration-boundaries.md) for the exact
+event and data contracts.
 
 ## Quick Start
 
-The recommended user installation is a standalone Linux x64 or Windows x64
-release binary. It does not require Node.js, npm, or pnpm.
+The recommended user path is a standalone
+[AgentPulse v0.3.0 Preview](https://github.com/QianQIUlp/AgentPulse/releases/tag/v0.3.0)
+binary:
 
-1. Download the archive and matching `.sha256` file from
-   [AgentPulse v0.3.0 Preview](https://github.com/QianQIUlp/AgentPulse/releases/tag/v0.3.0):
+| Platform    | v0.3.0 Preview status                                |
+| ----------- | ---------------------------------------------------- |
+| Linux x64   | Supported and verified by CI standalone smoke tests  |
+| Windows x64 | Supported and verified by CI standalone smoke tests  |
+| macOS       | Planned / unverified; no supported binary is claimed |
+
+1. Download the archive and matching checksum:
 
    - Linux:
      [`agentpulse-v0.3.0-linux-x64.tar.gz`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-linux-x64.tar.gz)
@@ -49,146 +110,89 @@ release binary. It does not require Node.js, npm, or pnpm.
    Set-Location .\agentpulse-v0.3.0-windows-x64
    ```
 
-3. Start the daemon and dashboard with `./agentpulse daemon --dashboard` on
-   Linux or `.\agentpulse.exe daemon --dashboard` on Windows.
+3. Start the daemon with the optional dashboard:
 
    ```bash
    ./agentpulse daemon --dashboard
    ```
 
+   On Windows, use:
+
+   ```powershell
+   .\agentpulse.exe daemon --dashboard
+   ```
+
 4. Open the printed local URL, normally
-   `http://127.0.0.1:3768/dashboard`.
+   `http://127.0.0.1:3768/dashboard`, then verify the installation:
 
-The dashboard is read-only, opt-in, and restricted to loopback. It shows daemon
-health, notifier mode, current in-memory sessions, setup snippets, and basic
-doctor output. See [install without Node](docs/install-without-node.md) and the
-[dashboard guide](docs/dashboard.md).
+   ```bash
+   ./agentpulse doctor
+   ./agentpulse status
+   ```
 
-### Standalone platform status
+For a standalone binary, `doctor` reports that source-build checks are not
+required. The archive's `BUILD-INFO.txt` records its build runtime, commit,
+platform, and architecture. See [install without Node](docs/install-without-node.md)
+and the [dashboard guide](docs/dashboard.md).
 
-| Platform    | v0.3.0 status                                        |
-| ----------- | ---------------------------------------------------- |
-| Linux x64   | Supported and verified by CI standalone smoke tests  |
-| Windows x64 | Supported and verified by CI standalone smoke tests  |
-| macOS       | Planned / unverified; no supported binary is claimed |
-
-Commands below use `agentpulse` on `PATH`. When running directly from the
-extracted archive, replace it with `./agentpulse`.
-
-## Check the Installation
-
-With the daemon running in one terminal:
-
-```bash
-./agentpulse doctor
-./agentpulse doctor --json
-```
-
-For a standalone binary, doctor reports that pnpm and source-build checks are
-not required. The archive's `BUILD-INFO.txt` records the exact Node 22.x runtime
-used to build that artifact, its commit, platform, and architecture.
+Commands below use `agentpulse` on `PATH`. When running directly from an
+extracted Linux archive, replace it with `./agentpulse`; on Windows, use
+`.\agentpulse.exe`.
 
 ## Platform Setup
 
-Print a Claude Code hooks snippet:
+AgentPulse prints reviewable, mergeable setup fragments:
 
 ```bash
 agentpulse setup claude-code --print
-```
-
-Print a Codex user-config snippet:
-
-```bash
 agentpulse setup codex --print
-```
-
-Print a Codex lifecycle hooks snippet:
-
-```bash
 agentpulse setup codex-hooks --print
-```
-
-Print an OpenCode local plugin:
-
-```bash
 agentpulse setup opencode --print
 ```
 
-These commands only print mergeable snippets. They never read or modify user
-configuration. By default they include the absolute current standalone binary
-path, or the absolute Node executable plus CLI entry path for source mode. Use
-`--binary agentpulse` only to explicitly select PATH mode. Follow the
-platform-specific merge instructions:
+These commands never read or modify user configuration. By default, generated
+commands include the current standalone binary path or the source-mode Node.js
+and CLI paths. Use `--binary agentpulse` only when explicitly selecting `PATH`
+mode.
+
+Follow the platform-specific merge and verification steps:
 
 - [Claude Code setup](docs/setup-claude-code.md)
 - [Codex notify setup](docs/setup-codex.md)
 - [Codex hooks setup](docs/setup-codex-hooks.md)
 - [OpenCode plugin MVP](docs/opencode.md)
 
-The ingest commands are intended to be called by those integrations. Hook-style
-OpenCode and Codex lifecycle ingest remains silent and non-blocking even for
-malformed input or daemon failures.
+Hook-style Codex and OpenCode ingest remains quiet and non-blocking on
+malformed input or daemon failure.
 
-## CLI Usage
+### Everyday CLI
 
-Select a notifier when starting the daemon:
+Choose a notifier when starting the daemon:
 
 ```bash
 agentpulse daemon --notifier console
 agentpulse daemon --notifier os
 agentpulse daemon --notifier none
-AGENTPULSE_NOTIFIER=os agentpulse daemon
 ```
 
-Supported notifier modes are `console`, `os`, and `none`; the default is
-`console`. On Linux, OS notification mode requires a working graphical session
-and the system `notify-send` command. Notification failures never stop event
-ingestion.
+The default is `console`. On Linux, OS notifications require a graphical
+session and `notify-send`; failures do not stop ingestion.
 
-Send and inspect a manual event:
+Inspect current in-memory sessions or wrap one command with the best-effort
+adapter:
 
 ```bash
-agentpulse emit \
-  --source custom \
-  --surface manual \
-  --status completed \
-  --session-id demo \
-  --message "done"
-
 agentpulse status
 agentpulse status --json
-```
-
-Wrap a command with the best-effort generic adapter:
-
-```bash
 agentpulse run --source generic-cli -- npm test
 ```
 
-The wrapper preserves the command's exit result. Daemon delivery failures warn
-without preventing the command from running.
-
-## Configuration
-
-The daemon defaults to `127.0.0.1:3768`.
-
-```bash
-AGENTPULSE_HOST=127.0.0.1
-AGENTPULSE_PORT=3768
-AGENTPULSE_NOTIFIER=console
-```
-
-CLI connections use the same host and port variables. Binding the daemon beyond
-loopback remains available only for trusted development environments because
-the HTTP API has no authentication. `--dashboard` rejects every host except
-`127.0.0.1` and `::1`.
+The wrapper preserves the command's exit result. Manual callers can submit
+normalized events with `agentpulse emit`.
 
 ## Developer Setup
 
-Source builds are the developer path and require:
-
-- Node.js 22 or newer
-- pnpm 10.11.0
+Source builds require Node.js 22 or newer and pnpm 10.11.0:
 
 ```bash
 corepack enable
@@ -199,15 +203,7 @@ npm link
 cd ../..
 ```
 
-The normal development output remains TypeScript-compiled ESM. The CommonJS
-bundle used for Node SEA is generated only by the release-specific command:
-
-```bash
-pnpm build:standalone
-pnpm smoke:standalone
-```
-
-Run repository validation with:
+Run the repository checks:
 
 ```bash
 pnpm format:check
@@ -222,72 +218,66 @@ For local use without a global link:
 node packages/cli/dist/index.js
 ```
 
-## Architecture and Safety
+The Node SEA bundle is release-specific:
 
-```text
-Claude hook / Codex notify or hooks / wrapper / manual emit
-                        |
-                        v
-                     adapter
-                        |
-                        v
-                AgentEventInput
-                        |
-                        v
-                     daemon
-             /          |          \
-       session store  dashboard  console / OS / none
+```bash
+pnpm build:standalone
+pnpm smoke:standalone
 ```
 
-- `sessionId` is the optional original identifier supplied by a platform.
-- `sessionKey` is an AgentPulse-owned, namespaced and hashed aggregation key.
-- Adapters whitelist output fields. Complete platform payloads, prompts,
-  transcripts, and tool input/output are never forwarded into normalized
-  events or dashboard responses.
-- Sessions remain in memory until the daemon exits. There is no persistence,
-  history recovery, or session cleanup.
-- The dashboard polls ordinary HTTP endpoints; there is no SSE or WebSocket.
+## Architecture and Safety
+
+Platform adapters translate source payloads into a whitelisted
+`AgentEventInput`. The daemon normalizes those inputs, derives an AgentPulse
+`sessionKey`, keeps current sessions in memory, and exposes selected notifier
+and read-only status outputs.
+
+- `sessionId` is an optional original platform identifier.
+- `sessionKey` is AgentPulse-owned, namespaced, and stable for aggregation;
+  external IDs are never used directly as internal keys.
+- Complete platform payloads, raw events, prompts, transcripts, tool
+  input/output, and Codex `input-messages` are not forwarded into normalized
+  events, sessions, notifier output, logs, or dashboard responses.
+- The dashboard is read-only and available only with `--dashboard`. It rejects
+  every host except `127.0.0.1` and `::1`, sets `Cache-Control: no-store`, and
+  uses ordinary HTTP polling rather than SSE or WebSocket.
+- The daemon defaults to `127.0.0.1:3768`. Broader daemon binding is only for
+  trusted development environments because the HTTP API has no authentication.
+- Sessions exist only for the daemon process lifetime. There is no persistence,
+  history recovery, or session garbage collection.
+- Setup commands print snippets only; AgentPulse never mutates Claude, Codex,
+  or OpenCode user configuration automatically.
+- Core integrations do not depend on private API reverse engineering, OCR,
+  screen scraping, window watching, simulated input, or hidden platform
+  behavior.
 
 See [architecture](docs/architecture.md),
-[integration boundaries](docs/integration-boundaries.md), the
-[v0.2 platform adapter guide](docs/v0.2-platform-adapters.md), and
+[integration boundaries](docs/integration-boundaries.md), and
 [troubleshooting](docs/troubleshooting.md).
-
-## Integration Levels
-
-- **Precise:** Claude Code uses documented lifecycle hooks.
-- **Precise lifecycle:** Codex hooks map documented session, prompt, tool,
-  permission, and stop events after the user reviews and trusts the commands.
-- **Narrow official notify:** Codex `notify` remains available for
-  `agent-turn-complete`.
-- **Implemented, verification pending:** OpenCode uses documented local plugin
-  events but still requires a real local verification before a supported label.
-- **Experimental:** Codex Desktop reuses Codex hooks with an explicit surface.
-- **Research-only:** Antigravity exposes only a sanitized probe command.
-- **Best-effort:** the generic CLI wrapper observes only the command it starts.
-- **Manual:** callers explicitly submit normalized events.
-
-Codex hooks are observation-only: AgentPulse never returns permission decisions,
-context, updated tool input, or turn-control output.
 
 ## Known Limitations
 
-- OpenCode is implemented but requires verification against a real local
-  installation before it can be labeled supported.
+- OpenCode is implemented but still needs real local verification before it can
+  be labeled supported.
 - Codex Desktop remains experimental.
 - Antigravity remains research-only and is not a stable adapter or setup path.
+- macOS has no supported v0.3.0 standalone artifact.
+- The dashboard has no persistence, authentication, remote access, historical
+  recovery, SSE/WebSocket streaming, or mutation controls.
+- The development-only Electron companion prototype is not a desktop installer
+  or v0.3.0 release artifact and provides no autostart behavior.
+- AgentPulse does not currently include Cursor adapters, a VS Code extension,
+  persistence, session cleanup, hardware output, or automatic configuration
+  mutation.
 
-## v0.3.0 Preview Scope Boundaries
+These boundaries are intentional for the v0.3.0 Preview and should not be read
+as claims of stable API, installer, or desktop-product maturity.
 
-The v0.3.0 preview does not promote OpenCode to verified support, Codex Desktop
-beyond experimental, or Antigravity beyond research-only. The repository now
-contains a development-only Electron companion prototype, but no desktop
-installer, autostart behavior, or companion release artifact. It also does not
-include Cursor adapters, a VS Code extension, Tauri, persistence,
-SSE/WebSocket, session garbage collection, hardware output, automatic
-user-config mutation, OCR, screen scraping, window watching, or private API
-reverse engineering.
+## Documentation and License
 
-## License
+- [Dashboard guide](docs/dashboard.md)
+- [Architecture](docs/architecture.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [中文贡献指南](CONTRIBUTING.zh-CN.md)
 
-MIT
+AgentPulse is available under the [MIT License](LICENSE).

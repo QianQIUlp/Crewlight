@@ -1,0 +1,215 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1200"
+  height="560"
+  viewBox="0 0 1200 560"
+  role="img"
+  aria-labelledby="title description"
+>
+  <title id="title">AgentPulse local activity flow</title>
+  <desc id="description">
+    Bounded AI coding agent integrations pass allowlisted events to a local
+    daemon, which keeps in-memory sessions and exposes read-only status outputs.
+  </desc>
+  <defs>
+    <linearGradient id="background" x1="60" y1="20" x2="1140" y2="540">
+      <stop offset="0" stop-color="#0f172a" />
+      <stop offset="0.55" stop-color="#111827" />
+      <stop offset="1" stop-color="#1e1b4b" />
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#312e81" />
+      <stop offset="1" stop-color="#581c87" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-opacity="0.24" />
+    </filter>
+    <marker
+      id="arrow"
+      viewBox="0 0 10 10"
+      refX="9"
+      refY="5"
+      markerWidth="7"
+      markerHeight="7"
+      orient="auto-start-reverse"
+    >
+      <path d="M0 0l10 5-10 5z" fill="#818cf8" />
+    </marker>
+    <style>
+      .heading {
+        fill: #f8fafc;
+        font: 700 24px Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      .label {
+        fill: #e2e8f0;
+        font: 600 17px Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      .detail {
+        fill: #94a3b8;
+        font: 400 14px Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      .eyebrow {
+        fill: #a5b4fc;
+        font: 700 12px Inter, ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: 1.6px;
+      }
+      .card {
+        fill: #172033;
+        stroke: #334155;
+        stroke-width: 1.5;
+      }
+      .line {
+        fill: none;
+        stroke: #818cf8;
+        stroke-width: 2.5;
+        marker-end: url(#arrow);
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="560" rx="28" fill="url(#background)" />
+  <rect
+    x="1"
+    y="1"
+    width="1198"
+    height="558"
+    rx="27"
+    fill="none"
+    stroke="#475569"
+    stroke-opacity="0.55"
+    stroke-width="2"
+  />
+
+  <text x="60" y="62" class="heading">A local, bounded activity path</text>
+  <text x="60" y="88" class="detail">
+    Agent signals become normalized status—not mirrored platform payloads.
+  </text>
+
+  <text x="60" y="136" class="eyebrow">SOURCES</text>
+  <text x="350" y="136" class="eyebrow">SAFE BOUNDARY</text>
+  <text x="665" y="136" class="eyebrow">LOCAL CORE</text>
+  <text x="950" y="136" class="eyebrow">OUTPUTS</text>
+
+  <g filter="url(#shadow)">
+    <rect x="60" y="158" width="230" height="70" rx="14" class="card" />
+    <text x="80" y="187" class="label">Documented hooks</text>
+    <text x="80" y="211" class="detail">Claude Code · Codex</text>
+
+    <rect x="60" y="242" width="230" height="70" rx="14" class="card" />
+    <text x="80" y="271" class="label">Official notify</text>
+    <text x="80" y="295" class="detail">Codex turn completion</text>
+
+    <rect x="60" y="326" width="230" height="70" rx="14" class="card" />
+    <text x="80" y="355" class="label">Bounded observation</text>
+    <text x="80" y="379" class="detail">OpenCode MVP · CLI wrapper</text>
+
+    <rect x="60" y="410" width="230" height="70" rx="14" class="card" />
+    <text x="80" y="439" class="label">Manual events</text>
+    <text x="80" y="463" class="detail">Explicit normalized input</text>
+  </g>
+
+  <path d="M290 193h55" class="line" />
+  <path d="M290 277h55" class="line" />
+  <path d="M290 361h55" class="line" />
+  <path d="M290 445h55" class="line" />
+
+  <g filter="url(#shadow)">
+    <rect x="350" y="158" width="255" height="154" rx="18" class="card" />
+    <text x="375" y="194" class="label">Allowlisted adapters</text>
+    <text x="375" y="224" class="detail">Status · identity · location</text>
+    <text x="375" y="248" class="detail">Short safe messages</text>
+    <text x="375" y="282" class="detail">No complete raw payload forwarding</text>
+
+    <rect
+      x="350"
+      y="334"
+      width="255"
+      height="146"
+      rx="18"
+      fill="#111c2f"
+      stroke="#38bdf8"
+      stroke-opacity="0.5"
+      stroke-width="1.5"
+    />
+    <text x="375" y="372" class="label">AgentEventInput</text>
+    <text x="375" y="402" class="detail">Validated normalization boundary</text>
+    <text x="375" y="426" class="detail">Namespaced session identity</text>
+    <text x="375" y="450" class="detail">Non-blocking delivery behavior</text>
+  </g>
+
+  <path d="M605 235h55" class="line" />
+  <path d="M605 407h55" class="line" />
+
+  <g filter="url(#shadow)">
+    <rect
+      x="665"
+      y="158"
+      width="225"
+      height="322"
+      rx="22"
+      fill="url(#core)"
+      stroke="#a78bfa"
+      stroke-opacity="0.65"
+      stroke-width="1.5"
+    />
+    <circle cx="777.5" cy="214" r="25" fill="#0f172a" fill-opacity="0.55" />
+    <path
+      d="M758 214h10l5-13 8 27 8-40 7 26h11"
+      fill="none"
+      stroke="#c4b5fd"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="4"
+    />
+    <text x="777.5" y="266" text-anchor="middle" class="label">
+      Local daemon
+    </text>
+    <text x="777.5" y="296" text-anchor="middle" class="detail">
+      Loopback by default
+    </text>
+    <line
+      x1="705"
+      y1="322"
+      x2="850"
+      y2="322"
+      stroke="#c4b5fd"
+      stroke-opacity="0.3"
+    />
+    <text x="777.5" y="358" text-anchor="middle" class="label">
+      In-memory sessions
+    </text>
+    <text x="777.5" y="388" text-anchor="middle" class="detail">
+      Current process lifetime
+    </text>
+    <text x="777.5" y="424" text-anchor="middle" class="detail">
+      No history database
+    </text>
+    <text x="777.5" y="448" text-anchor="middle" class="detail">
+      No automatic config mutation
+    </text>
+  </g>
+
+  <path d="M890 218h55" class="line" />
+  <path d="M890 319h55" class="line" />
+  <path d="M890 420h55" class="line" />
+
+  <g filter="url(#shadow)">
+    <rect x="950" y="158" width="190" height="120" rx="16" class="card" />
+    <text x="975" y="193" class="label">Dashboard</text>
+    <text x="975" y="221" class="detail">Optional · read-only</text>
+    <text x="975" y="245" class="detail">Loopback only</text>
+
+    <rect x="950" y="292" width="190" height="92" rx="16" class="card" />
+    <text x="975" y="327" class="label">CLI inspection</text>
+    <text x="975" y="355" class="detail">status · doctor</text>
+
+    <rect x="950" y="398" width="190" height="82" rx="16" class="card" />
+    <text x="975" y="433" class="label">Notifiers</text>
+    <text x="975" y="461" class="detail">console · OS · none</text>
+  </g>
+
+  <text x="600" y="526" text-anchor="middle" class="detail">
+    Complete prompts, transcripts, raw events, and tool payloads stay outside
+    normalized outputs.
+  </text>
+</svg>
