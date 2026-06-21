@@ -17,34 +17,36 @@ optional browser dashboard.
 The recommended user installation is a standalone Linux x64 or Windows x64
 release binary. It does not require Node.js, npm, or pnpm.
 
-AgentPulse v0.3.0 is currently unreleased. Until its release assets are
-published, the download commands below intentionally reference the latest
-published release, v0.2.3.
-
 1. Download the archive and matching `.sha256` file from
-   [GitHub Releases](https://github.com/QianQIUlp/AgentPulse/releases):
+   [AgentPulse v0.3.0 Preview](https://github.com/QianQIUlp/AgentPulse/releases/tag/v0.3.0):
 
-   - Linux: `agentpulse-v0.2.3-linux-x64.tar.gz`
-   - Windows: `agentpulse-v0.2.3-windows-x64.zip`
+   - Linux:
+     [`agentpulse-v0.3.0-linux-x64.tar.gz`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-linux-x64.tar.gz)
+     and
+     [`agentpulse-v0.3.0-linux-x64.tar.gz.sha256`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-linux-x64.tar.gz.sha256)
+   - Windows:
+     [`agentpulse-v0.3.0-windows-x64.zip`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-windows-x64.zip)
+     and
+     [`agentpulse-v0.3.0-windows-x64.zip.sha256`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-windows-x64.zip.sha256)
 
 2. Verify and extract it.
 
    Linux:
 
    ```bash
-   sha256sum --check agentpulse-v0.2.3-linux-x64.tar.gz.sha256
-   tar -xzf agentpulse-v0.2.3-linux-x64.tar.gz
-   cd agentpulse-v0.2.3-linux-x64
+   sha256sum --check agentpulse-v0.3.0-linux-x64.tar.gz.sha256
+   tar -xzf agentpulse-v0.3.0-linux-x64.tar.gz
+   cd agentpulse-v0.3.0-linux-x64
    ```
 
    Windows PowerShell:
 
    ```powershell
-   $expected = (Get-Content .\agentpulse-v0.2.3-windows-x64.zip.sha256).Split()[0]
-   $actual = (Get-FileHash .\agentpulse-v0.2.3-windows-x64.zip -Algorithm SHA256).Hash
+   $expected = (Get-Content .\agentpulse-v0.3.0-windows-x64.zip.sha256).Split()[0]
+   $actual = (Get-FileHash .\agentpulse-v0.3.0-windows-x64.zip -Algorithm SHA256).Hash
    if ($actual.ToLower() -ne $expected.ToLower()) { throw "Checksum mismatch" }
-   Expand-Archive .\agentpulse-v0.2.3-windows-x64.zip -DestinationPath .\agentpulse-v0.2.3-windows-x64
-   Set-Location .\agentpulse-v0.2.3-windows-x64
+   Expand-Archive .\agentpulse-v0.3.0-windows-x64.zip -DestinationPath .\agentpulse-v0.3.0-windows-x64
+   Set-Location .\agentpulse-v0.3.0-windows-x64
    ```
 
 3. Start the daemon and dashboard with `./agentpulse daemon --dashboard` on
@@ -64,11 +66,11 @@ doctor output. See [install without Node](docs/install-without-node.md) and the
 
 ### Standalone platform status
 
-| Platform    | v0.2.3 status                                         |
-| ----------- | ----------------------------------------------------- |
-| Linux x64   | Supported and verified by CI standalone smoke tests   |
-| Windows x64 | Newly verified in v0.2.3 by CI standalone smoke tests |
-| macOS       | Planned / unverified; no supported binary is claimed  |
+| Platform    | v0.3.0 status                                        |
+| ----------- | ---------------------------------------------------- |
+| Linux x64   | Supported and verified by CI standalone smoke tests  |
+| Windows x64 | Supported and verified by CI standalone smoke tests  |
+| macOS       | Planned / unverified; no supported binary is claimed |
 
 Commands below use `agentpulse` on `PATH`. When running directly from the
 extracted archive, replace it with `./agentpulse`.
@@ -275,14 +277,14 @@ context, updated tool input, or turn-control output.
 - Codex Desktop remains experimental.
 - Antigravity remains research-only and is not a stable adapter or setup path.
 
-## v0.3.0 Release-Candidate Scope Boundaries
+## v0.3.0 Preview Scope Boundaries
 
-The unreleased v0.3.0 release candidate does not promote OpenCode to verified
-support, Codex Desktop beyond experimental, or Antigravity beyond research-only.
-It also does not include Cursor adapters, a VS Code extension, Tauri, Electron,
-a desktop tray, persistence, SSE/WebSocket, session garbage collection,
-hardware output, automatic user-config mutation, OCR, screen scraping, window
-watching, or private API reverse engineering.
+The v0.3.0 preview does not promote OpenCode to verified support, Codex Desktop
+beyond experimental, or Antigravity beyond research-only. It also does not
+include Cursor adapters, a VS Code extension, Tauri, Electron, a desktop tray,
+persistence, SSE/WebSocket, session garbage collection, hardware output,
+automatic user-config mutation, OCR, screen scraping, window watching, or
+private API reverse engineering.
 
 ## License
 

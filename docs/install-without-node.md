@@ -1,34 +1,30 @@
 # Install AgentPulse Without Node.js
 
-AgentPulse v0.3.0 is currently unreleased. Until its release assets are
-published, this guide intentionally documents the latest published release,
-v0.2.3.
-
-The recommended published user path is a standalone Linux x64 or Windows x64
+The recommended v0.3.0 user path is a standalone Linux x64 or Windows x64
 release archive. The executable embeds its Node runtime; users do not need
 Node.js, npm, pnpm, Corepack, or the source repository.
 
 ## Supported Platforms
 
-| Platform    | v0.2.3 release status                                |
+| Platform    | v0.3.0 release status                                |
 | ----------- | ---------------------------------------------------- |
 | Linux x64   | Supported and verified in CI                         |
-| Windows x64 | Newly verified in v0.2.3 by native Windows CI smoke  |
+| Windows x64 | Supported and verified by native Windows CI smoke    |
 | macOS       | Planned / unverified; no supported binary is claimed |
 
 ## Linux x64
 
 Download:
 
-- `agentpulse-v0.2.3-linux-x64.tar.gz`
-- `agentpulse-v0.2.3-linux-x64.tar.gz.sha256`
+- [`agentpulse-v0.3.0-linux-x64.tar.gz`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-linux-x64.tar.gz)
+- [`agentpulse-v0.3.0-linux-x64.tar.gz.sha256`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-linux-x64.tar.gz.sha256)
 
 Verify and extract:
 
 ```bash
-sha256sum --check agentpulse-v0.2.3-linux-x64.tar.gz.sha256
-tar -xzf agentpulse-v0.2.3-linux-x64.tar.gz
-cd agentpulse-v0.2.3-linux-x64
+sha256sum --check agentpulse-v0.3.0-linux-x64.tar.gz.sha256
+tar -xzf agentpulse-v0.3.0-linux-x64.tar.gz
+cd agentpulse-v0.3.0-linux-x64
 ./agentpulse --help
 ```
 
@@ -38,18 +34,18 @@ The archive directory contains `agentpulse`, `LICENSE`, and `BUILD-INFO.txt`.
 
 Download:
 
-- `agentpulse-v0.2.3-windows-x64.zip`
-- `agentpulse-v0.2.3-windows-x64.zip.sha256`
+- [`agentpulse-v0.3.0-windows-x64.zip`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-windows-x64.zip)
+- [`agentpulse-v0.3.0-windows-x64.zip.sha256`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-windows-x64.zip.sha256)
 
 Verify and extract in PowerShell:
 
 ```powershell
-$expected = (Get-Content .\agentpulse-v0.2.3-windows-x64.zip.sha256).Split()[0]
-$actual = (Get-FileHash .\agentpulse-v0.2.3-windows-x64.zip -Algorithm SHA256).Hash
+$expected = (Get-Content .\agentpulse-v0.3.0-windows-x64.zip.sha256).Split()[0]
+$actual = (Get-FileHash .\agentpulse-v0.3.0-windows-x64.zip -Algorithm SHA256).Hash
 if ($actual.ToLower() -ne $expected.ToLower()) { throw "Checksum mismatch" }
 
-Expand-Archive .\agentpulse-v0.2.3-windows-x64.zip -DestinationPath .\agentpulse-v0.2.3-windows-x64
-Set-Location .\agentpulse-v0.2.3-windows-x64
+Expand-Archive .\agentpulse-v0.3.0-windows-x64.zip -DestinationPath .\agentpulse-v0.3.0-windows-x64
+Set-Location .\agentpulse-v0.3.0-windows-x64
 .\agentpulse.exe --help
 ```
 
