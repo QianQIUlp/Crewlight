@@ -30,6 +30,10 @@ function runtime(overrides: Partial<DoctorRuntime> = {}): DoctorRuntime {
       available: true,
       snippet: '{"hooks":{"Stop":[]}}',
     }),
+    daemonEnv: () => ({ host: "127.0.0.1", port: 3768 }),
+    entryPath: () => "/opt/agentpulse/dist/index.js",
+    pathResolvedAgentpulse: () => "/opt/agentpulse/dist/index.js",
+    dashboardCapabilities: async () => ({ taskTitleMode: "off" }),
     ...overrides,
   };
 }

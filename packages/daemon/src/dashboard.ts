@@ -36,6 +36,11 @@ export interface DashboardOptions {
     codexHooks: string;
     openCode: string;
     antigravityProbe: string;
+    verification: {
+      claudeCode: string;
+      codex: string;
+      antigravityProbe: string;
+    };
   };
   doctor(): Promise<DashboardDoctorReport>;
 }
@@ -322,6 +327,14 @@ const DASHBOARD_HTML = `<!doctype html>
           <h2>Sessions</h2>
           <p id="session-count">Loading…</p>
         </article>
+        <article>
+          <h2>Capabilities</h2>
+          <ul class="capabilities-list">
+            <li>Task titles: <span id="cap-task-titles">Loading…</span></li>
+            <li>Endpoint: <span id="cap-endpoint">Loading…</span></li>
+            <li>Polling: <span id="cap-polling">Loading…</span></li>
+          </ul>
+        </article>
       </section>
       <section id="focus-root" class="primary-view" hidden>
         <div class="section-heading">
@@ -386,10 +399,14 @@ const DASHBOARD_HTML = `<!doctype html>
           <article>
             <h3>Claude Code</h3>
             <pre id="setup-claude"></pre>
+            <p class="eyebrow verify-label">Verification command</p>
+            <pre id="verify-claude" class="verify-command"></pre>
           </article>
           <article>
             <h3>Codex notify</h3>
             <pre id="setup-codex"></pre>
+            <p class="eyebrow verify-label">Verification command</p>
+            <pre id="verify-codex" class="verify-command"></pre>
           </article>
           <article>
             <h3>Codex hooks</h3>
@@ -398,6 +415,8 @@ const DASHBOARD_HTML = `<!doctype html>
           <article>
             <h3>OpenCode</h3>
             <pre id="setup-opencode"></pre>
+            <p class="eyebrow verify-label">Verification command</p>
+            <p class="muted">Trigger an OpenCode event after installing the plugin, then watch Agent connectivity.</p>
           </article>
           <article>
             <h3>Antigravity probe</h3>
@@ -406,6 +425,29 @@ const DASHBOARD_HTML = `<!doctype html>
               supported AgentPulse integration.
             </p>
             <pre id="setup-antigravity-probe"></pre>
+            <p class="eyebrow verify-label">Verification command</p>
+            <pre id="verify-antigravity" class="verify-command"></pre>
+          </article>
+        </div>
+      </section>
+      <section id="connectivity" class="secondary-section">
+        <h2>Agent connectivity</h2>
+        <div class="connectivity-grid">
+          <article>
+            <h3>Claude Code</h3>
+            <p id="conn-claude">Loading…</p>
+          </article>
+          <article>
+            <h3>Codex</h3>
+            <p id="conn-codex">Loading…</p>
+          </article>
+          <article>
+            <h3>OpenCode</h3>
+            <p id="conn-opencode">Loading…</p>
+          </article>
+          <article>
+            <h3>Antigravity probe</h3>
+            <p id="conn-antigravity">Loading…</p>
           </article>
         </div>
       </section>
@@ -452,9 +494,10 @@ header,
 .summary,
 .setup-grid,
 .session-grid,
-.section-heading {
+.connectivity-grid,
+.checks {
   display: grid;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 header {
@@ -575,7 +618,9 @@ article {
 }
 
 .section-heading {
+  display: grid;
   grid-template-columns: 1fr auto;
+  gap: 0.85rem;
   align-items: end;
   margin-bottom: 0.75rem;
 }
@@ -896,6 +941,29 @@ pre {
   word-break: break-word;
 }
 
+.capabilities-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.capabilities-list li {
+  color: #a9b7c6;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+.capabilities-list span {
+  color: #e8eef7;
+  font-weight: 500;
+}
+.verify-label {
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+}
+.verify-command {
+  margin-top: 0;
+  background: #0b1018;
+}
+
 .checks {
   margin-bottom: 0;
   padding: 0.25rem 1.1rem;
@@ -925,7 +993,8 @@ pre {
 
 @media (max-width: 760px) {
   .summary,
-  .setup-grid {
+  .setup-grid,
+  .connectivity-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1299,6 +1368,11 @@ function render(data) {
   setText("setup-codex-hooks", data.setup.codexHooks);
   setText("setup-opencode", data.setup.openCode);
   setText("setup-antigravity-probe", data.setup.antigravityProbe);
+  if (data.setup.verification) {
+    setText("verify-claude", data.setup.verification.claudeCode);
+    setText("verify-codex", data.setup.verification.codex);
+    setText("verify-antigravity", data.setup.verification.antigravityProbe);
+  }
   if (focusKey) {
     renderFocus(data.sessions, focusKey);
   } else if (view === "compact") {
@@ -1306,7 +1380,33 @@ function render(data) {
   } else {
     renderOverview(data.sessions);
   }
+  renderConnectivity(data.sessions);
   renderDoctor(data.doctor);
+}
+
+function renderConnectivity(sessions) {
+  const getAge = (source) => {
+    const session = sessions.filter((s) => s.source === source).sort((a, b) => a.lastEventAgeMs - b.lastEventAgeMs)[0];
+    if (!session) return "no event received yet";
+    const ageSeconds = Math.floor(session.lastEventAgeMs / 1000);
+    return "last event received " + ageSeconds + "s ago";
+  };
+  setText("conn-claude", getAge("claude-code"));
+  setText("conn-codex", getAge("codex"));
+  setText("conn-opencode", getAge("opencode"));
+  setText("conn-antigravity", getAge("antigravity-probe"));
+}
+
+async function fetchCapabilities() {
+  try {
+    const response = await fetch("/dashboard/capabilities");
+    if (response.ok) {
+      const caps = await response.json();
+      setText("cap-task-titles", caps.taskTitleMode);
+    }
+  } catch {}
+  setText("cap-endpoint", window.location.host);
+  setText("cap-polling", "2s");
 }
 
 async function refresh() {
@@ -1324,6 +1424,7 @@ async function refresh() {
 }
 
 byId("refresh")?.addEventListener("click", refresh);
+void fetchCapabilities();
 void refresh();
 window.setInterval(refresh, 2000);
 `;
