@@ -259,6 +259,7 @@ session，并向选定 notifier 和只读状态界面提供输出。
 
 ## 文档与许可证
 
+- [产品定位](docs/product/positioning.md)
 - [Dashboard 指南](docs/dashboard.md)
 - [Companion surface 指南](docs/companion-surface.md)
 - [架构](docs/architecture.md)
