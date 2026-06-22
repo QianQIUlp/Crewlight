@@ -10,7 +10,12 @@ import {
 
 import type { CommandIo } from "./types.js";
 
-type SetupPlatform = "claude-code" | "codex" | "codex-hooks" | "opencode";
+type SetupPlatform =
+  | "claude-code"
+  | "codex"
+  | "codex-hooks"
+  | "cursor"
+  | "opencode";
 type RuntimePlatform = NodeJS.Platform;
 type CodexHookSurface = "unknown" | "cli" | "desktop";
 
@@ -25,10 +30,12 @@ export interface SetupSnippets {
   claudeCode: string;
   codex: string;
   codexHooks: CodexHooksSetupResult;
+  cursor: string;
   openCode: string;
   verification: {
     claudeCode: string;
     codex: string;
+    cursor: string;
   };
 }
 
@@ -43,7 +50,7 @@ export type CodexHooksSetupResult =
   | { available: false; reason: SetupUnavailableReason };
 
 const SETUP_USAGE =
-  "Usage: agentpulse setup <claude-code|codex|codex-hooks|opencode> --print [--binary <absolute-path|agentpulse>] [--surface <unknown|cli|desktop>]";
+  "Usage: agentpulse setup <claude-code|codex|codex-hooks|cursor|opencode> --print [--binary <absolute-path|agentpulse>] [--surface <unknown|cli|desktop>]";
 const WINDOWS_CODEX_HOOK_SIMPLE_TOKEN = /^[\p{L}\p{N}:\\/._-]+$/u;
 const WINDOWS_CODEX_HOOKS_UNAVAILABLE: SetupUnavailableReason = {
   code: "windows-codex-hooks-unsafe-command",
@@ -369,6 +376,62 @@ export const AgentPulsePlugin = async ({ directory }) => ({
 `;
 }
 
+function createCursorCommands(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const cursorCommand = (event: string, title: string): string =>
+    renderHookCommand(
+      [
+        ...command,
+        "ingest",
+        "cursor",
+        "--event",
+        event,
+        "--surface",
+        "ide-extension",
+        "--session",
+        "cursor-agentpulse",
+        "--workspace",
+        "AgentPulse",
+        "--title",
+        title,
+      ],
+      platform,
+    );
+
+  return [
+    cursorCommand("running", "Cursor working"),
+    cursorCommand("needs-review", "Cursor needs review"),
+    cursorCommand("completed", "Cursor work completed"),
+    cursorCommand("failed", "Cursor work failed"),
+  ].join("\n");
+}
+
+function createCursorVerificationCommand(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  return renderHookCommand(
+    [
+      ...command,
+      "ingest",
+      "cursor",
+      "--event",
+      "running",
+      "--surface",
+      "ide-extension",
+      "--session",
+      "agentpulse-verify-cursor",
+      "--workspace",
+      "AgentPulse",
+      "--title",
+      "Cursor verification",
+    ],
+    platform,
+  );
+}
+
 function renderAntigravityProbe(
   command: readonly string[],
   platform: RuntimePlatform,
@@ -447,10 +510,12 @@ export function createSetupSnippets(
       runtime.platform,
       codexHooksSurface,
     ),
+    cursor: createCursorCommands(command, runtime.platform),
     openCode: createOpenCodePlugin(command),
     verification: {
       claudeCode: `${claudeEcho} | ${ingestClaude}`,
       codex: `${codexEcho} | ${ingestCodex}`,
+      cursor: createCursorVerificationCommand(command, runtime.platform),
     },
   };
 }
@@ -491,6 +556,12 @@ The plugin uses an argv-array Bun.spawn call, sends only whitelisted session met
 Use \`--binary agentpulse\` only when OpenCode can reliably resolve AgentPulse from PATH.
 OpenCode support is implemented but pending real local verification before it receives a supported label.`;
 
+const CURSOR_SETUP_GUIDANCE = `AgentPulse only printed manual Cursor bridge commands; it did not read or modify Cursor settings.
+This integration is manual and experimental. It does not observe Cursor internals or claim a stable automatic lifecycle hook.
+Start \`agentpulse daemon --dashboard\`, then run the commands from Cursor's integrated terminal or user-defined tasks.
+Use one stable \`--session\` value per Cursor work stream so later commands update the same AgentPulse session.
+Use \`--binary agentpulse\` only when Cursor's integrated terminal can reliably resolve AgentPulse from PATH.`;
+
 export function executeSetupCommand(
   args: readonly string[],
   io: CommandIo,
@@ -516,6 +587,7 @@ export function executeSetupCommand(
     platform !== "claude-code" &&
     platform !== "codex" &&
     platform !== "codex-hooks" &&
+    platform !== "cursor" &&
     platform !== "opencode"
   ) {
     throw new Error(`Unsupported setup platform: ${platform}`);
@@ -548,6 +620,11 @@ export function executeSetupCommand(
     }
     io.write(snippets.codexHooks.snippet);
     io.warn(CODEX_HOOKS_SETUP_GUIDANCE);
+  } else if (selected === "cursor") {
+    io.write(snippets.cursor);
+    io.warn(
+      `${CURSOR_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.cursor}`,
+    );
   } else {
     io.write(snippets.openCode);
     io.warn(OPENCODE_SETUP_GUIDANCE);

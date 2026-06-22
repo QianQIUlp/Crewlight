@@ -55,6 +55,7 @@ describe("dashboard session derivation", () => {
     ["claude-code", "Claude Code"],
     ["codex", "Codex"],
     ["opencode", "OpenCode"],
+    ["cursor", "Cursor"],
     ["vscode-agent", "VS Code Agent"],
     ["generic-cli", "Generic CLI"],
     ["custom", "Custom"],
@@ -114,6 +115,32 @@ describe("dashboard session derivation", () => {
         workspaceName: "AgentPulse",
       }),
     ).toBe("AgentPulse · IDE extension · #34567890");
+  });
+
+  it("serializes Cursor sessions for dashboard and companion presentation", () => {
+    expect(
+      serializeDashboardSession(
+        {
+          ...baseSession,
+          sessionKey: "cursor:ide-extension:cursor-agentpulse",
+          source: "cursor",
+          surface: "ide-extension",
+          status: "waiting_input",
+          workspaceName: "AgentPulse",
+          taskTitle: "Cursor needs review",
+        },
+        1_000,
+      ),
+    ).toMatchObject({
+      source: "cursor",
+      displayName: "Cursor",
+      displayWorkspace: "AgentPulse",
+      identityLine: "AgentPulse · IDE extension · #entpulse",
+      taskTitle: "Cursor needs review",
+      activityLabel: "Input requested",
+      attention: "action",
+      actionKind: "input",
+    });
   });
 
   it("uses only explicit normalized task titles", () => {

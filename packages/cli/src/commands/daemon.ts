@@ -100,11 +100,13 @@ export async function executeDaemonCommand(
           claudeCode: setup.claudeCode,
           codex: setup.codex,
           codexHooks: formatCodexHooksSetup(setup.codexHooks),
+          cursor: setup.cursor,
           openCode: setup.openCode,
           antigravityProbe: createAntigravityProbeCommand(),
           verification: {
             claudeCode: setup.verification.claudeCode,
             codex: setup.verification.codex,
+            cursor: setup.verification.cursor,
             antigravityProbe: createAntigravityProbeCommand(),
           },
         },

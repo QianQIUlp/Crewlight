@@ -110,9 +110,17 @@ describe("daemon HTTP server", () => {
             codex: 'notify = ["agentpulse", "ingest", "codex"]',
             codexHooks:
               "Codex hooks setup unavailable.\nInstall AgentPulse into a simple no-space path.",
+            cursor:
+              "agentpulse ingest cursor --event running --surface ide-extension",
             openCode: "export const AgentPulsePlugin = async () => ({});",
             antigravityProbe:
               "printf '%s\\n' '{}' | agentpulse ingest antigravity-probe --event manual.probe --surface desktop",
+            verification: {
+              claudeCode: "verify-claude",
+              codex: "verify-codex",
+              cursor: "verify-cursor",
+              antigravityProbe: "verify-antigravity",
+            },
           },
           doctor: async () => ({
             ok: true,
@@ -156,6 +164,10 @@ describe("daemon HTTP server", () => {
     expect(pageBody).toContain('id="compact-session-list"');
     expect(pageBody).toContain('id="action-needed"');
     expect(pageBody).toContain('id="setup-opencode"');
+    expect(pageBody).toContain('id="setup-cursor"');
+    expect(pageBody).toContain('id="verify-cursor"');
+    expect(pageBody).toContain('id="conn-cursor"');
+    expect(pageBody).toContain("Manual / experimental");
     expect(pageBody).toContain('id="setup-antigravity-probe"');
     expect(pageBody).toContain("Research-only");
     expect(pageBody).toMatch(/not a\s+supported AgentPulse integration/u);
@@ -200,6 +212,8 @@ describe("daemon HTTP server", () => {
     expect(scriptBody).toContain("Possibly stale · no event for ");
     expect(scriptBody).toContain("stale.textContent");
     expect(scriptBody).not.toContain(".innerHTML");
+    expect(scriptBody).toContain('setText("setup-cursor", data.setup.cursor)');
+    expect(scriptBody).toContain('setText("conn-cursor", getAge("cursor"))');
     expect(api.status).toBe(200);
     expect(api.headers.get("cache-control")).toBe("no-store");
     expect(api.headers.get("content-type")).toContain("application/json");
@@ -212,9 +226,17 @@ describe("daemon HTTP server", () => {
       codex: 'notify = ["agentpulse", "ingest", "codex"]',
       codexHooks:
         "Codex hooks setup unavailable.\nInstall AgentPulse into a simple no-space path.",
+      cursor:
+        "agentpulse ingest cursor --event running --surface ide-extension",
       openCode: "export const AgentPulsePlugin = async () => ({});",
       antigravityProbe:
         "printf '%s\\n' '{}' | agentpulse ingest antigravity-probe --event manual.probe --surface desktop",
+      verification: {
+        claudeCode: "verify-claude",
+        codex: "verify-codex",
+        cursor: "verify-cursor",
+        antigravityProbe: "verify-antigravity",
+      },
     });
     expect(capabilities.status).toBe(200);
     expect(capabilities.headers.get("cache-control")).toBe("no-store");

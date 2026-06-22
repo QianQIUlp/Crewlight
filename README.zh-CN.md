@@ -49,6 +49,7 @@ AgentPulse 明确区分已验证接口、实验性路径和有限回退能力：
 | Codex hooks              | Precise lifecycle                 | 用户确认信任后，观察文档化 session、prompt、tool、permission 和 stop 事件 |
 | Codex `notify`           | Narrow official                   | 仅映射文档化的 `agent-turn-complete` 通知                                 |
 | OpenCode                 | Implemented, verification pending | 使用文档化本地 plugin 事件；尚未标记为 supported                          |
+| Cursor                   | Manual / Experimental bridge      | 仅使用显式 terminal 或 task 命令；不声明存在自动 lifecycle hook           |
 | Codex Desktop            | Experimental                      | 通过显式 desktop surface 复用 Codex hooks；仍待真实环境验证               |
 | Antigravity              | Research-only                     | 仅提供经过清理的手动 probe 脚手架，不是受支持 adapter                     |
 | Generic CLI wrapper      | Best-effort                       | 只能观察 `agentpulse run` 启动的进程                                      |
@@ -140,6 +141,7 @@ AgentPulse 只打印可检查、可合并的配置片段：
 agentpulse setup claude-code --print
 agentpulse setup codex --print
 agentpulse setup codex-hooks --print
+agentpulse setup cursor --print
 agentpulse setup opencode --print
 ```
 
@@ -152,6 +154,7 @@ agentpulse setup opencode --print
 - [Claude Code 配置](docs/setup-claude-code.md)
 - [Codex notify 配置](docs/setup-codex.md)
 - [Codex hooks 配置](docs/setup-codex-hooks.md)
+- [Cursor 手动 bridge](docs/cursor.md)
 - [OpenCode plugin MVP](docs/opencode.md)
 
 Hook 风格的 Codex 与 OpenCode ingest 在输入错误或 daemon 不可达时保持静默、非阻塞。
@@ -251,8 +254,10 @@ session，并向选定 notifier 和只读状态界面提供输出。
   streaming 或状态修改控制。
 - Development-only Electron companion prototype 不是桌面安装器或 v0.3.0
   release artifact，也不提供 autostart。
-- AgentPulse 当前不包含 Cursor adapter、VS Code extension、持久化、session
-  cleanup、硬件输出或自动配置修改。
+- Cursor 支持仍是手动、实验性 bridge；AgentPulse 不声明能够自动观察 Cursor
+  lifecycle。
+- AgentPulse 当前不包含 VS Code extension、持久化、session cleanup、硬件输出或
+  自动配置修改。
 
 这些边界是 v0.3.0 Preview 的明确范围，不应被理解为对稳定 API、installer
 或成熟桌面产品的声明。

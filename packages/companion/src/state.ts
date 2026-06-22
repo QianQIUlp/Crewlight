@@ -89,6 +89,19 @@ const STATUS_LABELS: Record<CompanionStatus, string> = {
   unknown: "Unknown",
 };
 
+const SURFACE_LABELS: Record<string, string> = {
+  unknown: "Unknown",
+  cli: "CLI",
+  "ide-extension": "IDE extension",
+  desktop: "Desktop",
+  cloud: "Cloud",
+  manual: "Manual",
+};
+
+export function getCompanionSurfaceLabel(surface: string): string {
+  return SURFACE_LABELS[surface] ?? surface;
+}
+
 function isRunning(session: SanitizedSession): boolean {
   return session.status === "running" || session.status === "using_tool";
 }
@@ -196,7 +209,7 @@ function toSessionView(session: SanitizedSession): CompanionSessionView {
   const diagnosticHint = getDiagnosticHint(session);
   return {
     source: session.displayName,
-    surface: session.surface,
+    surface: getCompanionSurfaceLabel(session.surface),
     title: session.taskTitle ?? session.displayWorkspace,
     workspace: session.displayWorkspace,
     status: session.status,

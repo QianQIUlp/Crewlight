@@ -71,6 +71,24 @@ Prompts, message content, tool arguments, tool output, file contents,
 environment data, and raw events are not sent to AgentPulse. The implementation
 is pending real local verification and is not yet labeled `supported`.
 
+## Cursor manual / experimental bridge
+
+The Cursor integration accepts explicit local bridge events through
+`agentpulse ingest cursor`. Users can provide a small JSON object on stdin or
+use command flags from Cursor's integrated terminal or user-defined tasks.
+
+The bridge maps only the caller-supplied event name, session ID, workspace,
+project path, task title, short message, timestamp, and one of the allowed
+`ide-extension`, `desktop`, or `manual` surfaces. Unknown payload fields are
+discarded. Prompts, transcripts, tool input/output, file contents, Cursor
+databases, extension storage, private logs, and complete payloads are never
+emitted.
+
+AgentPulse does not claim that Cursor exposes a stable public lifecycle hook.
+This bridge is manual and experimental: it reports only the state the user or a
+user-defined task explicitly submits. Setup prints commands but does not read
+or modify Cursor settings.
+
 ## Experimental and research-only surfaces
 
 Codex Desktop reuses the Codex hooks adapter with `surface=desktop`. It remains

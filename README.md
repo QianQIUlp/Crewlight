@@ -56,6 +56,7 @@ fallbacks:
 | Codex hooks              | Precise lifecycle                 | Documented session, prompt, tool, permission, and stop events after user trust    |
 | Codex `notify`           | Narrow official                   | Maps the documented `agent-turn-complete` notification                            |
 | OpenCode                 | Implemented, verification pending | Documented local plugin events; not yet labeled supported                         |
+| Cursor                   | Manual / Experimental bridge      | Explicit terminal or task commands only; no automatic lifecycle hook is claimed   |
 | Codex Desktop            | Experimental                      | Reuses Codex hooks with an explicit desktop surface; real verification is pending |
 | Antigravity              | Research-only                     | Sanitized manual probe scaffolding, not a supported adapter                       |
 | Generic CLI wrapper      | Best-effort                       | Observes only the process started by `agentpulse run`                             |
@@ -149,6 +150,7 @@ AgentPulse prints reviewable, mergeable setup fragments:
 agentpulse setup claude-code --print
 agentpulse setup codex --print
 agentpulse setup codex-hooks --print
+agentpulse setup cursor --print
 agentpulse setup opencode --print
 ```
 
@@ -162,6 +164,7 @@ Follow the platform-specific merge and verification steps:
 - [Claude Code setup](docs/setup-claude-code.md)
 - [Codex notify setup](docs/setup-codex.md)
 - [Codex hooks setup](docs/setup-codex-hooks.md)
+- [Cursor manual bridge](docs/cursor.md)
 - [OpenCode plugin MVP](docs/opencode.md)
 
 Hook-style Codex and OpenCode ingest remains quiet and non-blocking on
@@ -268,9 +271,10 @@ See [architecture](docs/architecture.md),
   recovery, SSE/WebSocket streaming, or mutation controls.
 - The development-only Electron companion prototype is not a desktop installer
   or v0.3.0 release artifact and provides no autostart behavior.
-- AgentPulse does not currently include Cursor adapters, a VS Code extension,
-  persistence, session cleanup, hardware output, or automatic configuration
-  mutation.
+- Cursor support is a manual, experimental bridge; AgentPulse does not claim
+  automatic Cursor lifecycle observation.
+- AgentPulse does not currently include a VS Code extension, persistence,
+  session cleanup, hardware output, or automatic configuration mutation.
 
 These boundaries are intentional for the v0.3.0 Preview and should not be read
 as claims of stable API, installer, or desktop-product maturity.

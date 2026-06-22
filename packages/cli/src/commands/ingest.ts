@@ -6,6 +6,11 @@ import {
   type CodexHookEventName,
 } from "@agentpulse/adapter-codex";
 import {
+  ingestCursorBridgeJson,
+  mapCursorBridgeEvent,
+  type CursorAdapterResult,
+} from "@agentpulse/adapter-cursor";
+import {
   ingestOpenCodePluginJson,
   isOpenCodeEventType,
 } from "@agentpulse/adapter-opencode";
@@ -21,7 +26,8 @@ type IngestAdapter = (
 ) =>
   | ReturnType<typeof ingestClaudeHookJson>
   | ReturnType<typeof ingestCodexNotifyJson>
-  | ReturnType<typeof ingestCodexHookJson>;
+  | ReturnType<typeof ingestCodexHookJson>
+  | ReturnType<typeof ingestCursorBridgeJson>;
 
 function warn(io: CommandIo, message: string): void {
   io.warn(`${WARNING_PREFIX} ${message}`);
@@ -51,8 +57,14 @@ async function deliver(
   client: AgentPulseClient,
   io: CommandIo,
 ): Promise<number> {
-  const result = adapter(json);
+  return deliverAdapterResult(adapter(json), client, io);
+}
 
+async function deliverAdapterResult(
+  result: CursorAdapterResult | ReturnType<IngestAdapter>,
+  client: AgentPulseClient,
+  io: CommandIo,
+): Promise<number> {
   if (result.kind !== "event") {
     warnAdapterResult(io, result);
     return 0;
@@ -68,6 +80,52 @@ async function deliver(
   }
 
   return 0;
+}
+
+async function ingestCursor(
+  platformArgs: readonly string[],
+  client: AgentPulseClient,
+  io: CommandIo,
+  readStdin: StdinReader,
+): Promise<number> {
+  if (platformArgs.length === 0) {
+    return deliver(await readStdin(), ingestCursorBridgeJson, client, io);
+  }
+
+  const options = parseUniqueOptions(platformArgs, [
+    "--event",
+    "--surface",
+    "--session",
+    "--workspace",
+    "--project",
+    "--title",
+    "--message",
+    "--timestamp",
+  ]);
+  if (!options || options["--event"] === undefined) {
+    warn(
+      io,
+      "Cursor ingest requires JSON on stdin or a unique `--event` flag with supported options. No event was recorded.",
+    );
+    return 0;
+  }
+
+  const timestampValue = options["--timestamp"];
+  const result = mapCursorBridgeEvent({
+    event: options["--event"],
+    ...(options["--surface"] ? { surface: options["--surface"] } : {}),
+    ...(options["--session"] ? { sessionId: options["--session"] } : {}),
+    ...(options["--workspace"]
+      ? { workspaceName: options["--workspace"] }
+      : {}),
+    ...(options["--project"] ? { projectPath: options["--project"] } : {}),
+    ...(options["--title"] ? { title: options["--title"] } : {}),
+    ...(options["--message"] ? { message: options["--message"] } : {}),
+    ...(timestampValue !== undefined
+      ? { timestamp: Number(timestampValue) }
+      : {}),
+  });
+  return deliverAdapterResult(result, client, io);
 }
 
 function hookEventNameFromJson(json: string): string | undefined {
@@ -381,6 +439,10 @@ async function ingest(
     return ingestCodexHook(platformArgs, client, readStdin);
   }
 
+  if (platform === "cursor") {
+    return ingestCursor(platformArgs, client, io, readStdin);
+  }
+
   if (platform === "opencode-plugin") {
     return ingestOpenCodePlugin(platformArgs, client, readStdin);
   }
@@ -391,7 +453,7 @@ async function ingest(
 
   warn(
     io,
-    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `opencode-plugin`, or `antigravity-probe`, then run `agentpulse doctor`.",
+    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `cursor`, `opencode-plugin`, or `antigravity-probe`, then run `agentpulse doctor`.",
   );
   return 0;
 }

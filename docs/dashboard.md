@@ -50,8 +50,8 @@ The default `/dashboard` page shows:
 - selected notifier mode;
 - an **Action needed** section for actionable and error sessions;
 - status cards for all normalized sessions held in memory;
-- five setup cards: Claude Code, Codex notify, Codex hooks, OpenCode, and
-  Antigravity probe;
+- six setup cards: Claude Code, Codex notify, Codex hooks, Cursor, OpenCode,
+  and Antigravity probe;
 - basic read-only doctor checks.
 
 Action-needed cards place waiting input or permission states before failures and
@@ -62,6 +62,11 @@ Setup snippets and doctor checks remain available below the primary status
 view. The Antigravity card is explicitly `research-only`: it prints a fixed,
 minimal manual probe command for local investigation and does not make
 Antigravity a supported setup platform or integration.
+
+The Cursor card prints manual / experimental commands and a verification
+command. A submitted Cursor event appears in the ordinary session overview and
+the separate Electron companion with the `Cursor` display name and its selected
+IDE extension, Desktop, or Manual surface.
 
 ### Compact Overview Mode
 

@@ -44,6 +44,15 @@ importers:
         specifier: ^3.25.56
         version: 3.25.76
 
+  packages/adapters/cursor:
+    dependencies:
+      "@agentpulse/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
   packages/adapters/generic-cli:
     dependencies:
       "@agentpulse/core":
@@ -67,6 +76,9 @@ importers:
       "@agentpulse/adapter-codex":
         specifier: workspace:^
         version: link:../adapters/codex
+      "@agentpulse/adapter-cursor":
+        specifier: workspace:^
+        version: link:../adapters/cursor
       "@agentpulse/adapter-generic-cli":
         specifier: workspace:^
         version: link:../adapters/generic-cli

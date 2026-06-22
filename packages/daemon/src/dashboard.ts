@@ -34,11 +34,13 @@ export interface DashboardOptions {
     claudeCode: string;
     codex: string;
     codexHooks: string;
+    cursor: string;
     openCode: string;
     antigravityProbe: string;
     verification: {
       claudeCode: string;
       codex: string;
+      cursor: string;
       antigravityProbe: string;
     };
   };
@@ -87,8 +89,15 @@ export interface DashboardApiResponse {
     claudeCode: string;
     codex: string;
     codexHooks: string;
+    cursor: string;
     openCode: string;
     antigravityProbe: string;
+    verification?: {
+      claudeCode: string;
+      codex: string;
+      cursor: string;
+      antigravityProbe: string;
+    };
   };
   doctor: DashboardDoctorReport;
 }
@@ -413,6 +422,16 @@ const DASHBOARD_HTML = `<!doctype html>
             <pre id="setup-codex-hooks"></pre>
           </article>
           <article>
+            <h3>Cursor</h3>
+            <p class="muted">
+              Manual / experimental commands for Cursor's integrated terminal
+              or user-defined tasks.
+            </p>
+            <pre id="setup-cursor"></pre>
+            <p class="eyebrow verify-label">Verification command</p>
+            <pre id="verify-cursor" class="verify-command"></pre>
+          </article>
+          <article>
             <h3>OpenCode</h3>
             <pre id="setup-opencode"></pre>
             <p class="eyebrow verify-label">Verification command</p>
@@ -440,6 +459,10 @@ const DASHBOARD_HTML = `<!doctype html>
           <article>
             <h3>Codex</h3>
             <p id="conn-codex">Loading…</p>
+          </article>
+          <article>
+            <h3>Cursor</h3>
+            <p id="conn-cursor">Loading…</p>
           </article>
           <article>
             <h3>OpenCode</h3>
@@ -1366,11 +1389,13 @@ function render(data) {
   setText("setup-claude", data.setup.claudeCode);
   setText("setup-codex", data.setup.codex);
   setText("setup-codex-hooks", data.setup.codexHooks);
+  setText("setup-cursor", data.setup.cursor);
   setText("setup-opencode", data.setup.openCode);
   setText("setup-antigravity-probe", data.setup.antigravityProbe);
   if (data.setup.verification) {
     setText("verify-claude", data.setup.verification.claudeCode);
     setText("verify-codex", data.setup.verification.codex);
+    setText("verify-cursor", data.setup.verification.cursor);
     setText("verify-antigravity", data.setup.verification.antigravityProbe);
   }
   if (focusKey) {
@@ -1393,6 +1418,7 @@ function renderConnectivity(sessions) {
   };
   setText("conn-claude", getAge("claude-code"));
   setText("conn-codex", getAge("codex"));
+  setText("conn-cursor", getAge("cursor"));
   setText("conn-opencode", getAge("opencode"));
   setText("conn-antigravity", getAge("antigravity-probe"));
 }

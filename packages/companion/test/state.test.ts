@@ -251,4 +251,37 @@ describe("companion state derivation", () => {
       ),
     ).toEqual(["failed", "using_tool"]);
   });
+
+  it("presents Cursor as a first-class IDE session", () => {
+    const view = deriveCompanionViewModel(
+      online([
+        session("waiting_input", {
+          sessionKey: "cursor:ide-extension:cursor-agentpulse",
+          source: "cursor",
+          surface: "ide-extension",
+          displayName: "Cursor",
+          displayWorkspace: "AgentPulse",
+          taskTitle: "Cursor needs review",
+          activityLabel: "Input requested",
+          attention: "action",
+          actionKind: "input",
+        }),
+      ]),
+    );
+
+    expect(view).toMatchObject({
+      state: "needs-you",
+      summary: "Needs you",
+      mostImportant: {
+        source: "Cursor",
+        surface: "IDE extension",
+        title: "Cursor needs review",
+        workspace: "AgentPulse",
+        statusLabel: "Waiting for input",
+        needsAction: true,
+        tone: "action",
+      },
+    });
+    expect(filterSessionViews(view.sessions, "attention")).toHaveLength(1);
+  });
 });

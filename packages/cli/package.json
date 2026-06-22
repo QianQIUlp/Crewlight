@@ -15,6 +15,7 @@
   "dependencies": {
     "@agentpulse/adapter-claude-code": "workspace:^",
     "@agentpulse/adapter-codex": "workspace:^",
+    "@agentpulse/adapter-cursor": "workspace:^",
     "@agentpulse/adapter-generic-cli": "workspace:^",
     "@agentpulse/adapter-opencode": "workspace:^",
     "@agentpulse/core": "workspace:^",

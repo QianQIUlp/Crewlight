@@ -682,6 +682,165 @@ describe("platform ingest commands", () => {
     },
   );
 
+  it("accepts Cursor JSON from stdin and strips sensitive fields", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["cursor"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          event: "waiting-input",
+          sessionId: "cursor-json",
+          workspaceName: "AgentPulse",
+          projectPath: "/workspace/AgentPulse",
+          title: "Cursor needs review",
+          message: "Manual bridge event",
+          timestamp: 1_710_000_000_000,
+          prompt: "secret prompt",
+          transcript: "secret transcript",
+          toolInput: { command: "secret command" },
+          rawEvent: { secret: true },
+        }),
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([
+      {
+        source: "cursor",
+        surface: "ide-extension",
+        status: "waiting_input",
+        sessionId: "cursor-json",
+        workspaceName: "AgentPulse",
+        projectPath: "/workspace/AgentPulse",
+        taskTitle: "Cursor needs review",
+        message: "Manual bridge event",
+        timestamp: 1_710_000_000_000,
+      },
+    ]);
+    expect(JSON.stringify(target.events)).not.toContain("secret");
+    expect(capture.output).toEqual([]);
+    expect(capture.warnings).toEqual([]);
+  });
+
+  it("keeps invalid Cursor JSON non-blocking", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["cursor"],
+      target.client,
+      capture.io,
+      async () => "{",
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([]);
+    expect(capture.output).toEqual([]);
+    expect(capture.warnings.join("\n")).toContain("Invalid Cursor bridge JSON");
+    expect(capture.warnings.join("\n")).toContain("No event was recorded");
+  });
+
+  it("accepts Cursor flags without reading stdin", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      [
+        "cursor",
+        "--event",
+        "completed",
+        "--surface",
+        "manual",
+        "--session",
+        "cursor-flags",
+        "--workspace",
+        "AgentPulse",
+        "--project",
+        "/workspace/AgentPulse",
+        "--title",
+        "Cursor work completed",
+        "--message",
+        "Manual completion",
+        "--timestamp",
+        "1710000000000",
+      ],
+      target.client,
+      capture.io,
+      async () => {
+        throw new Error("stdin should not be read");
+      },
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([
+      {
+        source: "cursor",
+        surface: "manual",
+        status: "completed",
+        sessionId: "cursor-flags",
+        workspaceName: "AgentPulse",
+        projectPath: "/workspace/AgentPulse",
+        taskTitle: "Cursor work completed",
+        message: "Manual completion",
+        timestamp: 1_710_000_000_000,
+      },
+    ]);
+    expect(capture.warnings).toEqual([]);
+  });
+
+  it.each([
+    ["missing event", ["cursor", "--surface", "desktop"]],
+    ["invalid surface", ["cursor", "--event", "running", "--surface", "cli"]],
+    [
+      "invalid timestamp",
+      ["cursor", "--event", "running", "--timestamp", "no"],
+    ],
+    ["unsupported event", ["cursor", "--event", "automatic"]],
+    ["duplicate option", ["cursor", "--event", "running", "--event", "done"]],
+  ])("keeps Cursor %s non-blocking", async (_description, args) => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      args,
+      target.client,
+      capture.io,
+      async () => "{",
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([]);
+    expect(capture.output).toEqual([]);
+    expect(capture.warnings.join("\n")).toContain("No event was recorded");
+  });
+
+  it("keeps Cursor daemon failures non-blocking and private", async () => {
+    const capture = captureIo();
+    const client: AgentPulseClient = {
+      emit: async () => {
+        throw new Error("private connection detail");
+      },
+      sessions: async () => [],
+    };
+
+    const code = await executeIngestCommand(
+      ["cursor", "--event", "running"],
+      client,
+      capture.io,
+      async () => "",
+    );
+
+    expect(code).toBe(0);
+    expect(capture.output).toEqual([]);
+    expect(capture.warnings.join("\n")).toContain(
+      "host workflow will continue",
+    );
+    expect(JSON.stringify(capture)).not.toContain("private");
+  });
+
   it("maps an OpenCode plugin event and strips sensitive fields", async () => {
     const capture = captureIo();
     const target = captureClient();
@@ -881,6 +1040,57 @@ describe("setup snippet commands", () => {
     expect(capture.warnings[0]).toContain("do not overwrite");
     expect(capture.warnings[0]).toContain("project .codex/config.toml");
     expect(capture.warnings[0]).toContain("agentpulse doctor");
+  });
+
+  it("prints practical manual Cursor bridge commands", () => {
+    const capture = captureIo();
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+
+    expect(
+      executeSetupCommand(["cursor", "--print"], capture.io, setupRuntime()),
+    ).toBe(0);
+    expect(capture.output).toEqual([snippets.cursor]);
+    expect(snippets.cursor).toContain("ingest cursor --event running");
+    expect(snippets.cursor).toContain("ingest cursor --event needs-review");
+    expect(snippets.cursor).toContain("ingest cursor --event completed");
+    expect(snippets.cursor).toContain("ingest cursor --event failed");
+    expect(snippets.cursor).toContain("--surface ide-extension");
+    expect(snippets.cursor).toContain("--session cursor-agentpulse");
+    expect(snippets.verification.cursor).toContain(
+      "--session agentpulse-verify-cursor",
+    );
+    expect(capture.warnings.join("\n")).toContain("manual and experimental");
+    expect(capture.warnings.join("\n")).toContain(
+      "did not read or modify Cursor settings",
+    );
+    expect(capture.warnings.join("\n")).toContain("integrated terminal");
+    expect(capture.warnings.join("\n")).toContain(
+      "does not observe Cursor internals",
+    );
+    expect(capture.warnings.join("\n")).toContain("Verification command:");
+    expect(capture.warnings.join("\n")).toContain(
+      "--session agentpulse-verify-cursor",
+    );
+  });
+
+  it("quotes Cursor setup commands for Windows paths", () => {
+    const snippets = createSetupSnippets(
+      undefined,
+      setupRuntime({
+        isSea: () => true,
+        execPath: "C:\\Agent Pulse\\agentpulse.exe",
+        entryPath: undefined,
+        platform: "win32",
+      }),
+    );
+
+    expect(snippets.cursor).toContain(
+      '"C:\\Agent Pulse\\agentpulse.exe" "ingest" "cursor" "',
+    );
+    expect(snippets.cursor).toContain('"--title" "Cursor needs review"');
+    expect(snippets.verification.cursor).toContain(
+      '"--title" "Cursor verification"',
+    );
   });
 
   it("uses process.execPath for SEA snippets", () => {
@@ -1346,5 +1556,20 @@ describe("adapter documentation boundaries", () => {
     expect(antigravity).toContain("`research-only`");
     expect(antigravity).toMatch(/has not\s+verified/u);
     expect(antigravity).not.toContain("supported integration");
+  });
+
+  it("documents Cursor as a manual experimental bridge", () => {
+    const cursor = readFileSync(
+      new URL("../../../docs/cursor.md", import.meta.url),
+      "utf8",
+    );
+
+    expect(cursor).toContain("agentpulse setup cursor --print");
+    expect(cursor).toContain("agentpulse ingest cursor --event running");
+    expect(cursor).toContain("browser dashboard");
+    expect(cursor).toMatch(/Electron\s+companion/u);
+    expect(cursor).toMatch(/manual,\s+experimental/u);
+    expect(cursor).toContain("does not automatically inspect Cursor");
+    expect(cursor).not.toContain("stable public lifecycle hook is available");
   });
 });

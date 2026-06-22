@@ -7,29 +7,29 @@ translate it to `AgentEventInput`, and submit it to the daemon.
 ## Data flow
 
 ```text
-Claude hook / Codex notify / wrapper / manual emit
-                        |
-                        v
-               platform adapter
-                        |
-                        v
-                AgentEventInput
-                        |
-                        v
-              normalizeAgentEvent
-                        |
-                        v
-                  AgentEvent
-                        |
-             +----------+----------+
-             |                     |
-             v                     v
-       SessionStore        selected Notifier
-             |             /      |       \
-             v        console     OS      none
-       GET /sessions
-       GET /dashboard      (only with --dashboard)
-       GET /dashboard/api  (only with --dashboard)
+Claude hook / Codex notify / Cursor bridge / wrapper / manual emit
+                               |
+                               v
+                      platform adapter
+                               |
+                               v
+                       AgentEventInput
+                               |
+                               v
+                     normalizeAgentEvent
+                               |
+                               v
+                         AgentEvent
+                               |
+                    +----------+----------+
+                    |                     |
+                    v                     v
+              SessionStore        selected Notifier
+                    |             /      |       \
+                    v        console     OS      none
+              GET /sessions
+              GET /dashboard      (only with --dashboard)
+              GET /dashboard/api  (only with --dashboard)
 ```
 
 Adapters translate source payloads only. They do not own session state,
@@ -45,6 +45,8 @@ notification policy, UI, or platform permission decisions.
   outputs.
 - `@agentpulse/adapter-claude-code`: documented Claude Code hook translation.
 - `@agentpulse/adapter-codex`: documented Codex external notify translation.
+- `@agentpulse/adapter-cursor`: manual, experimental Cursor bridge
+  translation.
 - `@agentpulse/adapter-generic-cli`: best-effort command lifecycle observation.
 - `@agentpulse/cli`: daemon/dashboard startup, diagnostics, emit, ingest, setup,
   status, and run commands.
@@ -114,6 +116,6 @@ They produce safe warnings and cannot fail daemon startup or event ingestion.
 
 ## Deferred architecture
 
-Persistence, SSE/WebSocket broadcasting, session cleanup, desktop/tray and IDE
-extensions, OpenCode and Cursor adapters, and broader Codex lifecycle
+Persistence, SSE/WebSocket broadcasting, session cleanup, IDE extensions,
+automatic Cursor lifecycle observation, and broader Codex lifecycle
 observation remain deferred.
