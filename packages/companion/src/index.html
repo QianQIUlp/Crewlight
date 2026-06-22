@@ -13,46 +13,174 @@
   </head>
   <body data-state="offline">
     <main class="surface">
-      <header class="compact-header drag-region">
-        <span class="status-orb" aria-hidden="true"></span>
-        <div class="summary-copy">
-          <p class="eyebrow">AgentPulse</p>
-          <h1 id="summary">Daemon offline</h1>
-          <p id="primary-session">Checking local status</p>
+      <header class="titlebar drag-region">
+        <div class="brand-lockup">
+          <span class="product-mark" aria-hidden="true">
+            <span></span>
+          </span>
+          <div>
+            <p class="product-name">AgentPulse</p>
+            <p class="product-mode">Local companion</p>
+          </div>
         </div>
+
         <div class="window-controls no-drag">
           <button
+            id="always-on-top"
+            class="icon-button"
+            type="button"
+            aria-label="Unpin window"
+            aria-pressed="true"
+            title="Always on top"
+          >
+            <span class="pin-icon" aria-hidden="true"></span>
+          </button>
+          <button
             id="expand"
+            class="icon-button"
             type="button"
             aria-label="Expand"
             aria-expanded="false"
+            title="Expand"
           >
-            +
+            <span id="expand-icon" aria-hidden="true">⌄</span>
           </button>
-          <button id="hide" type="button" aria-label="Hide">—</button>
+          <button
+            id="hide"
+            class="icon-button"
+            type="button"
+            aria-label="Hide"
+            title="Hide"
+          >
+            <span aria-hidden="true">—</span>
+          </button>
         </div>
       </header>
 
-      <section class="counts" aria-label="Session counts">
-        <p><strong id="running-count">0</strong> running</p>
-        <p><strong id="action-count">0</strong> action</p>
-        <p><strong id="failed-count">0</strong> failed</p>
+      <section class="compact-overview drag-region" aria-live="polite">
+        <span class="status-orb" aria-hidden="true"><span></span></span>
+        <div class="summary-copy">
+          <p class="eyebrow">Overall state</p>
+          <h1 id="summary">Daemon offline</h1>
+          <p id="primary-session">Checking local status</p>
+        </div>
+        <div class="counts no-drag" aria-label="Session counts">
+          <div>
+            <strong id="running-count">0</strong>
+            <span>Running</span>
+          </div>
+          <div>
+            <strong id="action-count">0</strong>
+            <span>Needs action</span>
+          </div>
+          <div>
+            <strong id="failed-count">0</strong>
+            <span>Failed</span>
+          </div>
+        </div>
       </section>
 
       <section class="expanded-only expanded-panel">
-        <p id="diagnostic" class="global-diagnostic" hidden></p>
-        <div class="expanded-toolbar no-drag">
-          <span>Current sessions</span>
+        <div class="section-heading">
           <div>
-            <button id="always-on-top" type="button" aria-pressed="true">
-              Pinned
-            </button>
-            <button id="open-dashboard" type="button">Details</button>
-            <button id="quit" type="button">Quit</button>
+            <p class="eyebrow">Current activity</p>
+            <h2>Session radar</h2>
           </div>
+          <span id="session-total" class="session-total">0 sessions</span>
         </div>
-        <p id="empty-sessions" class="empty-sessions">No sessions observed.</p>
+
+        <nav class="filters no-drag" aria-label="Filter sessions">
+          <button
+            class="filter-chip"
+            type="button"
+            data-filter="all"
+            aria-pressed="true"
+          >
+            All
+          </button>
+          <button
+            class="filter-chip"
+            type="button"
+            data-filter="attention"
+            aria-pressed="false"
+          >
+            Needs attention
+          </button>
+          <button
+            class="filter-chip"
+            type="button"
+            data-filter="running"
+            aria-pressed="false"
+          >
+            Running
+          </button>
+          <button
+            class="filter-chip"
+            type="button"
+            data-filter="done"
+            aria-pressed="false"
+          >
+            Done
+          </button>
+          <button
+            class="filter-chip"
+            type="button"
+            data-filter="failed-stale"
+            aria-pressed="false"
+          >
+            Failed / stale
+          </button>
+        </nav>
+
+        <p id="diagnostic" class="global-diagnostic" hidden></p>
+
+        <section id="connection-state" class="connection-state" hidden>
+          <span class="connection-icon" aria-hidden="true"></span>
+          <p class="eyebrow">Local connection</p>
+          <h2 id="connection-title">Daemon offline</h2>
+          <p id="connection-detail">
+            Start the dashboard-enabled daemon. AgentPulse will reconnect
+            automatically.
+          </p>
+          <code>agentpulse daemon --dashboard --notifier none</code>
+          <div class="connection-actions no-drag">
+            <button id="copy-command" class="primary-button" type="button">
+              Copy daemon command
+            </button>
+            <button
+              class="secondary-button open-dashboard"
+              type="button"
+              aria-label="Open local dashboard"
+            >
+              Open Dashboard
+            </button>
+          </div>
+        </section>
+
+        <section id="empty-sessions" class="empty-state" hidden>
+          <span class="empty-rings" aria-hidden="true"></span>
+          <h2 id="empty-title">Watching for agents</h2>
+          <p id="empty-detail">
+            Sessions will appear here as supported coding agents report local
+            activity.
+          </p>
+        </section>
+
         <div id="session-list" class="session-list"></div>
+
+        <footer class="panel-footer no-drag">
+          <span>Local only · refreshes every 2s</span>
+          <div>
+            <button
+              class="text-button open-dashboard"
+              type="button"
+              aria-label="Open local dashboard"
+            >
+              Open Dashboard
+            </button>
+            <button id="quit" class="text-button" type="button">Quit</button>
+          </div>
+        </footer>
       </section>
     </main>
   </body>
