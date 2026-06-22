@@ -53,9 +53,21 @@ export interface CompanionViewModel {
   counts: CompanionCounts;
   sessions: CompanionSessionView[];
   updatedAt: number;
+  expanded: boolean;
+  alwaysOnTop: boolean;
   diagnostic?: string;
   mostImportant?: CompanionSessionView;
 }
+
+export interface CompanionWindowState {
+  expanded: boolean;
+  alwaysOnTop: boolean;
+}
+
+const DEFAULT_WINDOW_STATE: CompanionWindowState = {
+  expanded: false,
+  alwaysOnTop: true,
+};
 
 const STATUS_LABELS: Record<CompanionStatus, string> = {
   idle: "Idle",
@@ -174,6 +186,7 @@ function emptyViewModel(
   summary: string,
   diagnostic: string,
   now: number,
+  windowState: CompanionWindowState,
 ): CompanionViewModel {
   return {
     state,
@@ -182,15 +195,23 @@ function emptyViewModel(
     counts: { running: 0, action: 0, failed: 0 },
     sessions: [],
     updatedAt: now,
+    ...windowState,
   };
 }
 
 export function deriveCompanionViewModel(
   result: DashboardPollResult,
   now: number = Date.now(),
+  windowState: CompanionWindowState = DEFAULT_WINDOW_STATE,
 ): CompanionViewModel {
   if (result.kind === "offline") {
-    return emptyViewModel("offline", "Daemon offline", result.diagnostic, now);
+    return emptyViewModel(
+      "offline",
+      "Daemon offline",
+      result.diagnostic,
+      now,
+      windowState,
+    );
   }
   if (result.kind === "api-unavailable") {
     return emptyViewModel(
@@ -198,6 +219,7 @@ export function deriveCompanionViewModel(
       "Companion API unavailable",
       result.diagnostic,
       now,
+      windowState,
     );
   }
 
@@ -251,6 +273,7 @@ export function deriveCompanionViewModel(
     counts,
     sessions: sessionViews,
     updatedAt: now,
+    ...windowState,
     ...(diagnostic ? { diagnostic } : {}),
     ...(mostImportant ? { mostImportant } : {}),
   };

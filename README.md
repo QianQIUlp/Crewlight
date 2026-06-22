@@ -133,7 +133,9 @@ binary:
 For a standalone binary, `doctor` reports that source-build checks are not
 required. The archive's `BUILD-INFO.txt` records its build runtime, commit,
 platform, and architecture. See [install without Node](docs/install-without-node.md)
-and the [dashboard guide](docs/dashboard.md).
+and the [dashboard guide](docs/dashboard.md). Developers working with the
+experimental Electron status window should use the
+[companion surface guide](docs/companion-surface.md).
 
 Commands below use `agentpulse` on `PATH`. When running directly from an
 extracted Linux archive, replace it with `./agentpulse`; on Windows, use
@@ -276,6 +278,7 @@ as claims of stable API, installer, or desktop-product maturity.
 ## Documentation and License
 
 - [Dashboard guide](docs/dashboard.md)
+- [Companion surface guide](docs/companion-surface.md)
 - [Architecture](docs/architecture.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [中文贡献指南](CONTRIBUTING.zh-CN.md)

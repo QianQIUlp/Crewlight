@@ -7,26 +7,35 @@ import {
   screen,
   shell,
   Tray,
+  type IpcMainEvent,
+  type IpcMainInvokeEvent,
   type Rectangle,
 } from "electron";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { fetchCompanionSnapshot } from "./client.js";
-import { resolveCompanionEndpoint } from "./endpoint.js";
-import { deriveCompanionViewModel, type CompanionViewModel } from "./state.js";
+import { isAllowedDashboardUrl, resolveCompanionEndpoint } from "./endpoint.js";
+import { getCompanionDismissAction } from "./lifecycle.js";
+import { createCompanionPoller } from "./polling.js";
+import {
+  deriveCompanionViewModel,
+  type CompanionViewModel,
+  type CompanionWindowState,
+} from "./state.js";
 
 const POLL_INTERVAL_MS = 2_000;
 const WINDOW_MARGIN = 16;
 const COMPACT_SIZE = { width: 360, height: 112 };
 const EXPANDED_SIZE = { width: 420, height: 480 };
 const outputDirectory = dirname(fileURLToPath(import.meta.url));
+const companionPagePath = join(outputDirectory, "index.html");
+const companionPageUrl = pathToFileURL(companionPagePath).toString();
 const endpoint = resolveCompanionEndpoint();
 
 let companionWindow: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let pollTimer: NodeJS.Timeout | undefined;
-let polling = false;
 let quitting = false;
 let expanded = false;
 let latestViewModel: CompanionViewModel = deriveCompanionViewModel(
@@ -36,6 +45,20 @@ let latestViewModel: CompanionViewModel = deriveCompanionViewModel(
   },
   Date.now(),
 );
+const poller = createCompanionPoller({
+  fetchSnapshot: () => fetchCompanionSnapshot(endpoint),
+  publish: (result) => {
+    latestViewModel = deriveCompanionViewModel(
+      result,
+      Date.now(),
+      getWindowState(),
+    );
+    sendViewModel();
+  },
+  warn: () => {
+    console.warn("AgentPulse companion polling failed; retrying.");
+  },
+});
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
@@ -68,15 +91,35 @@ function defaultWindowBounds(): Rectangle {
   };
 }
 
+function hasUsableTray(): boolean {
+  return Boolean(tray && !tray.isDestroyed());
+}
+
+function getWindowState(): CompanionWindowState {
+  const window = companionWindow;
+  return {
+    expanded,
+    alwaysOnTop:
+      window && !window.isDestroyed() ? window.isAlwaysOnTop() : true,
+  };
+}
+
+function syncWindowState(): void {
+  latestViewModel = {
+    ...latestViewModel,
+    ...getWindowState(),
+  };
+  sendViewModel();
+}
+
 function resizeCompanion(nextExpanded: boolean): void {
   const window = companionWindow;
-  if (!window || window.isDestroyed()) {
+  if (!window || window.isDestroyed() || expanded === nextExpanded) {
     return;
   }
 
-  expanded = nextExpanded;
   const current = window.getBounds();
-  const size = expanded ? EXPANDED_SIZE : COMPACT_SIZE;
+  const size = nextExpanded ? EXPANDED_SIZE : COMPACT_SIZE;
   const proposed = {
     width: size.width,
     height: size.height,
@@ -85,6 +128,8 @@ function resizeCompanion(nextExpanded: boolean): void {
   };
   const workArea = screen.getDisplayMatching(current).workArea;
   window.setBounds(clampBounds(proposed, workArea), true);
+  expanded = nextExpanded;
+  syncWindowState();
 }
 
 function showCompanion(): void {
@@ -102,7 +147,7 @@ function hideCompanion(): void {
   if (!window || window.isDestroyed()) {
     return;
   }
-  if (tray) {
+  if (getCompanionDismissAction(hasUsableTray()) === "hide") {
     window.hide();
     rebuildTrayMenu();
   } else {
@@ -117,54 +162,58 @@ function setAlwaysOnTop(alwaysOnTop: boolean): boolean {
     return false;
   }
   window.setAlwaysOnTop(alwaysOnTop);
+  const enabled = window.isAlwaysOnTop();
+  syncWindowState();
   rebuildTrayMenu();
-  return window.isAlwaysOnTop();
+  return enabled;
+}
+
+function buildTrayMenu(): Menu {
+  const windowVisible = companionWindow?.isVisible() ?? false;
+  const alwaysOnTop = companionWindow?.isAlwaysOnTop() ?? true;
+  return Menu.buildFromTemplate([
+    {
+      label: windowVisible ? "Hide Companion" : "Show Companion",
+      click: () => {
+        if (companionWindow?.isVisible()) {
+          hideCompanion();
+        } else {
+          showCompanion();
+        }
+      },
+    },
+    {
+      label: "Always on Top",
+      type: "checkbox",
+      checked: alwaysOnTop,
+      click: (item) => {
+        setAlwaysOnTop(item.checked);
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Open Dashboard",
+      click: () => {
+        void openDashboard();
+      },
+    },
+    { type: "separator" },
+    {
+      label: "Quit",
+      click: () => {
+        quitting = true;
+        app.quit();
+      },
+    },
+  ]);
 }
 
 function rebuildTrayMenu(): void {
-  if (!tray) {
+  const currentTray = tray;
+  if (!currentTray || currentTray.isDestroyed()) {
     return;
   }
-
-  const windowVisible = companionWindow?.isVisible() ?? false;
-  const alwaysOnTop = companionWindow?.isAlwaysOnTop() ?? true;
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      {
-        label: windowVisible ? "Hide Companion" : "Show Companion",
-        click: () => {
-          if (companionWindow?.isVisible()) {
-            hideCompanion();
-          } else {
-            showCompanion();
-          }
-        },
-      },
-      {
-        label: "Always on Top",
-        type: "checkbox",
-        checked: alwaysOnTop,
-        click: (item) => {
-          setAlwaysOnTop(item.checked);
-        },
-      },
-      { type: "separator" },
-      {
-        label: "Open Dashboard",
-        click: () => {
-          void openDashboard();
-        },
-      },
-      { type: "separator" },
-      {
-        label: "Quit",
-        click: () => {
-          quitting = true;
-          app.quit();
-        },
-      },
-    ]),
-  );
+  currentTray.setContextMenu(buildTrayMenu());
 }
 
 function createTray(): void {
@@ -187,22 +236,37 @@ function createTray(): void {
     icon.setTemplateImage(true);
   }
 
-  tray = new Tray(icon);
-  tray.setToolTip("AgentPulse Companion");
-  tray.on("click", () => {
-    if (companionWindow?.isVisible()) {
-      hideCompanion();
-    } else {
-      showCompanion();
-    }
-  });
-  rebuildTrayMenu();
-  companionWindow?.setSkipTaskbar(true);
+  let candidate: Tray | undefined;
+  try {
+    candidate = new Tray(icon);
+    candidate.setToolTip("AgentPulse Companion");
+    candidate.on("click", () => {
+      if (companionWindow?.isVisible()) {
+        hideCompanion();
+      } else {
+        showCompanion();
+      }
+    });
+    candidate.setContextMenu(buildTrayMenu());
+    companionWindow?.setSkipTaskbar(true);
+    tray = candidate;
+  } catch (error) {
+    candidate?.destroy();
+    tray = undefined;
+    companionWindow?.setSkipTaskbar(false);
+    throw error;
+  }
 }
 
 async function openDashboard(): Promise<void> {
+  const dashboardUrl = endpoint.dashboardUrl;
+  if (!isAllowedDashboardUrl(dashboardUrl, endpoint)) {
+    console.warn("AgentPulse companion refused an unsafe dashboard URL.");
+    return;
+  }
+
   try {
-    await shell.openExternal(endpoint.dashboardUrl);
+    await shell.openExternal(dashboardUrl);
   } catch {
     console.warn("AgentPulse companion could not open the dashboard.");
   }
@@ -210,51 +274,73 @@ async function openDashboard(): Promise<void> {
 
 function sendViewModel(): void {
   const window = companionWindow;
-  if (!window || window.isDestroyed() || window.webContents.isLoading()) {
+  if (
+    !window ||
+    window.isDestroyed() ||
+    window.webContents.isDestroyed() ||
+    window.webContents.isLoading()
+  ) {
     return;
   }
-  window.webContents.send("companion:view-model", latestViewModel);
-}
-
-async function pollDashboard(): Promise<void> {
-  if (polling) {
-    return;
-  }
-
-  polling = true;
   try {
-    const result = await fetchCompanionSnapshot(endpoint);
-    latestViewModel = deriveCompanionViewModel(result, Date.now());
-    sendViewModel();
-  } finally {
-    polling = false;
+    window.webContents.send("companion:view-model", latestViewModel);
+  } catch {
+    console.warn("AgentPulse companion could not update its window.");
   }
 }
 
 function startPolling(): void {
-  void pollDashboard();
+  void poller.pollOnce();
   pollTimer = setInterval(() => {
-    void pollDashboard();
+    void poller.pollOnce();
   }, POLL_INTERVAL_MS);
 }
 
+function isTrustedIpcSender(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
+  const window = companionWindow;
+  const senderFrame = event.senderFrame;
+  return Boolean(
+    window &&
+    !window.isDestroyed() &&
+    event.sender === window.webContents &&
+    senderFrame &&
+    senderFrame === window.webContents.mainFrame &&
+    senderFrame.url === companionPageUrl,
+  );
+}
+
 function registerIpc(): void {
-  ipcMain.handle("companion:get-view-model", () => latestViewModel);
-  ipcMain.on("companion:set-expanded", (_event, value: unknown) => {
-    if (typeof value === "boolean") {
+  ipcMain.handle("companion:get-view-model", (event) => {
+    if (!isTrustedIpcSender(event)) {
+      throw new Error("Untrusted companion IPC sender.");
+    }
+    return latestViewModel;
+  });
+  ipcMain.on("companion:set-expanded", (event, value: unknown) => {
+    if (isTrustedIpcSender(event) && typeof value === "boolean") {
       resizeCompanion(value);
     }
   });
-  ipcMain.on("companion:hide", hideCompanion);
-  ipcMain.handle("companion:toggle-always-on-top", () =>
-    setAlwaysOnTop(!(companionWindow?.isAlwaysOnTop() ?? true)),
-  );
-  ipcMain.on("companion:open-dashboard", () => {
-    void openDashboard();
+  ipcMain.on("companion:hide", (event) => {
+    if (isTrustedIpcSender(event)) {
+      hideCompanion();
+    }
   });
-  ipcMain.on("companion:quit", () => {
-    quitting = true;
-    app.quit();
+  ipcMain.on("companion:toggle-always-on-top", (event) => {
+    if (isTrustedIpcSender(event)) {
+      setAlwaysOnTop(!(companionWindow?.isAlwaysOnTop() ?? true));
+    }
+  });
+  ipcMain.on("companion:open-dashboard", (event) => {
+    if (isTrustedIpcSender(event)) {
+      void openDashboard();
+    }
+  });
+  ipcMain.on("companion:quit", (event) => {
+    if (isTrustedIpcSender(event)) {
+      quitting = true;
+      app.quit();
+    }
   });
 }
 
@@ -270,16 +356,28 @@ function createCompanionWindow(): BrowserWindow {
     show: false,
     transparent: true,
     webPreferences: {
+      allowRunningInsecureContent: false,
       contextIsolation: true,
       nodeIntegration: false,
       preload: join(outputDirectory, "preload.cjs"),
       sandbox: true,
+      webSecurity: true,
+      webviewTag: false,
     },
   });
 
   window.setMenuBarVisibility(false);
+  window.webContents.session.setPermissionCheckHandler(() => false);
+  window.webContents.session.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => {
+    event.preventDefault();
+  });
+  window.webContents.on("will-redirect", (event) => {
     event.preventDefault();
   });
   window.webContents.on("will-attach-webview", (event) => {
@@ -290,16 +388,22 @@ function createCompanionWindow(): BrowserWindow {
     window.show();
   });
   window.on("close", (event) => {
-    if (!quitting && tray) {
+    if (!quitting && getCompanionDismissAction(hasUsableTray()) === "hide") {
       event.preventDefault();
       window.hide();
       rebuildTrayMenu();
+    } else if (!quitting) {
+      quitting = true;
     }
   });
   window.on("closed", () => {
     companionWindow = undefined;
   });
-  void window.loadFile(join(outputDirectory, "index.html"));
+  void window.loadFile(companionPagePath).catch(() => {
+    console.warn("AgentPulse companion could not load its local window.");
+    quitting = true;
+    app.quit();
+  });
   return window;
 }
 
@@ -315,7 +419,7 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  if (!tray) {
+  if (!hasUsableTray()) {
     app.quit();
   }
 });

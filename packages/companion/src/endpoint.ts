@@ -9,7 +9,7 @@ export interface CompanionEndpoint {
   issues: string[];
 }
 
-function isLoopbackHost(host: string): boolean {
+export function isLoopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "::1";
 }
 
@@ -56,4 +56,34 @@ export function resolveCompanionEndpoint(
     dashboardUrl: `${baseUrl}/dashboard`,
     issues,
   };
+}
+
+function normalizeUrlHostname(hostname: string): string {
+  return hostname === "[::1]" ? "::1" : hostname;
+}
+
+export function isAllowedDashboardUrl(
+  value: string,
+  endpoint: CompanionEndpoint,
+): boolean {
+  try {
+    const parsed = new URL(value);
+    const port = parsed.port ? Number(parsed.port) : 80;
+    const hostname = normalizeUrlHostname(parsed.hostname);
+
+    return (
+      parsed.protocol === "http:" &&
+      parsed.username === "" &&
+      parsed.password === "" &&
+      isLoopbackHost(hostname) &&
+      hostname === endpoint.host &&
+      Number.isInteger(port) &&
+      port === endpoint.port &&
+      parsed.pathname === "/dashboard" &&
+      parsed.search === "" &&
+      parsed.hash === ""
+    );
+  } catch {
+    return false;
+  }
 }

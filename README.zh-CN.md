@@ -126,7 +126,8 @@ tool input 或 turn-control 输出。
 Standalone 模式下，`doctor` 会说明无需执行源码构建检查。压缩包中的
 `BUILD-INFO.txt` 记录构建运行时、commit、平台和架构。更多信息见
 [无需 Node 安装](docs/install-without-node.md)和
-[dashboard 指南](docs/dashboard.md)。
+[dashboard 指南](docs/dashboard.md)。开发 experimental Electron 状态窗口时，
+请参考 [companion surface 指南](docs/companion-surface.md)。
 
 下文命令假设 `agentpulse` 已加入 `PATH`。直接从 Linux 解压目录运行时，请替换为
 `./agentpulse`；Windows 使用 `.\agentpulse.exe`。
@@ -259,6 +260,7 @@ session，并向选定 notifier 和只读状态界面提供输出。
 ## 文档与许可证
 
 - [Dashboard 指南](docs/dashboard.md)
+- [Companion surface 指南](docs/companion-surface.md)
 - [架构](docs/architecture.md)
 - [贡献指南](CONTRIBUTING.zh-CN.md)
 - [English contributing guide](CONTRIBUTING.md)

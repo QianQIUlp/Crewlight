@@ -71,6 +71,26 @@ function isActionKind(value: unknown): value is CompanionActionKind {
   return value === "input" || value === "permission";
 }
 
+function hasValidPresentationState(
+  status: CompanionStatus,
+  attention: CompanionAttention,
+  actionKind: unknown,
+): boolean {
+  if (status === "waiting_input") {
+    return attention === "action" && actionKind === "input";
+  }
+  if (status === "waiting_permission") {
+    return attention === "action" && actionKind === "permission";
+  }
+  if (status === "completed") {
+    return attention === "done" && actionKind === undefined;
+  }
+  if (status === "failed" || status === "rate_limited") {
+    return attention === "error" && actionKind === undefined;
+  }
+  return attention === "passive" && actionKind === undefined;
+}
+
 function sanitizeSession(value: unknown): SanitizedSession | undefined {
   if (!isRecord(value)) {
     return undefined;
@@ -90,15 +110,18 @@ function sanitizeSession(value: unknown): SanitizedSession | undefined {
     !displayWorkspace ||
     !isStatus(value.status) ||
     !Number.isFinite(value.lastEventAt) ||
+    Number(value.lastEventAt) < 0 ||
     !Number.isFinite(value.lastEventAgeMs) ||
+    Number(value.lastEventAgeMs) < 0 ||
     typeof value.isStale !== "boolean" ||
-    !isAttention(value.attention)
+    !isAttention(value.attention) ||
+    !hasValidPresentationState(value.status, value.attention, value.actionKind)
   ) {
     return undefined;
   }
 
-  const lastEventAt = Math.max(0, Number(value.lastEventAt));
-  const lastEventAgeMs = Math.max(0, Number(value.lastEventAgeMs));
+  const lastEventAt = Number(value.lastEventAt);
+  const lastEventAgeMs = Number(value.lastEventAgeMs);
   const taskTitle = safeString(value.taskTitle, 120);
   const activityLabel = safeString(value.activityLabel, 120);
   const staleReason = safeString(value.staleReason, 180);

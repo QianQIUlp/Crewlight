@@ -6,6 +6,7 @@ import {
   RECENT_COMPLETION_MS,
   sortSessions,
 } from "../src/state.js";
+import { sanitizeDashboardResponse } from "../src/sanitize.js";
 import type { CompanionStatus, SanitizedSession } from "../src/sanitize.js";
 
 function session(
@@ -169,5 +170,56 @@ describe("companion state derivation", () => {
       summary: "Companion API unavailable",
       diagnostic: "Start the daemon with --dashboard.",
     });
+  });
+
+  it("includes authoritative window state without changing session state", () => {
+    const view = deriveCompanionViewModel(online([session("running")]), 5_000, {
+      expanded: true,
+      alwaysOnTop: false,
+    });
+
+    expect(view).toMatchObject({
+      expanded: true,
+      alwaysOnTop: false,
+      state: "running",
+    });
+  });
+
+  it("projects sanitized sessions without renderer-facing session keys or raw data", () => {
+    const data = sanitizeDashboardResponse({
+      health: { status: "ok" },
+      sessions: [
+        {
+          sessionKey: "codex:cli:session-key-secret",
+          source: "codex",
+          surface: "cli",
+          status: "waiting_permission",
+          lastEventAt: 2_000,
+          lastEventAgeMs: 1_000,
+          isStale: false,
+          displayName: "Codex",
+          displayWorkspace: "AgentPulse",
+          attention: "action",
+          actionKind: "permission",
+          activityLabel: "Permission requested",
+          lastMessage: "message-secret",
+          prompt: "prompt-secret",
+          transcript: "transcript-secret",
+          toolInput: "tool-secret",
+          rawEvent: { payload: "payload-secret" },
+        },
+      ],
+    });
+
+    expect(data).toBeDefined();
+    const serialized = JSON.stringify(
+      deriveCompanionViewModel({ kind: "online", data: data! }, 5_000),
+    );
+    expect(serialized).not.toContain("session-key-secret");
+    expect(serialized).not.toContain("message-secret");
+    expect(serialized).not.toContain("prompt-secret");
+    expect(serialized).not.toContain("transcript-secret");
+    expect(serialized).not.toContain("tool-secret");
+    expect(serialized).not.toContain("payload-secret");
   });
 });
