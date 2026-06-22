@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  clipboard,
   ipcMain,
   Menu,
   nativeImage,
@@ -26,8 +27,9 @@ import {
 
 const POLL_INTERVAL_MS = 2_000;
 const WINDOW_MARGIN = 16;
-const COMPACT_SIZE = { width: 360, height: 112 };
-const EXPANDED_SIZE = { width: 420, height: 480 };
+const COMPACT_SIZE = { width: 372, height: 126 };
+const EXPANDED_SIZE = { width: 432, height: 536 };
+const DAEMON_COMMAND = "agentpulse daemon --dashboard --notifier none";
 const outputDirectory = dirname(fileURLToPath(import.meta.url));
 const companionPagePath = join(outputDirectory, "index.html");
 const companionPageUrl = pathToFileURL(companionPagePath).toString();
@@ -329,6 +331,18 @@ function registerIpc(): void {
   ipcMain.on("companion:toggle-always-on-top", (event) => {
     if (isTrustedIpcSender(event)) {
       setAlwaysOnTop(!(companionWindow?.isAlwaysOnTop() ?? true));
+    }
+  });
+  ipcMain.handle("companion:copy-daemon-command", (event) => {
+    if (!isTrustedIpcSender(event)) {
+      throw new Error("Untrusted companion IPC sender.");
+    }
+    try {
+      clipboard.writeText(DAEMON_COMMAND);
+      return true;
+    } catch {
+      console.warn("AgentPulse companion could not copy the daemon command.");
+      return false;
     }
   });
   ipcMain.on("companion:open-dashboard", (event) => {

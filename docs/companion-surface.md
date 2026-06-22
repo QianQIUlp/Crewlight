@@ -39,14 +39,31 @@ JSON parsing. A later successful poll replaces the failure state.
 
 Compact mode is a bottom-right command strip showing:
 
-- the global status summary;
+- the AgentPulse product mark and local-companion identity;
+- the global status indicator and summary;
 - running, action-needed, and failed counts;
-- the highest-priority current session.
+- the highest-priority current session or connection diagnostic;
+- expand, hide, and always-on-top controls.
 
-Expanded mode adds a sorted list of current sessions. Each row shows only
-allowlisted dashboard presentation fields: agent source, surface, normalized
-status, task title or workspace, safe activity label, event age, and a short
-action or staleness hint.
+Expanded mode adds a top status bar, filter chips, and a sorted list of current
+sessions. Filters cover all sessions, attention-needed work, active work,
+completed work, and failed or stale work. Filtering never changes the
+underlying priority order.
+
+Each session card shows only allowlisted dashboard presentation fields: agent
+source, surface, normalized status, task title, workspace, safe activity label,
+event age, attention state, and a short action or staleness hint. Offline,
+dashboard-API-unavailable, empty, and no-filter-match states use dedicated
+in-window guidance instead of appearing broken.
+
+Offline and API-unavailable states can copy the fixed local startup command:
+
+```bash
+agentpulse daemon --dashboard --notifier none
+```
+
+Clipboard access is exposed through a narrow preload method and does not accept
+arbitrary renderer text.
 
 The existing `/dashboard` page remains the fallback for detailed inspection,
 setup snippets, doctor results, and complete current-session cards.
@@ -132,6 +149,10 @@ opening a browser, the main process verifies the configured URL is plain HTTP,
 uses the configured `127.0.0.1` or `::1` loopback host and valid port, targets
 exactly `/dashboard`, and has no credentials, query, or fragment.
 
+The companion remains an experimental local surface. It is not an installer,
+release artifact, background service, persistent history store, or agent
+control interface.
+
 ## Security and privacy
 
 The Electron renderer has Node integration disabled, context isolation and
@@ -161,11 +182,30 @@ Run these checks in a real graphical desktop session:
    unavailable**, and a current-session state.
 6. Select Open Dashboard and confirm only the configured local loopback
    `/dashboard` URL opens. Confirm no browser opens during startup or polling.
+7. In an offline state, copy the daemon command and confirm the clipboard
+   contains only `agentpulse daemon --dashboard --notifier none`.
 
 This repository environment is headless. Build and pure runtime logic can be
 verified here, but visible tray/window behavior remains manual verification for
 the maintainer. No Windows, macOS, or Linux desktop behavior is claimed as
 manually verified by this change.
+
+## Screenshot checklist
+
+Use a clean desktop background and capture the companion at native scale.
+
+- Compact: show a meaningful current state, all three count cells, the primary
+  session line, and the window controls without pointer hover or focus rings.
+- Expanded: include at least four sessions covering attention, running,
+  completed, and failed or stale states; keep source, workspace, status,
+  activity, and age legible.
+- Keep the companion fully on screen with its rounded border and shadow intact.
+- Avoid prompts, transcripts, terminal output, secrets, personal paths, or
+  unrelated desktop notifications in the frame.
+- If documenting a connection problem, capture the dedicated offline or API
+  unavailable state with the local command and actions visible.
+- Record the platform, display scale, and whether the image is generated in a
+  headless environment or captured manually.
 
 ## Prototype limits
 

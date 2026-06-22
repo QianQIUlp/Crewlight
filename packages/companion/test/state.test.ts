@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   deriveCompanionViewModel,
+  filterSessionViews,
   getSessionPriority,
   RECENT_COMPLETION_MS,
   sortSessions,
@@ -221,5 +222,33 @@ describe("companion state derivation", () => {
     expect(serialized).not.toContain("transcript-secret");
     expect(serialized).not.toContain("tool-secret");
     expect(serialized).not.toContain("payload-secret");
+  });
+
+  it("filters projected sessions into product-facing groups", () => {
+    const view = deriveCompanionViewModel(
+      online([
+        session("waiting_input"),
+        session("running"),
+        session("using_tool", { isStale: true }),
+        session("completed"),
+        session("failed"),
+        session("idle"),
+      ]),
+    );
+
+    expect(
+      filterSessionViews(view.sessions, "attention").map((item) => item.status),
+    ).toEqual(["waiting_input"]);
+    expect(
+      filterSessionViews(view.sessions, "running").map((item) => item.status),
+    ).toEqual(["running"]);
+    expect(
+      filterSessionViews(view.sessions, "done").map((item) => item.status),
+    ).toEqual(["completed"]);
+    expect(
+      filterSessionViews(view.sessions, "failed-stale").map(
+        (item) => item.status,
+      ),
+    ).toEqual(["failed", "using_tool"]);
   });
 });

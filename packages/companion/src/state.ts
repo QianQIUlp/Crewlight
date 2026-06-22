@@ -26,6 +26,13 @@ export type CompanionSessionTone =
   | "idle"
   | "unknown";
 
+export type CompanionSessionFilter =
+  | "all"
+  | "attention"
+  | "running"
+  | "done"
+  | "failed-stale";
+
 export interface CompanionCounts {
   running: number;
   action: number;
@@ -36,6 +43,7 @@ export interface CompanionSessionView {
   source: string;
   surface: string;
   title: string;
+  workspace: string;
   status: CompanionStatus;
   statusLabel: string;
   activity: string;
@@ -128,6 +136,27 @@ export function sortSessions(
   });
 }
 
+export function filterSessionViews(
+  sessions: readonly CompanionSessionView[],
+  filter: CompanionSessionFilter,
+): CompanionSessionView[] {
+  if (filter === "all") {
+    return [...sessions];
+  }
+
+  return sessions.filter((session) => {
+    if (filter === "attention") return session.needsAction;
+    if (filter === "running") {
+      return (
+        !session.isStale &&
+        (session.status === "running" || session.status === "using_tool")
+      );
+    }
+    if (filter === "done") return session.status === "completed";
+    return session.tone === "error" || session.tone === "stale";
+  });
+}
+
 function formatAge(milliseconds: number): string {
   const seconds = Math.floor(milliseconds / 1000);
   if (seconds < 5) return "just now";
@@ -169,6 +198,7 @@ function toSessionView(session: SanitizedSession): CompanionSessionView {
     source: session.displayName,
     surface: session.surface,
     title: session.taskTitle ?? session.displayWorkspace,
+    workspace: session.displayWorkspace,
     status: session.status,
     statusLabel: STATUS_LABELS[session.status],
     activity: session.activityLabel ?? STATUS_LABELS[session.status],

@@ -6,6 +6,7 @@ export interface CompanionBridge {
   setExpanded(expanded: boolean): void;
   hide(): void;
   toggleAlwaysOnTop(): void;
+  copyDaemonCommand(): Promise<boolean>;
   openDashboard(): void;
   quit(): void;
 }
