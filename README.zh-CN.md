@@ -133,6 +133,19 @@ Standalone 模式下，`doctor` 会说明无需执行源码构建检查。压缩
 下文命令假设 `agentpulse` 已加入 `PATH`。直接从 Linux 解压目录运行时，请替换为
 `./agentpulse`；Windows 使用 `.\agentpulse.exe`。
 
+## 体验 Demo
+
+无需配置真实集成，即可查看一个本地多代理工作流：
+
+```bash
+agentpulse daemon --dashboard --notifier none
+agentpulse demo multi-agent
+```
+
+打开命令输出的浏览器 dashboard URL。在源码 checkout 中运行
+`pnpm companion:dev`，还可以在 experimental Electron companion 中查看同一组
+合成 session。重复运行 demo 会刷新相同的六个 session；重启 daemon 会清除它们。
+
 ## 平台配置
 
 AgentPulse 只打印可检查、可合并的配置片段：

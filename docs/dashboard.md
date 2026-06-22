@@ -28,6 +28,30 @@ The default is:
 http://127.0.0.1:3768/dashboard
 ```
 
+## Try the Multi-Agent Demo
+
+Start the dashboard-enabled daemon, then load the built-in scenario:
+
+```bash
+agentpulse daemon --dashboard --notifier none
+agentpulse demo multi-agent
+```
+
+`agentpulse demo` and `agentpulse demo --scenario multi-agent` are equivalent.
+The command submits six safe synthetic events through the ordinary local event
+ingestion path. The sessions cover active work, permission and input requests,
+completion, failure, and an older running session that the existing dashboard
+heuristic marks as possibly stale.
+
+Demo session identities are deterministic, so rerunning the command refreshes
+the same sessions instead of adding duplicates. AgentPulse has no session
+deletion or persistence mechanism; restart the daemon to clear all current
+in-memory sessions.
+
+The scenario is explicitly synthetic local demo data. It contains no prompts,
+transcripts, tool input or output, private paths, raw upstream payloads, or real
+agent credentials, and it does not impersonate upstream event formats.
+
 IPv6 loopback is also accepted:
 
 ```bash

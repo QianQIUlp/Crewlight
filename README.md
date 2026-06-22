@@ -142,6 +142,20 @@ Commands below use `agentpulse` on `PATH`. When running directly from an
 extracted Linux archive, replace it with `./agentpulse`; on Windows, use
 `.\agentpulse.exe`.
 
+## Try the Demo
+
+See a realistic local multi-agent workflow without configuring integrations:
+
+```bash
+agentpulse daemon --dashboard --notifier none
+agentpulse demo multi-agent
+```
+
+Open the printed browser dashboard URL. From a source checkout, run
+`pnpm companion:dev` to view the same synthetic sessions in the experimental
+Electron companion. Rerunning the demo refreshes the same six sessions;
+restarting the daemon clears them.
+
 ## Platform Setup
 
 AgentPulse prints reviewable, mergeable setup fragments:

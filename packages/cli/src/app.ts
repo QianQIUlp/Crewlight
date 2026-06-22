@@ -1,5 +1,6 @@
 import { DaemonClient } from "./daemon-client.js";
 import { executeDaemonCommand } from "./commands/daemon.js";
+import { executeDemoCommand } from "./commands/demo.js";
 import { executeDoctorCommand } from "./commands/doctor.js";
 import { executeEmitCommand } from "./commands/emit.js";
 import { executeIngestCommand } from "./commands/ingest.js";
@@ -12,6 +13,8 @@ const USAGE = `AgentPulse v0.3.0
 
 Usage:
   agentpulse daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard] [--dashboard-task-titles prompt-preview]
+  agentpulse demo [multi-agent]
+  agentpulse demo --scenario multi-agent
   agentpulse doctor [--json] [--notifier KIND]
   agentpulse emit --source SOURCE --surface SURFACE --status STATUS [options]
   agentpulse ingest claude-code
@@ -39,6 +42,8 @@ export async function main(
     switch (command) {
       case "daemon":
         return await executeDaemonCommand(commandArgs, io);
+      case "demo":
+        return await executeDemoCommand(commandArgs, new DaemonClient(), io);
       case "doctor":
         return await executeDoctorCommand(commandArgs, io);
       case "emit":

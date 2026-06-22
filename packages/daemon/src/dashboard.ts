@@ -164,6 +164,12 @@ const ACTIVITY_LABELS: Record<string, string> = {
   "Command running": "Command running",
   "Command completed": "Command completed",
   "Command failed": "Command failed",
+  DemoClaudeTests: "[Demo] Running tests",
+  DemoCodexPermission: "[Demo] Permission to edit README",
+  DemoCursorReview: "[Demo] Companion review requested",
+  DemoOpenCodeComplete: "[Demo] Adapter smoke completed",
+  DemoCustomSetupFailed: "[Demo] Local setup failed",
+  DemoGenericStaleScan: "[Demo] Background scan last reported",
 };
 
 const STATUS_ACTIVITY_LABELS: Record<AgentStatus, string> = {
