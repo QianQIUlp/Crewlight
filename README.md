@@ -277,6 +277,7 @@ as claims of stable API, installer, or desktop-product maturity.
 
 ## Documentation and License
 
+- [Product positioning](docs/product/positioning.md)
 - [Dashboard guide](docs/dashboard.md)
 - [Companion surface guide](docs/companion-surface.md)
 - [Architecture](docs/architecture.md)
