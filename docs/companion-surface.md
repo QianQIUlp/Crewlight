@@ -26,6 +26,20 @@ Start the companion in another terminal:
 pnpm companion:dev
 ```
 
+`pnpm companion:dev` is a development command and requires a source checkout;
+it is not included in standalone preview archives.
+
+To populate both the browser dashboard and companion with the built-in
+multi-agent scenario, run in another terminal:
+
+```bash
+agentpulse demo multi-agent
+```
+
+The six sessions are synthetic local demo data with deterministic identities.
+Rerun the command to refresh them, or restart the daemon to clear all in-memory
+sessions.
+
 The companion polls `http://127.0.0.1:3768/dashboard/api` every two seconds.
 It honors `AGENTPULSE_HOST` only when the value is `127.0.0.1` or `::1`, and
 honors a valid `AGENTPULSE_PORT`. The browser dashboard does not need to be

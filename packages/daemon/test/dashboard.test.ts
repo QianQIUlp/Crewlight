@@ -196,6 +196,22 @@ describe("dashboard session derivation", () => {
     ).toBe("Permission requested");
   });
 
+  it.each([
+    ["DemoClaudeTests", "[Demo] Running tests"],
+    ["DemoCodexPermission", "[Demo] Permission to edit README"],
+    ["DemoCursorReview", "[Demo] Companion review requested"],
+    ["DemoOpenCodeComplete", "[Demo] Adapter smoke completed"],
+    ["DemoCustomSetupFailed", "[Demo] Local setup failed"],
+    ["DemoGenericStaleScan", "[Demo] Background scan last reported"],
+  ])("maps the safe synthetic %s activity title", (title, activityLabel) => {
+    expect(
+      getDashboardActivityLabel({
+        ...baseSession,
+        title,
+      }),
+    ).toBe(activityLabel);
+  });
+
   it("uses status activity fallbacks without promoting arbitrary messages", () => {
     expect(
       getDashboardActivityLabel({
