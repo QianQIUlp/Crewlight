@@ -68,5 +68,27 @@ describe("dashboard response sanitization", () => {
         sessions: [{ ...dashboardSession(), status: "future-state" }],
       }),
     ).toBeUndefined();
+    expect(
+      sanitizeDashboardResponse({
+        health: { status: "ok" },
+        sessions: [
+          {
+            ...dashboardSession(),
+            attention: "passive",
+          },
+        ],
+      }),
+    ).toBeUndefined();
+    expect(
+      sanitizeDashboardResponse({
+        health: { status: "ok" },
+        sessions: [
+          {
+            ...dashboardSession(),
+            lastEventAgeMs: -1,
+          },
+        ],
+      }),
+    ).toBeUndefined();
   });
 });

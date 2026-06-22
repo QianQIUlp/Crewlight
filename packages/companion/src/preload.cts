@@ -23,8 +23,9 @@ const bridge = {
   hide: () => {
     ipcRenderer.send("companion:hide");
   },
-  toggleAlwaysOnTop: () =>
-    ipcRenderer.invoke("companion:toggle-always-on-top") as Promise<boolean>,
+  toggleAlwaysOnTop: () => {
+    ipcRenderer.send("companion:toggle-always-on-top");
+  },
   openDashboard: () => {
     ipcRenderer.send("companion:open-dashboard");
   },

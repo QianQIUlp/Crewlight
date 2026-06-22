@@ -5,7 +5,7 @@ export interface CompanionBridge {
   onViewModel(listener: (viewModel: CompanionViewModel) => void): void;
   setExpanded(expanded: boolean): void;
   hide(): void;
-  toggleAlwaysOnTop(): Promise<boolean>;
+  toggleAlwaysOnTop(): void;
   openDashboard(): void;
   quit(): void;
 }

@@ -33,8 +33,8 @@ describe("companion dashboard client", () => {
 
     expect(result).toMatchObject({
       kind: "offline",
-      diagnostic: "Cannot reach the local AgentPulse daemon.",
     });
+    expect(result.diagnostic).toContain("agentpulse daemon --dashboard");
   });
 
   it("aborts slow requests and reports the timeout", async () => {
@@ -48,10 +48,30 @@ describe("companion dashboard client", () => {
         }),
     });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       kind: "offline",
-      diagnostic: "Daemon did not respond within 5ms.",
     });
+    expect(result.diagnostic).toContain("timed out after 5ms");
+    expect(result.diagnostic).toContain("will retry");
+  });
+
+  it("times out when response body parsing never completes", async () => {
+    const result = await fetchCompanionSnapshot(endpoint, {
+      timeoutMs: 5,
+      fetch: async () =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () =>
+            await new Promise<never>(() => {
+              // Simulate a response that started but never completed.
+            }),
+        }) as Response,
+    });
+
+    expect(result).toMatchObject({ kind: "offline" });
+    expect(result.diagnostic).toContain("timed out after 5ms");
+    expect(result.diagnostic).not.toContain("partial-body-secret");
   });
 
   it("provides a dashboard startup hint for HTTP 404", async () => {
@@ -61,11 +81,20 @@ describe("companion dashboard client", () => {
       }),
     ).resolves.toEqual({
       kind: "api-unavailable",
-      diagnostic: "Start the daemon with --dashboard.",
+      diagnostic: "Restart with: agentpulse daemon --dashboard.",
     });
   });
 
-  it("rejects invalid JSON and unsupported response shapes", async () => {
+  it("classifies non-200, invalid JSON, and invalid schema as API unavailable", async () => {
+    await expect(
+      fetchCompanionSnapshot(endpoint, {
+        fetch: async () => new Response("private-error-body", { status: 503 }),
+      }),
+    ).resolves.toEqual({
+      kind: "api-unavailable",
+      diagnostic: "Dashboard API returned HTTP 503. Restart with --dashboard.",
+    });
+
     await expect(
       fetchCompanionSnapshot(endpoint, {
         fetch: async () =>
@@ -75,7 +104,8 @@ describe("companion dashboard client", () => {
       }),
     ).resolves.toEqual({
       kind: "api-unavailable",
-      diagnostic: "Dashboard API returned invalid JSON.",
+      diagnostic:
+        "Dashboard API returned invalid JSON. Restart with --dashboard.",
     });
 
     await expect(
@@ -84,7 +114,16 @@ describe("companion dashboard client", () => {
       }),
     ).resolves.toEqual({
       kind: "api-unavailable",
-      diagnostic: "Dashboard API returned an unsupported response.",
+      diagnostic:
+        "Dashboard API response is unsupported. Restart with --dashboard.",
     });
+  });
+
+  it("never includes HTTP error bodies in diagnostics", async () => {
+    const result = await fetchCompanionSnapshot(endpoint, {
+      fetch: async () => new Response("error-body-secret", { status: 500 }),
+    });
+
+    expect(JSON.stringify(result)).not.toContain("error-body-secret");
   });
 });

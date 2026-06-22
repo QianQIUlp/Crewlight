@@ -15,6 +15,8 @@ export interface DashboardRequestOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 1_500;
+const OFFLINE_DIAGNOSTIC =
+  "Run agentpulse daemon --dashboard. The companion will retry.";
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException
@@ -27,56 +29,84 @@ export async function fetchCompanionSnapshot(
   options: DashboardRequestOptions = {},
 ): Promise<DashboardPollResult> {
   const request = options.fetch ?? fetch;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs =
+    options.timeoutMs !== undefined &&
+    Number.isFinite(options.timeoutMs) &&
+    options.timeoutMs > 0
+      ? options.timeoutMs
+      : DEFAULT_TIMEOUT_MS;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  let timeout: NodeJS.Timeout | undefined;
 
   try {
-    const response = await request(endpoint.dashboardApiUrl, {
-      cache: "no-store",
-      signal: controller.signal,
+    const operation = (async (): Promise<DashboardPollResult> => {
+      const response = await request(endpoint.dashboardApiUrl, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      if (response.status === 404) {
+        return {
+          kind: "api-unavailable",
+          diagnostic: "Restart with: agentpulse daemon --dashboard.",
+        };
+      }
+      if (!response.ok) {
+        return {
+          kind: "api-unavailable",
+          diagnostic: `Dashboard API returned HTTP ${response.status}. Restart with --dashboard.`,
+        };
+      }
+
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch (error) {
+        if (timedOut || isAbortError(error)) {
+          throw error;
+        }
+        return {
+          kind: "api-unavailable",
+          diagnostic:
+            "Dashboard API returned invalid JSON. Restart with --dashboard.",
+        };
+      }
+
+      const data = sanitizeDashboardResponse(body);
+      if (!data) {
+        return {
+          kind: "api-unavailable",
+          diagnostic:
+            "Dashboard API response is unsupported. Restart with --dashboard.",
+        };
+      }
+
+      return { kind: "online", data };
+    })();
+    const timeoutResult = new Promise<DashboardPollResult>((resolve) => {
+      timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+        resolve({
+          kind: "offline",
+          diagnostic: `${OFFLINE_DIAGNOSTIC} Request timed out after ${timeoutMs}ms.`,
+        });
+      }, timeoutMs);
     });
 
-    if (response.status === 404) {
-      return {
-        kind: "api-unavailable",
-        diagnostic: "Start the daemon with --dashboard.",
-      };
-    }
-    if (!response.ok) {
-      return {
-        kind: "api-unavailable",
-        diagnostic: `Dashboard API returned HTTP ${response.status}.`,
-      };
-    }
-
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
-      return {
-        kind: "api-unavailable",
-        diagnostic: "Dashboard API returned invalid JSON.",
-      };
-    }
-
-    const data = sanitizeDashboardResponse(body);
-    if (!data) {
-      return {
-        kind: "api-unavailable",
-        diagnostic: "Dashboard API returned an unsupported response.",
-      };
-    }
-
-    return { kind: "online", data };
+    return await Promise.race([operation, timeoutResult]);
   } catch (error) {
     return {
       kind: "offline",
-      diagnostic: isAbortError(error)
-        ? `Daemon did not respond within ${timeoutMs}ms.`
-        : "Cannot reach the local AgentPulse daemon.",
+      diagnostic:
+        timedOut || isAbortError(error)
+          ? `${OFFLINE_DIAGNOSTIC} Request timed out after ${timeoutMs}ms.`
+          : OFFLINE_DIAGNOSTIC,
     };
   } finally {
-    clearTimeout(timeout);
+    if (timeout) {
+      clearTimeout(timeout);
+    }
   }
 }
