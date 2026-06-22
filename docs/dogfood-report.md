@@ -72,11 +72,11 @@ events, sessions, notifier output, or daemon responses.
 ### 1. Start and diagnose the daemon
 
 ```bash
-agentpulse doctor
-agentpulse daemon --notifier console
+crewlight doctor
+crewlight daemon --notifier console
 ```
 
-Run `agentpulse doctor` again in another terminal. It should report the daemon
+Run `crewlight doctor` again in another terminal. It should report the daemon
 as reachable.
 
 ### 2. Claude Code hook ingest
@@ -84,14 +84,14 @@ as reachable.
 Print and manually merge the snippet:
 
 ```bash
-agentpulse setup claude-code --print
+crewlight setup claude-code --print
 ```
 
 In Claude Code, use `/hooks` to confirm the handlers, complete a small turn, and
 then inspect:
 
 ```bash
-agentpulse status --json
+crewlight status --json
 ```
 
 The console daemon should print the terminal event and status should include a
@@ -102,24 +102,24 @@ The console daemon should print the terminal event and status should include a
 Print and manually merge the user-level snippet:
 
 ```bash
-agentpulse setup codex --print
+crewlight setup codex --print
 ```
 
-Complete one Codex CLI turn and run `agentpulse status --json`. The daemon
+Complete one Codex CLI turn and run `crewlight status --json`. The daemon
 should print a `codex completed` event and status should include a `codex`
 session.
 
 ### 4. OS notifier and fallback
 
 ```bash
-agentpulse doctor --notifier os
-agentpulse daemon --notifier os
+crewlight doctor --notifier os
+crewlight daemon --notifier os
 ```
 
-Trigger a terminal event. If no desktop notification appears or AgentPulse
+Trigger a terminal event. If no desktop notification appears or Crewlight
 prints an OS notifier warning, confirm ingest still works with
-`agentpulse status --json`, then restart with:
+`crewlight status --json`, then restart with:
 
 ```bash
-agentpulse daemon --notifier console
+crewlight daemon --notifier console
 ```

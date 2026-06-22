@@ -1,6 +1,6 @@
 # Upstream Sources
 
-These sources informed local rules. The AgentPulse skill is an independently
+These sources informed local rules. The Crewlight skill is an independently
 written workflow constrained by this repository. Do not install or execute the
 upstream skills, and do not copy their scripts, assets, themes, mascots,
 animation packs, or product language.
@@ -33,7 +33,7 @@ animation packs, or product language.
 - License: MIT.
 - Adapt: native browser behavior, semantic HTML, minimal CSS, logical
   properties, visible focus, forced colors, contrast, and reduced motion.
-- Reject: generic defaults when they conflict with AgentPulse's established
+- Reject: generic defaults when they conflict with Crewlight's established
   visual hierarchy or current implementation.
 
 ## Motion Framer
@@ -72,7 +72,7 @@ animation packs, or product language.
 - Source:
   <https://github.com/rullerzhou-afk/clawd-on-desk/tree/7c462ee297b5575301924cca6c2452912251c804>
 - License: AGPL-3.0-only.
-- Use only as a competitive boundary: validate that AgentPulse remains
+- Use only as a competitive boundary: validate that Crewlight remains
   multi-agent-first and avoid unsupported comparison claims.
 - Reject: all code, assets, themes, mascots, animation packs, UX language, and
   pet-first product framing.

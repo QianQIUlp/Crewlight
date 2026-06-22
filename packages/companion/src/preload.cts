@@ -36,4 +36,4 @@ const bridge = {
   },
 } satisfies CompanionBridge;
 
-contextBridge.exposeInMainWorld("agentPulse", bridge);
+contextBridge.exposeInMainWorld("crewlight", bridge);

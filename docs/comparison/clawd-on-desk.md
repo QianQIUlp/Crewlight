@@ -6,12 +6,12 @@ describes multi-agent coexistence, independent session tracking, a session HUD
 and dashboard, permission bubbles for supported agents, and resolution of
 multiple sessions into visible pet states.
 
-AgentPulse must not claim that Clawd supports only one agent or one session.
+Crewlight must not claim that Clawd supports only one agent or one session.
 That is not a valid product distinction.
 
-## AgentPulse direction
+## Crewlight direction
 
-AgentPulse is a local-first, multi-agent status hub. Its companion surface is a
+Crewlight is a local-first, multi-agent status hub. Its companion surface is a
 small command strip whose primary readable content is operational state:
 
 - how many sessions are running;
@@ -27,14 +27,14 @@ dashboard open.
 The product distinction is emphasis and information architecture:
 
 - Clawd is organized around an animated desktop pet and its interaction model.
-- AgentPulse is organized around multi-agent overview, attention routing,
+- Crewlight is organized around multi-agent overview, attention routing,
   diagnostics, and low-friction local observability.
 
 This is not a claim that either product exclusively owns a capability.
 
 ## Implementation boundary
 
-AgentPulse will not copy or adapt Clawd's:
+Crewlight will not copy or adapt Clawd's:
 
 - source code;
 - assets or pixel art;
@@ -42,7 +42,7 @@ AgentPulse will not copy or adapt Clawd's:
 - mascot concept;
 - exact layouts, interaction language, or visual state vocabulary.
 
-The AgentPulse companion uses its own status-ring visual, command-strip layout,
+The Crewlight companion uses its own status-ring visual, command-strip layout,
 session ranking, normalized daemon API, security boundary, and restrained CSS
 motion. Competitive research may inform product positioning, but implementation
-must remain based on AgentPulse's own repository, schemas, and design.
+must remain based on Crewlight's own repository, schemas, and design.

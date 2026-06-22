@@ -1,4 +1,4 @@
-# AgentPulse MVP Plan
+# Crewlight MVP Plan
 
 ## v0.1 foundation
 
@@ -9,10 +9,10 @@ wrapper.
 Those interfaces remain compatible in v0.2:
 
 ```bash
-agentpulse daemon
-agentpulse emit --source custom --surface manual --status running
-agentpulse status
-agentpulse run --source generic-cli -- node -e "process.exit(0)"
+crewlight daemon
+crewlight emit --source custom --surface manual --status running
+crewlight status
+crewlight run --source generic-cli -- node -e "process.exit(0)"
 ```
 
 ## v0.2 goal

@@ -1,10 +1,10 @@
-import type { AgentEventInput, AgentSession } from "@agentpulse/core";
+import type { AgentEventInput, AgentSession } from "@crewlight/core";
 import {
   formatDaemonUrl,
   type DashboardCapabilities,
   type IngestResult,
-} from "@agentpulse/daemon";
-import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@agentpulse/shared";
+} from "@crewlight/daemon";
+import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
 
 export const DASHBOARD_CAPABILITIES_TIMEOUT_MS = 200;
 
@@ -12,7 +12,7 @@ function disabledDashboardCapabilities(): DashboardCapabilities {
   return { taskTitleMode: "off" };
 }
 
-export interface AgentPulseClient {
+export interface CrewlightClient {
   dashboardCapabilities?(): Promise<DashboardCapabilities>;
   emit(event: AgentEventInput): Promise<IngestResult>;
   sessions(): Promise<AgentSession[]>;
@@ -24,12 +24,12 @@ export interface DaemonClientOptions {
 }
 
 function daemonBaseUrl(env: NodeJS.ProcessEnv): string {
-  const host = env.AGENTPULSE_HOST ?? DEFAULT_DAEMON_HOST;
-  const port = Number(env.AGENTPULSE_PORT ?? DEFAULT_DAEMON_PORT);
+  const host = env.CREWLIGHT_HOST ?? DEFAULT_DAEMON_HOST;
+  const port = Number(env.CREWLIGHT_PORT ?? DEFAULT_DAEMON_PORT);
   return formatDaemonUrl(host, port);
 }
 
-export class DaemonClient implements AgentPulseClient {
+export class DaemonClient implements CrewlightClient {
   readonly #baseUrl: string;
 
   constructor(options: DaemonClientOptions = {}) {
@@ -97,7 +97,7 @@ export class DaemonClient implements AgentPulseClient {
       response = await fetch(`${this.#baseUrl}${path}`, init);
     } catch {
       throw new Error(
-        `Cannot reach the AgentPulse daemon at ${this.#baseUrl}. Start it with \`agentpulse daemon --notifier console\`, or verify AGENTPULSE_HOST and AGENTPULSE_PORT.`,
+        `Cannot reach the Crewlight daemon at ${this.#baseUrl}. Start it with \`crewlight daemon --notifier console\`, or verify CREWLIGHT_HOST and CREWLIGHT_PORT.`,
       );
     }
 
@@ -108,7 +108,7 @@ export class DaemonClient implements AgentPulseClient {
         typeof (body as { error?: unknown }).error === "string"
           ? (body as { error: string }).error
           : `HTTP ${response.status}`;
-      throw new Error(`AgentPulse daemon rejected the request: ${message}`);
+      throw new Error(`Crewlight daemon rejected the request: ${message}`);
     }
 
     return body as T;

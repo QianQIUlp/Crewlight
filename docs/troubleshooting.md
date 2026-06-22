@@ -1,11 +1,11 @@
 # Troubleshooting
 
-AgentPulse defaults to `127.0.0.1:3768`. Commands below assume that endpoint
-unless `AGENTPULSE_HOST` or `AGENTPULSE_PORT` is set.
+Crewlight defaults to `127.0.0.1:3768`. Commands below assume that endpoint
+unless `CREWLIGHT_HOST` or `CREWLIGHT_PORT` is set.
 
-## `agentpulse` command not found
+## `crewlight` command not found
 
-**Symptom:** The shell reports `agentpulse: command not found`, “not recognized
+**Symptom:** The shell reports `crewlight: command not found`, “not recognized
 as the name of a cmdlet,” or an equivalent error.
 
 **Likely cause:** The CLI has not been built and linked, or the npm global bin
@@ -14,11 +14,11 @@ directory is not on `PATH`.
 **Diagnostic command:**
 
 ```bash
-command -v agentpulse
+command -v crewlight
 node packages/cli/dist/index.js --help
 ```
 
-In PowerShell use `Get-Command agentpulse`. Run `npm prefix -g` to inspect the
+In PowerShell use `Get-Command crewlight`. Run `npm prefix -g` to inspect the
 global npm prefix.
 
 **Fix:** From the repository root run `pnpm build`, then `cd packages/cli &&
@@ -32,7 +32,7 @@ node packages/cli/dist/index.js doctor
 
 ## Daemon not running
 
-**Symptom:** `agentpulse doctor`, `status`, or `emit` says the daemon is
+**Symptom:** `crewlight doctor`, `status`, or `emit` says the daemon is
 unreachable.
 
 **Likely cause:** No daemon process is listening, or the previous process
@@ -41,13 +41,13 @@ exited.
 **Diagnostic command:**
 
 ```bash
-agentpulse doctor
+crewlight doctor
 ```
 
 **Fix:** Start the daemon in a dedicated terminal:
 
 ```bash
-agentpulse daemon --notifier console
+crewlight daemon --notifier console
 ```
 
 **Fallback:** Platform hook/notify commands return zero and allow Claude/Codex
@@ -64,24 +64,24 @@ environment.
 **Diagnostic command:**
 
 ```bash
-printf 'HOST=%s PORT=%s\n' "${AGENTPULSE_HOST:-127.0.0.1}" "${AGENTPULSE_PORT:-3768}"
-agentpulse doctor --json
+printf 'HOST=%s PORT=%s\n' "${CREWLIGHT_HOST:-127.0.0.1}" "${CREWLIGHT_PORT:-3768}"
+crewlight doctor --json
 ```
 
-In PowerShell inspect `$env:AGENTPULSE_HOST` and `$env:AGENTPULSE_PORT`.
+In PowerShell inspect `$env:CREWLIGHT_HOST` and `$env:CREWLIGHT_PORT`.
 
 **Fix:** Start the daemon and clients with matching variables. Prefer
 `127.0.0.1` on one machine. In containers, bind intentionally and use the
 forwarded/reachable address; do not expose the unauthenticated daemon publicly.
 
 **Fallback:** Return both sides to the default loopback endpoint and run
-`agentpulse daemon --notifier console`.
+`crewlight daemon --notifier console`.
 
 ## Port conflict
 
 **Symptom:** Daemon startup says the selected address is already in use.
 
-**Likely cause:** Another AgentPulse daemon or unrelated process owns port
+**Likely cause:** Another Crewlight daemon or unrelated process owns port
 `3768`.
 
 **Diagnostic command:**
@@ -97,11 +97,11 @@ Linux alternatives include `ss -ltnp`; PowerShell can use
 clients:
 
 ```bash
-AGENTPULSE_PORT=4768 agentpulse daemon --notifier console
-AGENTPULSE_PORT=4768 agentpulse doctor
+CREWLIGHT_PORT=4768 crewlight daemon --notifier console
+CREWLIGHT_PORT=4768 crewlight doctor
 ```
 
-In PowerShell assign `$env:AGENTPULSE_PORT = "4768"` first.
+In PowerShell assign `$env:CREWLIGHT_PORT = "4768"` first.
 
 **Fallback:** Use any free loopback port and keep the same environment variable
 in hook/notify process environments.
@@ -118,9 +118,9 @@ session cannot access the host desktop.
 **Diagnostic command:**
 
 ```bash
-agentpulse doctor --notifier os
-agentpulse emit --source custom --surface manual --status completed --message "OS notifier check"
-agentpulse status --json
+crewlight doctor --notifier os
+crewlight emit --source custom --surface manual --status completed --message "OS notifier check"
+crewlight status --json
 ```
 
 The doctor probe does not send a notification; the emit command exercises
@@ -133,7 +133,7 @@ available; macOS and Windows may require notification permissions.
 **Fallback:**
 
 ```bash
-agentpulse daemon --notifier console
+crewlight daemon --notifier console
 ```
 
 An OS failure must not stop daemon startup or event ingestion.
@@ -144,14 +144,14 @@ An OS failure must not stop daemon startup or event ingestion.
 
 **Likely cause:** The snippet was merged into the wrong settings scope, the
 handler was replaced during a merge, hooks are disabled, the event/matcher does
-not apply, or `agentpulse` is absent from the hook process `PATH`.
+not apply, or `crewlight` is absent from the hook process `PATH`.
 
 **Diagnostic command:**
 
 ```bash
 echo '{"session_id":"claude-diagnostic","cwd":"/tmp","hook_event_name":"Stop"}' \
-  | agentpulse ingest claude-code
-agentpulse status --json
+  | crewlight ingest claude-code
+crewlight status --json
 ```
 
 Also run `/hooks` inside Claude Code and inspect the event, source file,
@@ -161,9 +161,9 @@ matcher, and full command.
 `.claude/settings.json`, or `.claude/settings.local.json`. On Windows,
 `~/.claude` is `%USERPROFILE%\.claude`. Preserve existing event arrays and use
 the default generated absolute command if the hook environment has a restricted
-`PATH`. Regenerate with `--binary agentpulse` only for deliberate PATH mode.
+`PATH`. Regenerate with `--binary crewlight` only for deliberate PATH mode.
 
-**Fallback:** Use the synthetic ingest command to verify AgentPulse separately,
+**Fallback:** Use the synthetic ingest command to verify Crewlight separately,
 then keep the console notifier visible while correcting the hook.
 
 ## Codex notify not firing
@@ -177,9 +177,9 @@ invalid, or the command is not on `PATH`.
 **Diagnostic command:**
 
 ```bash
-agentpulse ingest codex \
+crewlight ingest codex \
   '{"type":"agent-turn-complete","thread-id":"codex-diagnostic","cwd":"/tmp"}'
-agentpulse status --json
+crewlight status --json
 ```
 
 Inspect `${CODEX_HOME:-$HOME/.codex}/config.toml`. On native Windows the default
@@ -191,8 +191,8 @@ absolute executable command. Codex supports one external notifier argv array.
 If another notifier is needed, point `notify` to a wrapper that dispatches to
 both commands.
 
-**Fallback:** Use synthetic ingest to isolate AgentPulse, or keep the existing
-notifier and call AgentPulse from its wrapper.
+**Fallback:** Use synthetic ingest to isolate Crewlight, or keep the existing
+notifier and call Crewlight from its wrapper.
 
 See the official
 [Codex notification configuration](https://developers.openai.com/codex/config-advanced#notifications).
@@ -212,35 +212,35 @@ leading quotes.
 
 ```bash
 printf '%s' '{"session_id":"codex-hook-diagnostic","cwd":"/tmp"}' \
-  | agentpulse ingest codex-hook --hook PermissionRequest --surface cli
-agentpulse status --json
+  | crewlight ingest codex-hook --hook PermissionRequest --surface cli
+crewlight status --json
 ```
 
-**Fix:** Regenerate `agentpulse setup codex-hooks --print`, merge it without
+**Fix:** Regenerate `crewlight setup codex-hooks --print`, merge it without
 replacing existing groups, then use Codex `/hooks` to inspect and trust the exact
 command. Do not bypass hook trust. If the binary moved, regenerate the snippet
 so its absolute path is current.
 
 For Windows Codex hooks, `commandWindows` is the critical execution field.
-Install `agentpulse.exe` into a simple no-space path without command-sensitive
+Install `crewlight.exe` into a simple no-space path without command-sensitive
 characters, for example:
 
 ```text
-C:\Users\<you>\Tools\AgentPulse\agentpulse.exe
+C:\Users\<you>\Tools\Crewlight\crewlight.exe
 ```
 
 The generated `commandWindows` should resemble:
 
 ```text
-C:\Users\<you>\Tools\AgentPulse\agentpulse.exe ingest codex-hook --hook Stop --surface cli
+C:\Users\<you>\Tools\Crewlight\crewlight.exe ingest codex-hook --hook Stop --surface cli
 ```
 
 It must not begin with a quote. If setup reports that the resolved command is
-unavailable, move or reinstall AgentPulse at a simple path and regenerate the
-fragment. AgentPulse does not copy the binary or edit user configuration.
+unavailable, move or reinstall Crewlight at a simple path and regenerate the
+fragment. Crewlight does not copy the binary or edit user configuration.
 
 Every generated event command must contain its matching `--hook <EventName>`.
-AgentPulse treats stdin as optional payload data; the explicit argv event takes
+Crewlight treats stdin as optional payload data; the explicit argv event takes
 priority over `hook_event_name` in that payload. This allows lifecycle
 observation to continue when stdin is missing, malformed, or changes shape.
 
@@ -260,30 +260,30 @@ Claude event arrays are mergeable; Codex `notify` is one command argv array.
 **Diagnostic command:**
 
 ```bash
-agentpulse setup claude-code --print
-agentpulse setup codex --print
-agentpulse setup codex-hooks --print
+crewlight setup claude-code --print
+crewlight setup codex --print
+crewlight setup codex-hooks --print
 ```
 
 Compare the printed stdout with the existing file. Validate Claude JSON with a
 JSON parser and Codex TOML with the Codex CLI before relying on it.
 
-**Fix:** For Claude, preserve the single `hooks` object and append AgentPulse
+**Fix:** For Claude, preserve the single `hooks` object and append Crewlight
 matcher groups to existing event arrays. For Codex, preserve an existing
 notifier or replace it only with a deliberate wrapper/dispatcher.
 
 **Fallback:** Do not merge until the conflict is understood. Synthetic ingest
-commands can verify AgentPulse without changing platform configuration.
+commands can verify Crewlight without changing platform configuration.
 
 ## Platform notes
 
 - **macOS:** User files are below the normal home directory. OS notifications
-  may require permission for the terminal/runtime launching AgentPulse.
+  may require permission for the terminal/runtime launching Crewlight.
 - **Linux:** Desktop notifications require a graphical session and notification
   service. SSH, containers, and headless hosts commonly require console
   fallback.
 - **Windows:** `~/.claude` and `~/.codex` resolve below `%USERPROFILE%` for
   native tools. PowerShell environment syntax differs from POSIX shells.
 - **WSL:** Native Windows and WSL have separate home directories and desktop
-  access by default. Ensure the platform CLI, AgentPulse daemon, and config file
+  access by default. Ensure the platform CLI, Crewlight daemon, and config file
   use the same environment or explicitly bridge them.

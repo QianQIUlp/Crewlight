@@ -6,18 +6,18 @@ import {
   type AgentEvent,
   type AgentEventInput,
   type AgentSession,
-} from "@agentpulse/core";
-import type { DashboardTaskTitleMode, IngestResult } from "@agentpulse/daemon";
+} from "@crewlight/core";
+import type { DashboardTaskTitleMode, IngestResult } from "@crewlight/daemon";
 import { describe, expect, it } from "vitest";
 
-import type { AgentPulseClient } from "../src/daemon-client.js";
+import type { CrewlightClient } from "../src/daemon-client.js";
 import { executeIngestCommand } from "../src/commands/ingest.js";
 import {
   createAntigravityProbeCommand,
   createSetupSnippets,
   executeSetupCommand,
   renderHookCommand,
-  resolveAgentPulseCommand,
+  resolveCrewlightCommand,
   type SetupRuntime,
 } from "../src/commands/setup.js";
 import type { CommandIo } from "../src/commands/types.js";
@@ -35,7 +35,7 @@ function captureIo() {
 function captureClient(taskTitleMode?: DashboardTaskTitleMode) {
   const capabilityRequests: string[] = [];
   const events: AgentEventInput[] = [];
-  const client: AgentPulseClient = {
+  const client: CrewlightClient = {
     ...(taskTitleMode
       ? {
           dashboardCapabilities: async () => {
@@ -60,7 +60,7 @@ function setupRuntime(overrides: Partial<SetupRuntime> = {}): SetupRuntime {
   return {
     isSea: () => false,
     execPath: "/usr/local/bin/node",
-    entryPath: "/workspace/AgentPulse/packages/cli/dist/index.js",
+    entryPath: "/workspace/Crewlight/packages/cli/dist/index.js",
     platform: "linux",
     ...overrides,
   };
@@ -452,7 +452,7 @@ describe("platform ingest commands", () => {
 
   it("does not block the platform when the daemon is unavailable", async () => {
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       emit: async () => {
         throw new Error("connection detail should not leak");
       },
@@ -476,7 +476,7 @@ describe("platform ingest commands", () => {
     expect(capture.warnings).toHaveLength(1);
     expect(capture.warnings[0]).toContain("so it was not recorded");
     expect(capture.warnings[0]).toContain(
-      "agentpulse daemon --notifier console",
+      "crewlight daemon --notifier console",
     );
     expect(capture.warnings.join("\n")).not.toContain("connection detail");
   });
@@ -500,7 +500,7 @@ describe("platform ingest commands", () => {
     expect(capture.warnings[0]).toContain(
       "unable to read platform input, so no event was recorded",
     );
-    expect(capture.warnings[0]).toContain("agentpulse doctor");
+    expect(capture.warnings[0]).toContain("crewlight doctor");
     expect(capture.warnings.join("\n")).not.toContain("stdin detail");
   });
 
@@ -543,7 +543,7 @@ describe("platform ingest commands", () => {
     "keeps %s stdout and stderr empty when the daemon is unavailable",
     async (hookEventName) => {
       const capture = captureIo();
-      const client: AgentPulseClient = {
+      const client: CrewlightClient = {
         emit: async () => {
           throw new Error("private connection detail");
         },
@@ -694,8 +694,8 @@ describe("platform ingest commands", () => {
         JSON.stringify({
           event: "waiting-input",
           sessionId: "cursor-json",
-          workspaceName: "AgentPulse",
-          projectPath: "/workspace/AgentPulse",
+          workspaceName: "Crewlight",
+          projectPath: "/workspace/Crewlight",
           title: "Cursor needs review",
           message: "Manual bridge event",
           timestamp: 1_710_000_000_000,
@@ -713,8 +713,8 @@ describe("platform ingest commands", () => {
         surface: "ide-extension",
         status: "waiting_input",
         sessionId: "cursor-json",
-        workspaceName: "AgentPulse",
-        projectPath: "/workspace/AgentPulse",
+        workspaceName: "Crewlight",
+        projectPath: "/workspace/Crewlight",
         taskTitle: "Cursor needs review",
         message: "Manual bridge event",
         timestamp: 1_710_000_000_000,
@@ -757,9 +757,9 @@ describe("platform ingest commands", () => {
         "--session",
         "cursor-flags",
         "--workspace",
-        "AgentPulse",
+        "Crewlight",
         "--project",
-        "/workspace/AgentPulse",
+        "/workspace/Crewlight",
         "--title",
         "Cursor work completed",
         "--message",
@@ -781,8 +781,8 @@ describe("platform ingest commands", () => {
         surface: "manual",
         status: "completed",
         sessionId: "cursor-flags",
-        workspaceName: "AgentPulse",
-        projectPath: "/workspace/AgentPulse",
+        workspaceName: "Crewlight",
+        projectPath: "/workspace/Crewlight",
         taskTitle: "Cursor work completed",
         message: "Manual completion",
         timestamp: 1_710_000_000_000,
@@ -819,7 +819,7 @@ describe("platform ingest commands", () => {
 
   it("keeps Cursor daemon failures non-blocking and private", async () => {
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       emit: async () => {
         throw new Error("private connection detail");
       },
@@ -903,7 +903,7 @@ describe("platform ingest commands", () => {
 
   it("keeps OpenCode daemon failures silent", async () => {
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       emit: async () => {
         throw new Error("private connection detail");
       },
@@ -982,7 +982,7 @@ describe("platform ingest commands", () => {
 
   it("keeps Antigravity daemon failures silent", async () => {
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       emit: async () => {
         throw new Error("private connection detail");
       },
@@ -1018,12 +1018,12 @@ describe("setup snippet commands", () => {
     expect(capture.warnings).toHaveLength(1);
     expect(capture.warnings[0]).toContain("did not read or modify");
     expect(capture.warnings[0]).toContain("manually");
-    expect(capture.warnings[0]).toContain("agentpulse doctor");
+    expect(capture.warnings[0]).toContain("crewlight doctor");
     expect(capture.warnings[0]).toContain("%USERPROFILE%");
     expect(snippets.claudeCode).toContain("UserPromptSubmit");
     expect(snippets.claudeCode).not.toContain("SessionEnd");
     expect(snippets.claudeCode).toContain(
-      "/usr/local/bin/node /workspace/AgentPulse/packages/cli/dist/index.js ingest claude-code",
+      "/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest claude-code",
     );
   });
 
@@ -1039,7 +1039,7 @@ describe("setup snippet commands", () => {
     expect(capture.warnings[0]).toContain("did not read or modify");
     expect(capture.warnings[0]).toContain("do not overwrite");
     expect(capture.warnings[0]).toContain("project .codex/config.toml");
-    expect(capture.warnings[0]).toContain("agentpulse doctor");
+    expect(capture.warnings[0]).toContain("crewlight doctor");
   });
 
   it("prints practical manual Cursor bridge commands", () => {
@@ -1055,9 +1055,9 @@ describe("setup snippet commands", () => {
     expect(snippets.cursor).toContain("ingest cursor --event completed");
     expect(snippets.cursor).toContain("ingest cursor --event failed");
     expect(snippets.cursor).toContain("--surface ide-extension");
-    expect(snippets.cursor).toContain("--session cursor-agentpulse");
+    expect(snippets.cursor).toContain("--session cursor-crewlight");
     expect(snippets.verification.cursor).toContain(
-      "--session agentpulse-verify-cursor",
+      "--session crewlight-verify-cursor",
     );
     expect(capture.warnings.join("\n")).toContain("manual and experimental");
     expect(capture.warnings.join("\n")).toContain(
@@ -1069,7 +1069,7 @@ describe("setup snippet commands", () => {
     );
     expect(capture.warnings.join("\n")).toContain("Verification command:");
     expect(capture.warnings.join("\n")).toContain(
-      "--session agentpulse-verify-cursor",
+      "--session crewlight-verify-cursor",
     );
   });
 
@@ -1078,14 +1078,14 @@ describe("setup snippet commands", () => {
       undefined,
       setupRuntime({
         isSea: () => true,
-        execPath: "C:\\Agent Pulse\\agentpulse.exe",
+        execPath: "C:\\Crewlight App\\crewlight.exe",
         entryPath: undefined,
         platform: "win32",
       }),
     );
 
     expect(snippets.cursor).toContain(
-      '"C:\\Agent Pulse\\agentpulse.exe" "ingest" "cursor" "',
+      '"C:\\Crewlight App\\crewlight.exe" "ingest" "cursor" "',
     );
     expect(snippets.cursor).toContain('"--title" "Cursor needs review"');
     expect(snippets.verification.cursor).toContain(
@@ -1098,48 +1098,48 @@ describe("setup snippet commands", () => {
       undefined,
       setupRuntime({
         isSea: () => true,
-        execPath: "/opt/Agent Pulse/agentpulse",
+        execPath: "/opt/Crewlight App/crewlight",
         entryPath: undefined,
       }),
     );
 
     expect(snippets.codex).toBe(
-      'notify = ["/opt/Agent Pulse/agentpulse", "ingest", "codex"]',
+      'notify = ["/opt/Crewlight App/crewlight", "ingest", "codex"]',
     );
     expect(snippets.codexHooks.available).toBe(true);
     expect(
       snippets.codexHooks.available ? snippets.codexHooks.snippet : "",
-    ).toContain("'/opt/Agent Pulse/agentpulse' ingest codex-hook");
+    ).toContain("'/opt/Crewlight App/crewlight' ingest codex-hook");
   });
 
-  it("uses exact agentpulse only for explicit PATH mode", () => {
+  it("uses exact crewlight only for explicit PATH mode", () => {
     const capture = captureIo();
 
     expect(
       executeSetupCommand(
-        ["codex", "--print", "--binary", "agentpulse"],
+        ["codex", "--print", "--binary", "crewlight"],
         capture.io,
         setupRuntime(),
       ),
     ).toBe(0);
     expect(capture.output).toEqual([
-      'notify = ["agentpulse", "ingest", "codex"]',
+      'notify = ["crewlight", "ingest", "codex"]',
     ]);
   });
 
   it("accepts an absolute binary override and rejects relative paths", () => {
-    expect(resolveAgentPulseCommand("/opt/agentpulse", setupRuntime())).toEqual(
-      ["/opt/agentpulse"],
-    );
+    expect(resolveCrewlightCommand("/opt/crewlight", setupRuntime())).toEqual([
+      "/opt/crewlight",
+    ]);
     expect(() =>
-      resolveAgentPulseCommand("./agentpulse", setupRuntime()),
+      resolveCrewlightCommand("./crewlight", setupRuntime()),
     ).toThrow("absolute path");
   });
 
   it("renders a simple Windows commandWindows without quotes", () => {
     const runtime = setupRuntime({
       execPath: "C:\\Tools\\nodejs\\node.exe",
-      entryPath: "C:\\AgentPulse\\packages\\cli\\dist\\index.js",
+      entryPath: "C:\\Crewlight\\packages\\cli\\dist\\index.js",
       platform: "win32",
     });
     const snippets = createSetupSnippets(undefined, runtime);
@@ -1154,10 +1154,10 @@ describe("setup snippet commands", () => {
     const handler = parsed.hooks.Stop[0]?.hooks[0];
 
     expect(handler?.command).toBe(
-      '"C:\\Tools\\nodejs\\node.exe" "C:\\AgentPulse\\packages\\cli\\dist\\index.js" "ingest" "codex-hook" "--hook" "Stop" "--surface" "cli"',
+      '"C:\\Tools\\nodejs\\node.exe" "C:\\Crewlight\\packages\\cli\\dist\\index.js" "ingest" "codex-hook" "--hook" "Stop" "--surface" "cli"',
     );
     expect(handler?.commandWindows).toBe(
-      "C:\\Tools\\nodejs\\node.exe C:\\AgentPulse\\packages\\cli\\dist\\index.js ingest codex-hook --hook Stop --surface cli",
+      "C:\\Tools\\nodejs\\node.exe C:\\Crewlight\\packages\\cli\\dist\\index.js ingest codex-hook --hook Stop --surface cli",
     );
     expect(handler?.commandWindows).not.toMatch(/^"/u);
     expect(snippets.codex).toContain('"C:\\\\Tools\\\\nodejs\\\\node.exe"');
@@ -1168,7 +1168,7 @@ describe("setup snippet commands", () => {
       undefined,
       setupRuntime({
         isSea: () => true,
-        execPath: "C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe",
+        execPath: "C:\\Users\\demo\\Tools\\Crewlight\\crewlight.exe",
         entryPath: undefined,
         platform: "win32",
       }),
@@ -1183,7 +1183,7 @@ describe("setup snippet commands", () => {
     };
 
     expect(parsed.hooks.Stop[0]?.hooks[0]?.commandWindows).toBe(
-      "C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe ingest codex-hook --hook Stop --surface cli",
+      "C:\\Users\\demo\\Tools\\Crewlight\\crewlight.exe ingest codex-hook --hook Stop --surface cli",
     );
   });
 
@@ -1192,7 +1192,7 @@ describe("setup snippet commands", () => {
       undefined,
       setupRuntime({
         isSea: () => true,
-        execPath: "C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe",
+        execPath: "C:\\Users\\demo\\Tools\\Crewlight\\crewlight.exe",
         entryPath: undefined,
         platform: "win32",
       }),
@@ -1218,7 +1218,7 @@ describe("setup snippet commands", () => {
       const handler = parsed.hooks[hookEventName]?.[0]?.hooks[0];
       expect(handler?.command).toContain(`"--hook" "${hookEventName}"`);
       expect(handler?.commandWindows).toBe(
-        `C:\\Users\\demo\\Tools\\AgentPulse\\agentpulse.exe ingest codex-hook --hook ${hookEventName} --surface cli`,
+        `C:\\Users\\demo\\Tools\\Crewlight\\crewlight.exe ingest codex-hook --hook ${hookEventName} --surface cli`,
       );
       expect(handler?.commandWindows).not.toMatch(/^"/u);
     }
@@ -1242,7 +1242,7 @@ describe("setup snippet commands", () => {
       "Stop",
     ]) {
       expect(parsed.hooks[hookEventName]?.[0]?.hooks[0]?.command).toBe(
-        `/usr/local/bin/node /workspace/AgentPulse/packages/cli/dist/index.js ingest codex-hook --hook ${hookEventName} --surface cli`,
+        `/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest codex-hook --hook ${hookEventName} --surface cli`,
       );
     }
   });
@@ -1302,10 +1302,10 @@ describe("setup snippet commands", () => {
     expect(snippets.openCode).not.toContain("tool_output");
     expect(snippets.openCode).not.toContain("result:");
     expect(capture.warnings.join("\n")).toContain(
-      ".opencode/plugins/agentpulse.js",
+      ".opencode/plugins/crewlight.js",
     );
     expect(capture.warnings.join("\n")).toContain(
-      "~/.config/opencode/plugins/agentpulse.js",
+      "~/.config/opencode/plugins/crewlight.js",
     );
     expect(capture.warnings.join("\n")).toContain(
       "pending real local verification",
@@ -1314,20 +1314,20 @@ describe("setup snippet commands", () => {
 
   it("renders a fixed minimal Antigravity dashboard probe", () => {
     expect(createAntigravityProbeCommand(undefined, setupRuntime())).toBe(
-      "printf '%s\\n' '{}' | /usr/local/bin/node /workspace/AgentPulse/packages/cli/dist/index.js ingest antigravity-probe --event manual.probe --surface desktop",
+      "printf '%s\\n' '{}' | /usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest antigravity-probe --event manual.probe --surface desktop",
     );
     expect(
       createAntigravityProbeCommand(
         undefined,
         setupRuntime({
           isSea: () => true,
-          execPath: "C:\\Agent Pulse\\agentpulse.exe",
+          execPath: "C:\\Crewlight App\\crewlight.exe",
           entryPath: undefined,
           platform: "win32",
         }),
       ),
     ).toBe(
-      'echo {} | "C:\\Agent Pulse\\agentpulse.exe" "ingest" "antigravity-probe" "--event" "manual.probe" "--surface" "desktop"',
+      'echo {} | "C:\\Crewlight App\\crewlight.exe" "ingest" "antigravity-probe" "--event" "manual.probe" "--surface" "desktop"',
     );
   });
 
@@ -1377,12 +1377,12 @@ describe("setup snippet commands", () => {
       const pluginModule = (await import(
         `data:text/javascript;base64,${encoded}`
       )) as {
-        AgentPulsePlugin(input: { directory: string }): Promise<{
+        CrewlightPlugin(input: { directory: string }): Promise<{
           event(input: { event: unknown }): Promise<void>;
           "tool.execute.before"(input: unknown): Promise<void>;
         }>;
       };
-      const plugin = await pluginModule.AgentPulsePlugin({
+      const plugin = await pluginModule.CrewlightPlugin({
         directory: "/safe/project",
       });
 
@@ -1406,7 +1406,7 @@ describe("setup snippet commands", () => {
       expect(calls).toHaveLength(2);
       expect(calls[0]?.argv).toEqual([
         "/usr/local/bin/node",
-        "/workspace/AgentPulse/packages/cli/dist/index.js",
+        "/workspace/Crewlight/packages/cli/dist/index.js",
         "ingest",
         "opencode-plugin",
         "--event",
@@ -1434,7 +1434,7 @@ describe("setup snippet commands", () => {
         undefined,
         setupRuntime({
           isSea: () => true,
-          execPath: `C:\\Users\\demo\\Agent${character}Pulse\\agentpulse.exe`,
+          execPath: `C:\\Users\\demo\\Crew${character}light\\crewlight.exe`,
           entryPath: undefined,
           platform: "win32",
         }),
@@ -1446,7 +1446,7 @@ describe("setup snippet commands", () => {
           code: "windows-codex-hooks-unsafe-command",
           message: expect.stringContaining("Codex CLI 0.141.0"),
           action: expect.stringContaining(
-            "C:\\Users\\<user>\\Tools\\AgentPulse\\agentpulse.exe",
+            "C:\\Users\\<user>\\Tools\\Crewlight\\crewlight.exe",
           ),
         }),
       });
@@ -1459,7 +1459,7 @@ describe("setup snippet commands", () => {
       undefined,
       setupRuntime({
         execPath: "C:\\Tools\\nodejs\\node.exe",
-        entryPath: "C:\\Agent Pulse\\packages\\cli\\dist\\index.js",
+        entryPath: "C:\\Crewlight App\\packages\\cli\\dist\\index.js",
         platform: "win32",
       }),
     );
@@ -1476,7 +1476,7 @@ describe("setup snippet commands", () => {
     const capture = captureIo();
     const runtime = setupRuntime({
       isSea: () => true,
-      execPath: "C:\\Agent Pulse\\agentpulse.exe",
+      execPath: "C:\\Crewlight App\\crewlight.exe",
       entryPath: undefined,
       platform: "win32",
     });
@@ -1488,7 +1488,7 @@ describe("setup snippet commands", () => {
     expect(capture.warnings.join("\n")).toContain("setup unavailable");
     expect(capture.warnings.join("\n")).toContain("simple no-space path");
     expect(capture.warnings.join("\n")).not.toContain(
-      "C:\\Agent Pulse\\agentpulse.exe",
+      "C:\\Crewlight App\\crewlight.exe",
     );
 
     const codexCapture = captureIo();
@@ -1496,7 +1496,7 @@ describe("setup snippet commands", () => {
       executeSetupCommand(["codex", "--print"], codexCapture.io, runtime),
     ).toBe(0);
     expect(codexCapture.output).toEqual([
-      'notify = ["C:\\\\Agent Pulse\\\\agentpulse.exe", "ingest", "codex"]',
+      'notify = ["C:\\\\Crewlight App\\\\crewlight.exe", "ingest", "codex"]',
     ]);
 
     const claudeCapture = captureIo();
@@ -1513,17 +1513,17 @@ describe("setup snippet commands", () => {
       };
     };
     expect(claudeSetup.hooks?.Stop?.[0]?.hooks?.[0]?.command).toBe(
-      '"C:\\Agent Pulse\\agentpulse.exe" "ingest" "claude-code"',
+      '"C:\\Crewlight App\\crewlight.exe" "ingest" "claude-code"',
     );
   });
 
   it("quotes POSIX shell tokens without depending on cwd", () => {
     expect(
       renderHookCommand(
-        ["/opt/Agent Pulse/agentpulse", "ingest", "codex-hook"],
+        ["/opt/Crewlight App/crewlight", "ingest", "codex-hook"],
         "linux",
       ),
-    ).toBe("'/opt/Agent Pulse/agentpulse' ingest codex-hook");
+    ).toBe("'/opt/Crewlight App/crewlight' ingest codex-hook");
   });
 });
 
@@ -1534,8 +1534,8 @@ describe("adapter documentation boundaries", () => {
       "utf8",
     );
 
-    expect(content).toContain(".opencode/plugins/agentpulse.js");
-    expect(content).toContain("~/.config/opencode/plugins/agentpulse.js");
+    expect(content).toContain(".opencode/plugins/crewlight.js");
+    expect(content).toContain("~/.config/opencode/plugins/crewlight.js");
     expect(content).toMatch(/pending real\s+local verification/u);
     expect(content).toContain("OpenCode Desktop");
     expect(content).toContain("`experimental`");
@@ -1564,8 +1564,8 @@ describe("adapter documentation boundaries", () => {
       "utf8",
     );
 
-    expect(cursor).toContain("agentpulse setup cursor --print");
-    expect(cursor).toContain("agentpulse ingest cursor --event running");
+    expect(cursor).toContain("crewlight setup cursor --print");
+    expect(cursor).toContain("crewlight ingest cursor --event running");
     expect(cursor).toContain("browser dashboard");
     expect(cursor).toMatch(/Electron\s+companion/u);
     expect(cursor).toMatch(/manual,\s+experimental/u);

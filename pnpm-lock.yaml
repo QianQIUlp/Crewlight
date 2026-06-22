@@ -28,7 +28,7 @@ importers:
 
   packages/adapters/claude-code:
     dependencies:
-      "@agentpulse/core":
+      "@crewlight/core":
         specifier: workspace:^
         version: link:../../core
       zod:
@@ -37,7 +37,7 @@ importers:
 
   packages/adapters/codex:
     dependencies:
-      "@agentpulse/core":
+      "@crewlight/core":
         specifier: workspace:^
         version: link:../../core
       zod:
@@ -46,7 +46,7 @@ importers:
 
   packages/adapters/cursor:
     dependencies:
-      "@agentpulse/core":
+      "@crewlight/core":
         specifier: workspace:^
         version: link:../../core
       zod:
@@ -55,13 +55,13 @@ importers:
 
   packages/adapters/generic-cli:
     dependencies:
-      "@agentpulse/core":
+      "@crewlight/core":
         specifier: workspace:^
         version: link:../../core
 
   packages/adapters/opencode:
     dependencies:
-      "@agentpulse/core":
+      "@crewlight/core":
         specifier: workspace:^
         version: link:../../core
       zod:
@@ -70,37 +70,37 @@ importers:
 
   packages/cli:
     dependencies:
-      "@agentpulse/adapter-claude-code":
+      "@crewlight/adapter-claude-code":
         specifier: workspace:^
         version: link:../adapters/claude-code
-      "@agentpulse/adapter-codex":
+      "@crewlight/adapter-codex":
         specifier: workspace:^
         version: link:../adapters/codex
-      "@agentpulse/adapter-cursor":
+      "@crewlight/adapter-cursor":
         specifier: workspace:^
         version: link:../adapters/cursor
-      "@agentpulse/adapter-generic-cli":
+      "@crewlight/adapter-generic-cli":
         specifier: workspace:^
         version: link:../adapters/generic-cli
-      "@agentpulse/adapter-opencode":
+      "@crewlight/adapter-opencode":
         specifier: workspace:^
         version: link:../adapters/opencode
-      "@agentpulse/core":
+      "@crewlight/core":
         specifier: workspace:^
         version: link:../core
-      "@agentpulse/daemon":
+      "@crewlight/daemon":
         specifier: workspace:^
         version: link:../daemon
-      "@agentpulse/notifier":
+      "@crewlight/notifier":
         specifier: workspace:^
         version: link:../notifier
-      "@agentpulse/shared":
+      "@crewlight/shared":
         specifier: workspace:^
         version: link:../shared
 
   packages/companion:
     dependencies:
-      "@agentpulse/shared":
+      "@crewlight/shared":
         specifier: workspace:^
         version: link:../shared
     devDependencies:
@@ -116,13 +116,13 @@ importers:
 
   packages/daemon:
     dependencies:
-      "@agentpulse/core":
+      "@crewlight/core":
         specifier: workspace:^
         version: link:../core
-      "@agentpulse/notifier":
+      "@crewlight/notifier":
         specifier: workspace:^
         version: link:../notifier
-      "@agentpulse/shared":
+      "@crewlight/shared":
         specifier: workspace:^
         version: link:../shared
       zod:
@@ -131,7 +131,7 @@ importers:
 
   packages/notifier:
     dependencies:
-      "@agentpulse/core":
+      "@crewlight/core":
         specifier: workspace:^
         version: link:../core
       node-notifier:

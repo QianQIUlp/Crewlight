@@ -1,6 +1,6 @@
 {
-  "name": "@agentpulse/daemon",
-  "version": "0.3.0",
+  "name": "@crewlight/daemon",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -16,9 +16,9 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpulse/core": "workspace:^",
-    "@agentpulse/notifier": "workspace:^",
-    "@agentpulse/shared": "workspace:^",
+    "@crewlight/core": "workspace:^",
+    "@crewlight/notifier": "workspace:^",
+    "@crewlight/shared": "workspace:^",
     "zod": "^3.25.56"
   }
 }

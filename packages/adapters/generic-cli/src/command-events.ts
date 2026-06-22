@@ -4,7 +4,7 @@ import type {
   AgentEventInput,
   AgentSource,
   AgentStatus,
-} from "@agentpulse/core";
+} from "@crewlight/core";
 
 export interface CommandEventContext {
   commandText: string;

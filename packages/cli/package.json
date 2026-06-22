@@ -1,10 +1,10 @@
 {
-  "name": "@agentpulse/cli",
-  "version": "0.3.0",
+  "name": "@crewlight/cli",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "bin": {
-    "agentpulse": "./dist/index.js"
+    "crewlight": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -13,14 +13,14 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpulse/adapter-claude-code": "workspace:^",
-    "@agentpulse/adapter-codex": "workspace:^",
-    "@agentpulse/adapter-cursor": "workspace:^",
-    "@agentpulse/adapter-generic-cli": "workspace:^",
-    "@agentpulse/adapter-opencode": "workspace:^",
-    "@agentpulse/core": "workspace:^",
-    "@agentpulse/daemon": "workspace:^",
-    "@agentpulse/notifier": "workspace:^",
-    "@agentpulse/shared": "workspace:^"
+    "@crewlight/adapter-claude-code": "workspace:^",
+    "@crewlight/adapter-codex": "workspace:^",
+    "@crewlight/adapter-cursor": "workspace:^",
+    "@crewlight/adapter-generic-cli": "workspace:^",
+    "@crewlight/adapter-opencode": "workspace:^",
+    "@crewlight/core": "workspace:^",
+    "@crewlight/daemon": "workspace:^",
+    "@crewlight/notifier": "workspace:^",
+    "@crewlight/shared": "workspace:^"
   }
 }

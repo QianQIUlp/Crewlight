@@ -29,7 +29,7 @@ const POLL_INTERVAL_MS = 2_000;
 const WINDOW_MARGIN = 16;
 const COMPACT_SIZE = { width: 372, height: 126 };
 const EXPANDED_SIZE = { width: 432, height: 536 };
-const DAEMON_COMMAND = "agentpulse daemon --dashboard --notifier none";
+const DAEMON_COMMAND = "crewlight daemon --dashboard --notifier none";
 const outputDirectory = dirname(fileURLToPath(import.meta.url));
 const companionPagePath = join(outputDirectory, "index.html");
 const companionPageUrl = pathToFileURL(companionPagePath).toString();
@@ -43,7 +43,7 @@ let expanded = false;
 let latestViewModel: CompanionViewModel = deriveCompanionViewModel(
   {
     kind: "offline",
-    diagnostic: "Checking the local AgentPulse daemon.",
+    diagnostic: "Checking the local Crewlight daemon.",
   },
   Date.now(),
 );
@@ -58,7 +58,7 @@ const poller = createCompanionPoller({
     sendViewModel();
   },
   warn: () => {
-    console.warn("AgentPulse companion polling failed; retrying.");
+    console.warn("Crewlight companion polling failed; retrying.");
   },
 });
 
@@ -241,7 +241,7 @@ function createTray(): void {
   let candidate: Tray | undefined;
   try {
     candidate = new Tray(icon);
-    candidate.setToolTip("AgentPulse Companion");
+    candidate.setToolTip("Crewlight Companion");
     candidate.on("click", () => {
       if (companionWindow?.isVisible()) {
         hideCompanion();
@@ -263,14 +263,14 @@ function createTray(): void {
 async function openDashboard(): Promise<void> {
   const dashboardUrl = endpoint.dashboardUrl;
   if (!isAllowedDashboardUrl(dashboardUrl, endpoint)) {
-    console.warn("AgentPulse companion refused an unsafe dashboard URL.");
+    console.warn("Crewlight companion refused an unsafe dashboard URL.");
     return;
   }
 
   try {
     await shell.openExternal(dashboardUrl);
   } catch {
-    console.warn("AgentPulse companion could not open the dashboard.");
+    console.warn("Crewlight companion could not open the dashboard.");
   }
 }
 
@@ -287,7 +287,7 @@ function sendViewModel(): void {
   try {
     window.webContents.send("companion:view-model", latestViewModel);
   } catch {
-    console.warn("AgentPulse companion could not update its window.");
+    console.warn("Crewlight companion could not update its window.");
   }
 }
 
@@ -341,7 +341,7 @@ function registerIpc(): void {
       clipboard.writeText(DAEMON_COMMAND);
       return true;
     } catch {
-      console.warn("AgentPulse companion could not copy the daemon command.");
+      console.warn("Crewlight companion could not copy the daemon command.");
       return false;
     }
   });
@@ -414,7 +414,7 @@ function createCompanionWindow(): BrowserWindow {
     companionWindow = undefined;
   });
   void window.loadFile(companionPagePath).catch(() => {
-    console.warn("AgentPulse companion could not load its local window.");
+    console.warn("Crewlight companion could not load its local window.");
     quitting = true;
     app.quit();
   });
@@ -422,7 +422,7 @@ function createCompanionWindow(): BrowserWindow {
 }
 
 for (const issue of endpoint.issues) {
-  console.warn(`AgentPulse companion: ${issue}`);
+  console.warn(`Crewlight companion: ${issue}`);
 }
 
 app.on("before-quit", () => {
@@ -454,7 +454,7 @@ try {
   createTray();
 } catch (error) {
   console.warn(
-    `AgentPulse companion tray unavailable: ${
+    `Crewlight companion tray unavailable: ${
       error instanceof Error ? error.message : String(error)
     }`,
   );

@@ -1,8 +1,8 @@
 import { parseArgs } from "node:util";
 
-import type { AgentSession } from "@agentpulse/core";
+import type { AgentSession } from "@crewlight/core";
 
-import type { AgentPulseClient } from "../daemon-client.js";
+import type { CrewlightClient } from "../daemon-client.js";
 import type { CommandIo } from "./types.js";
 
 function formatSession(session: AgentSession): string {
@@ -19,7 +19,7 @@ function formatSession(session: AgentSession): string {
 
 export async function executeStatusCommand(
   args: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
 ): Promise<number> {
   const { values } = parseArgs({

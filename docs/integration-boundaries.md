@@ -1,6 +1,6 @@
 # Integration Boundaries
 
-AgentPulse reports only activity exposed by documented platform interfaces or
+Crewlight reports only activity exposed by documented platform interfaces or
 clearly labeled best-effort observation points.
 
 ## Precise integration: Claude Code
@@ -35,7 +35,7 @@ input/output, transcripts, complete payloads, or other data that could change
 Codex behavior.
 
 The setup command prints a mergeable fragment only. Users must review and trust
-the exact command through Codex `/hooks`; AgentPulse does not bypass that trust
+the exact command through Codex `/hooks`; Crewlight does not bypass that trust
 mechanism.
 
 By default the adapter does not read prompts, transcript files or paths, tool
@@ -68,13 +68,13 @@ uses an argv-array child process call and sends only event type, session ID,
 status type, cwd, and timestamp.
 
 Prompts, message content, tool arguments, tool output, file contents,
-environment data, and raw events are not sent to AgentPulse. The implementation
+environment data, and raw events are not sent to Crewlight. The implementation
 is pending real local verification and is not yet labeled `supported`.
 
 ## Cursor manual / experimental bridge
 
 The Cursor integration accepts explicit local bridge events through
-`agentpulse ingest cursor`. Users can provide a small JSON object on stdin or
+`crewlight ingest cursor`. Users can provide a small JSON object on stdin or
 use command flags from Cursor's integrated terminal or user-defined tasks.
 
 The bridge maps only the caller-supplied event name, session ID, workspace,
@@ -84,7 +84,7 @@ discarded. Prompts, transcripts, tool input/output, file contents, Cursor
 databases, extension storage, private logs, and complete payloads are never
 emitted.
 
-AgentPulse does not claim that Cursor exposes a stable public lifecycle hook.
+Crewlight does not claim that Cursor exposes a stable public lifecycle hook.
 This bridge is manual and experimental: it reports only the state the user or a
 user-defined task explicitly submits. Setup prints commands but does not read
 or modify Cursor settings.
@@ -96,7 +96,7 @@ experimental until a real Desktop test confirms hook loading and payload
 behavior.
 
 The Antigravity probe emits only caller-observed, sanitized metadata with
-`status=unknown`. It is research scaffolding, not a formal adapter. AgentPulse
+`status=unknown`. It is research scaffolding, not a formal adapter. Crewlight
 does not claim a verified Antigravity hook configuration or payload contract.
 
 ## Best-effort integration
@@ -111,7 +111,7 @@ It cannot inspect internal tools, permission prompts, or model state.
 
 ## Manual integration
 
-`agentpulse emit` accepts explicit caller-provided events. AgentPulse validates
+`crewlight emit` accepts explicit caller-provided events. Crewlight validates
 and aggregates the event but cannot verify the caller's platform
 interpretation.
 

@@ -2,7 +2,7 @@
 
 ## Product Contract
 
-Keep AgentPulse:
+Keep Crewlight:
 
 - **multi-agent-first**: summarize concurrent sessions across supported
   platforms;

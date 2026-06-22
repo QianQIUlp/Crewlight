@@ -1,5 +1,5 @@
 {
-  "name": "AgentPulse",
+  "name": "Crewlight",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
   "remoteUser": "node",
 
@@ -9,8 +9,8 @@
 
   "remoteEnv": {
     "PATH": "/home/node/.npm-global/bin:${containerEnv:PATH}",
-    "AGENTPULSE_HOST": "0.0.0.0",
-    "AGENTPULSE_PORT": "3768"
+    "CREWLIGHT_HOST": "0.0.0.0",
+    "CREWLIGHT_PORT": "3768"
   },
 
   "postCreateCommand": "bash -lc 'set -e; corepack enable; mkdir -p ~/.npm-global; npm config set prefix ~/.npm-global; export PATH=\"$HOME/.npm-global/bin:$PATH\"; npm install -g @anthropic-ai/claude-code; if [ -f pnpm-lock.yaml ]; then pnpm install; elif [ -f package-lock.json ]; then npm ci; elif [ -f package.json ]; then npm install; else echo \"No package.json found yet. Skipping dependency install.\"; fi; gh --version; node --version; npm --version'",
@@ -19,7 +19,7 @@
 
   "portsAttributes": {
     "3768": {
-      "label": "AgentPulse daemon",
+      "label": "Crewlight daemon",
       "onAutoForward": "notify"
     }
   },

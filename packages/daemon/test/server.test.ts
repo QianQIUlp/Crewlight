@@ -1,9 +1,9 @@
-import type { AgentEvent, AgentSession } from "@agentpulse/core";
-import { OsNotifier, type Notifier } from "@agentpulse/notifier";
+import type { AgentEvent, AgentSession } from "@crewlight/core";
+import { OsNotifier, type Notifier } from "@crewlight/notifier";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  AgentPulseService,
+  CrewlightService,
   formatDaemonUrl,
   startDaemon,
   type DashboardApiResponse,
@@ -24,7 +24,7 @@ afterEach(async () => {
 async function startTestDaemon(): Promise<DaemonInstance> {
   instance = await startDaemon(
     { host: "127.0.0.1", port: 0 },
-    new AgentPulseService({ notifier: new SilentNotifier() }),
+    new CrewlightService({ notifier: new SilentNotifier() }),
   );
   return instance;
 }
@@ -100,21 +100,21 @@ describe("daemon HTTP server", () => {
   it("serves dashboard routes only when enabled with no-store responses", async () => {
     instance = await startDaemon(
       { host: "127.0.0.1", port: 0 },
-      new AgentPulseService({ notifier: new SilentNotifier() }),
+      new CrewlightService({ notifier: new SilentNotifier() }),
       {
         dashboard: {
           notifier: "none",
           taskTitleMode: "off",
           setup: {
             claudeCode: '{"hooks":{"Stop":[]}}',
-            codex: 'notify = ["agentpulse", "ingest", "codex"]',
+            codex: 'notify = ["crewlight", "ingest", "codex"]',
             codexHooks:
-              "Codex hooks setup unavailable.\nInstall AgentPulse into a simple no-space path.",
+              "Codex hooks setup unavailable.\nInstall Crewlight into a simple no-space path.",
             cursor:
-              "agentpulse ingest cursor --event running --surface ide-extension",
-            openCode: "export const AgentPulsePlugin = async () => ({});",
+              "crewlight ingest cursor --event running --surface ide-extension",
+            openCode: "export const CrewlightPlugin = async () => ({});",
             antigravityProbe:
-              "printf '%s\\n' '{}' | agentpulse ingest antigravity-probe --event manual.probe --surface desktop",
+              "printf '%s\\n' '{}' | crewlight ingest antigravity-probe --event manual.probe --surface desktop",
             verification: {
               claudeCode: "verify-claude",
               codex: "verify-codex",
@@ -170,7 +170,7 @@ describe("daemon HTTP server", () => {
     expect(pageBody).toContain("Manual / experimental");
     expect(pageBody).toContain('id="setup-antigravity-probe"');
     expect(pageBody).toContain("Research-only");
-    expect(pageBody).toMatch(/not a\s+supported AgentPulse integration/u);
+    expect(pageBody).toMatch(/not a\s+supported Crewlight integration/u);
     expect(stylesheet.status).toBe(200);
     expect(stylesheet.headers.get("cache-control")).toBe("no-store");
     expect(stylesheetBody).toContain(".compact-session-row");
@@ -223,14 +223,13 @@ describe("daemon HTTP server", () => {
     expect(body).toContain("simple no-space path");
     expect(parsed.setup).toEqual({
       claudeCode: '{"hooks":{"Stop":[]}}',
-      codex: 'notify = ["agentpulse", "ingest", "codex"]',
+      codex: 'notify = ["crewlight", "ingest", "codex"]',
       codexHooks:
-        "Codex hooks setup unavailable.\nInstall AgentPulse into a simple no-space path.",
-      cursor:
-        "agentpulse ingest cursor --event running --surface ide-extension",
-      openCode: "export const AgentPulsePlugin = async () => ({});",
+        "Codex hooks setup unavailable.\nInstall Crewlight into a simple no-space path.",
+      cursor: "crewlight ingest cursor --event running --surface ide-extension",
+      openCode: "export const CrewlightPlugin = async () => ({});",
       antigravityProbe:
-        "printf '%s\\n' '{}' | agentpulse ingest antigravity-probe --event manual.probe --surface desktop",
+        "printf '%s\\n' '{}' | crewlight ingest antigravity-probe --event manual.probe --surface desktop",
       verification: {
         claudeCode: "verify-claude",
         codex: "verify-codex",
@@ -249,7 +248,7 @@ describe("daemon HTTP server", () => {
   it("reports prompt-preview capability only when explicitly enabled", async () => {
     instance = await startDaemon(
       { host: "127.0.0.1", port: 0 },
-      new AgentPulseService({ notifier: new SilentNotifier() }),
+      new CrewlightService({ notifier: new SilentNotifier() }),
       {
         dashboard: {
           notifier: "none",
@@ -278,7 +277,7 @@ describe("daemon HTTP server", () => {
   it("exposes only normalized session fields through the dashboard API", async () => {
     instance = await startDaemon(
       { host: "127.0.0.1", port: 0 },
-      new AgentPulseService({ notifier: new SilentNotifier() }),
+      new CrewlightService({ notifier: new SilentNotifier() }),
       {
         dashboard: {
           notifier: "none",
@@ -397,7 +396,7 @@ describe("daemon HTTP server", () => {
     await expect(
       startDaemon(
         { host: "0.0.0.0", port: 3768 },
-        new AgentPulseService({ notifier: new SilentNotifier() }),
+        new CrewlightService({ notifier: new SilentNotifier() }),
         {
           dashboard: {
             notifier: "none",
@@ -423,7 +422,7 @@ describe("daemon HTTP server", () => {
   it("starts a dashboard on IPv6 loopback", async () => {
     instance = await startDaemon(
       { host: "::1", port: 0 },
-      new AgentPulseService({ notifier: new SilentNotifier() }),
+      new CrewlightService({ notifier: new SilentNotifier() }),
       {
         dashboard: {
           notifier: "none",
@@ -448,7 +447,7 @@ describe("daemon HTTP server", () => {
     const warnings: string[] = [];
     instance = await startDaemon(
       { host: "127.0.0.1", port: 0 },
-      new AgentPulseService({
+      new CrewlightService({
         notifier: new OsNotifier({
           loader: async () => {
             throw new Error("native runtime unavailable");

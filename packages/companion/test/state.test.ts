@@ -23,7 +23,7 @@ function session(
     lastEventAgeMs: 1_000,
     isStale: false,
     displayName: "Custom",
-    displayWorkspace: "AgentPulse",
+    displayWorkspace: "Crewlight",
     attention: "passive",
     ...overrides,
   };
@@ -199,7 +199,7 @@ describe("companion state derivation", () => {
           lastEventAgeMs: 1_000,
           isStale: false,
           displayName: "Codex",
-          displayWorkspace: "AgentPulse",
+          displayWorkspace: "Crewlight",
           attention: "action",
           actionKind: "permission",
           activityLabel: "Permission requested",
@@ -256,11 +256,11 @@ describe("companion state derivation", () => {
     const view = deriveCompanionViewModel(
       online([
         session("waiting_input", {
-          sessionKey: "cursor:ide-extension:cursor-agentpulse",
+          sessionKey: "cursor:ide-extension:cursor-crewlight",
           source: "cursor",
           surface: "ide-extension",
           displayName: "Cursor",
-          displayWorkspace: "AgentPulse",
+          displayWorkspace: "Crewlight",
           taskTitle: "Cursor needs review",
           activityLabel: "Input requested",
           attention: "action",
@@ -276,7 +276,7 @@ describe("companion state derivation", () => {
         source: "Cursor",
         surface: "IDE extension",
         title: "Cursor needs review",
-        workspace: "AgentPulse",
+        workspace: "Crewlight",
         statusLabel: "Waiting for input",
         needsAction: true,
         tone: "action",

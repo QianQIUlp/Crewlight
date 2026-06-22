@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentSession } from "@agentpulse/core";
+import type { AgentEvent, AgentSession } from "@crewlight/core";
 
 import type { Notifier } from "./notifier.js";
 import { shouldNotify } from "./notification-policy.js";
@@ -22,7 +22,7 @@ export class ConsoleNotifier implements Notifier {
     const detail = event.message ?? event.title ?? event.status;
 
     this.#write(
-      `[AgentPulse][${event.urgency}] ${event.source} ${event.status} ${location}: ${detail}`,
+      `[Crewlight][${event.urgency}] ${event.source} ${event.status} ${location}: ${detail}`,
     );
   }
 }

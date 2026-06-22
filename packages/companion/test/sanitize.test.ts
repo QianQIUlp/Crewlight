@@ -12,7 +12,7 @@ function dashboardSession() {
     lastEventAgeMs: 1_000,
     isStale: false,
     displayName: "Codex",
-    displayWorkspace: "AgentPulse",
+    displayWorkspace: "Crewlight",
     attention: "action",
     actionKind: "permission",
     taskTitle: "Review companion",
@@ -51,13 +51,13 @@ describe("dashboard response sanitization", () => {
         {
           ...dashboardSession(),
           taskTitle: `  ${"x".repeat(140)}  `,
-          displayWorkspace: "  AgentPulse   workspace  ",
+          displayWorkspace: "  Crewlight   workspace  ",
         },
       ],
     });
 
     expect(result?.sessions[0]?.taskTitle).toHaveLength(120);
-    expect(result?.sessions[0]?.displayWorkspace).toBe("AgentPulse workspace");
+    expect(result?.sessions[0]?.displayWorkspace).toBe("Crewlight workspace");
   });
 
   it("rejects malformed top-level and session shapes", () => {

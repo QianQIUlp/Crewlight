@@ -1,10 +1,10 @@
-# AgentPulse Product Positioning
+# Crewlight Product Positioning
 
-> AgentPulse is a local-first activity surface for AI coding agents.
+> Crewlight is a local-first activity radar for AI coding agents.
 
 ## Product Category
 
-AgentPulse is not primarily:
+Crewlight is not primarily:
 
 - a desktop pet;
 - a generic notification tool;
@@ -14,7 +14,7 @@ AgentPulse is not primarily:
 
 It is closer to:
 
-- a local activity hub;
+- a local activity radar;
 - a multi-agent attention surface;
 - a workflow visibility layer;
 - a status and diagnostics boundary around AI coding agents.
@@ -45,7 +45,7 @@ every terminal, IDE, or agent surface in the foreground.
 The useful layer is not agent control first. The useful first layer is local,
 read-only visibility and attention routing.
 
-AgentPulse should make current agent activity understandable before it attempts
+Crewlight should make current agent activity understandable before it attempts
 to manage that activity. This keeps the core loop useful across platforms while
 avoiding permission, orchestration, and adapter-fragility risks.
 
@@ -53,7 +53,7 @@ avoiding permission, orchestration, and adapter-fragility risks.
 
 ### 1. Local-first by default
 
-AgentPulse defaults to a loopback-only daemon and local surfaces. It has no
+Crewlight defaults to a loopback-only daemon and local surfaces. It has no
 cloud dependency, central account, or remote dashboard. Current session state
 is held in memory and is not persisted by default.
 
@@ -63,16 +63,16 @@ hosted service.
 
 ### 2. Multi-agent-first
 
-AgentPulse is designed around multiple coding agents, sessions, workspaces, and
+Crewlight is designed around multiple coding agents, sessions, workspaces, and
 surfaces. It is not one mascot representing one assistant.
 
 Source, surface, and session identity matter because useful attention routing
-depends on distinguishing concurrent work. AgentPulse-owned session keys keep
+depends on distinguishing concurrent work. Crewlight-owned session keys keep
 aggregation separate from platform-provided identifiers.
 
 ### 3. Attention routing, not raw logging
 
-AgentPulse translates supported lifecycle events into a small attention model:
+Crewlight translates supported lifecycle events into a small attention model:
 `passive`, `done`, `action`, or `error`. The goal is to prioritize what needs
 the user now, not to dump raw logs or reproduce agent transcripts.
 
@@ -82,7 +82,7 @@ be needed.
 
 ### 4. Adapter boundaries
 
-AgentPulse prefers official and public integration mechanisms. Adapters emit
+Crewlight prefers official and public integration mechanisms. Adapters emit
 only allowlisted status, identity, location, and short safe-message fields into
 the normalized state model.
 
@@ -100,7 +100,7 @@ agent's own trust and control mechanisms.
 
 ### 6. Progressive surfaces
 
-AgentPulse exposes the same safe current-state model through progressively
+Crewlight exposes the same safe current-state model through progressively
 richer surfaces:
 
 - CLI status for direct inspection and automation;
@@ -110,9 +110,9 @@ richer surfaces:
 Future surfaces should reuse this model rather than introduce separate data
 collection, privacy rules, or agent-control paths.
 
-## What AgentPulse Is Not
+## What Crewlight Is Not
 
-AgentPulse is:
+Crewlight is:
 
 - not a Clawd clone;
 - not a pet-first product;
@@ -128,7 +128,7 @@ local visibility for concurrent agent work.
 
 ## Strategic Tension
 
-- Too little personality makes AgentPulse feel like a dry diagnostic tool.
+- Too little personality makes Crewlight feel like a dry diagnostic tool.
 - Too much personality turns it into a toy or pet and weakens operational
   trust.
 - Too much control makes it unsafe and tightly coupled to fragile adapter
@@ -139,10 +139,9 @@ The intended balance is a calm local presence with useful attention routing.
 Personality should support comprehension and approachability without obscuring
 status, exaggerating certainty, or becoming the primary product value.
 
-## Naming Implications
+## Brand Direction
 
-AgentPulse will not be renamed as part of this product-positioning work. Any
-future rename should satisfy all of these criteria:
+Crewlight should continue to satisfy all of these criteria:
 
 - imply local presence, activity, attention, or a surface;
 - not imply a cloud SaaS;
@@ -150,9 +149,8 @@ future rename should satisfy all of these criteria:
 - not imply agent control or orchestration;
 - work as a CLI, package, repository, and product name.
 
-A rename should be considered only when the product direction is stable enough
-to justify migration cost across commands, packages, documentation, releases,
-and user configuration.
+The brand should continue to imply local presence, activity, attention, and a
+surface rather than cloud monitoring, mascot-first behavior, or agent control.
 
 ## Future Differentiation Candidates
 
@@ -191,6 +189,6 @@ a clear privacy and retention model.
   consider it.
 - If a feature requires private APIs, reject it or mark it research-only.
 - If a feature adds persistence, require a privacy justification.
-- If a feature makes AgentPulse look like an agent controller, defer it.
+- If a feature makes Crewlight look like an agent controller, defer it.
 - If a feature only improves aesthetics but not attention routing, defer it
   until the MVP loop is stable.

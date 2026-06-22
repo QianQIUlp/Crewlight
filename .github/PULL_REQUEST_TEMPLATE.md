@@ -5,7 +5,7 @@
 - Add local daemon with event and session endpoints
 - Add console notifier policy
 - Add generic CLI command monitoring
-- Add agentpulse CLI commands
+- Add crewlight CLI commands
 - Add v0.1 documentation and verification steps
 
 ## Validation
@@ -14,11 +14,11 @@
 - [ ] pnpm typecheck
 - [ ] pnpm test
 - [ ] pnpm build
-- [ ] Manual: agentpulse daemon
-- [ ] Manual: agentpulse emit
-- [ ] Manual: agentpulse status
-- [ ] Manual: agentpulse run success
-- [ ] Manual: agentpulse run failure
+- [ ] Manual: crewlight daemon
+- [ ] Manual: crewlight emit
+- [ ] Manual: crewlight status
+- [ ] Manual: crewlight run success
+- [ ] Manual: crewlight run failure
 
 ## Scope boundaries
 

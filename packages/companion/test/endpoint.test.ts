@@ -20,8 +20,8 @@ describe("companion endpoint resolution", () => {
   it("honors IPv4 and IPv6 loopback overrides", () => {
     expect(
       resolveCompanionEndpoint({
-        AGENTPULSE_HOST: "::1",
-        AGENTPULSE_PORT: "4768",
+        CREWLIGHT_HOST: "::1",
+        CREWLIGHT_PORT: "4768",
       }),
     ).toMatchObject({
       baseUrl: "http://[::1]:4768",
@@ -31,8 +31,8 @@ describe("companion endpoint resolution", () => {
 
   it("falls back safely for non-loopback hosts and invalid ports", () => {
     const endpoint = resolveCompanionEndpoint({
-      AGENTPULSE_HOST: "0.0.0.0",
-      AGENTPULSE_PORT: "invalid",
+      CREWLIGHT_HOST: "0.0.0.0",
+      CREWLIGHT_PORT: "invalid",
     });
 
     expect(endpoint.baseUrl).toBe("http://127.0.0.1:3768");
@@ -41,22 +41,20 @@ describe("companion endpoint resolution", () => {
 
   it("rejects empty, fractional, and out-of-range ports", () => {
     for (const port of ["", "0", "1.5", "65536", "not-a-port"]) {
-      expect(resolveCompanionEndpoint({ AGENTPULSE_PORT: port })).toMatchObject(
-        {
-          port: 3768,
-        },
-      );
+      expect(resolveCompanionEndpoint({ CREWLIGHT_PORT: port })).toMatchObject({
+        port: 3768,
+      });
     }
   });
 
   it("allows only the configured loopback dashboard URL", () => {
     const ipv4 = resolveCompanionEndpoint({
-      AGENTPULSE_HOST: "127.0.0.1",
-      AGENTPULSE_PORT: "4768",
+      CREWLIGHT_HOST: "127.0.0.1",
+      CREWLIGHT_PORT: "4768",
     });
     const ipv6 = resolveCompanionEndpoint({
-      AGENTPULSE_HOST: "::1",
-      AGENTPULSE_PORT: "4768",
+      CREWLIGHT_HOST: "::1",
+      CREWLIGHT_PORT: "4768",
     });
 
     expect(isAllowedDashboardUrl(ipv4.dashboardUrl, ipv4)).toBe(true);

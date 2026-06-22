@@ -1,4 +1,4 @@
-import type { AgentEventInput } from "@agentpulse/core";
+import type { AgentEventInput } from "@crewlight/core";
 
 import { codexNotifyInputSchema } from "./codex-notify-input.js";
 

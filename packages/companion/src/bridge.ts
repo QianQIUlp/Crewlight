@@ -13,6 +13,6 @@ export interface CompanionBridge {
 
 declare global {
   interface Window {
-    agentPulse: CompanionBridge;
+    crewlight: CompanionBridge;
   }
 }

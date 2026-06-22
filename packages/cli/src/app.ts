@@ -9,27 +9,27 @@ import { executeSetupCommand } from "./commands/setup.js";
 import { executeStatusCommand } from "./commands/status.js";
 import { consoleIo, readStdin, type CommandIo } from "./commands/types.js";
 
-const USAGE = `AgentPulse v0.3.0
+const USAGE = `Crewlight v0.4.0
 
 Usage:
-  agentpulse daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard] [--dashboard-task-titles prompt-preview]
-  agentpulse demo [multi-agent]
-  agentpulse demo --scenario multi-agent
-  agentpulse doctor [--json] [--notifier KIND]
-  agentpulse emit --source SOURCE --surface SURFACE --status STATUS [options]
-  agentpulse ingest claude-code
-  agentpulse ingest codex [json]
-  agentpulse ingest codex-hook [--hook EVENT] [--surface unknown|cli|desktop]
-  agentpulse ingest cursor [--event EVENT] [--surface ide-extension|desktop|manual] [--session ID] [--workspace NAME] [--project PATH] [--title TITLE] [--message MESSAGE] [--timestamp MS]
-  agentpulse ingest opencode-plugin [--event EVENT]
-  agentpulse ingest antigravity-probe [--event EVENT] [--surface unknown|cli|desktop]
-  agentpulse setup claude-code --print [--binary PATH]
-  agentpulse setup codex --print [--binary PATH]
-  agentpulse setup codex-hooks --print [--binary PATH] [--surface unknown|cli|desktop]
-  agentpulse setup cursor --print [--binary PATH]
-  agentpulse setup opencode --print [--binary PATH]
-  agentpulse status [--json]
-  agentpulse run [--source generic-cli] [--cwd PATH] -- <command> [args...]
+  crewlight daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard] [--dashboard-task-titles prompt-preview]
+  crewlight demo [multi-agent]
+  crewlight demo --scenario multi-agent
+  crewlight doctor [--json] [--notifier KIND]
+  crewlight emit --source SOURCE --surface SURFACE --status STATUS [options]
+  crewlight ingest claude-code
+  crewlight ingest codex [json]
+  crewlight ingest codex-hook [--hook EVENT] [--surface unknown|cli|desktop]
+  crewlight ingest cursor [--event EVENT] [--surface ide-extension|desktop|manual] [--session ID] [--workspace NAME] [--project PATH] [--title TITLE] [--message MESSAGE] [--timestamp MS]
+  crewlight ingest opencode-plugin [--event EVENT]
+  crewlight ingest antigravity-probe [--event EVENT] [--surface unknown|cli|desktop]
+  crewlight setup claude-code --print [--binary PATH]
+  crewlight setup codex --print [--binary PATH]
+  crewlight setup codex-hooks --print [--binary PATH] [--surface unknown|cli|desktop]
+  crewlight setup cursor --print [--binary PATH]
+  crewlight setup opencode --print [--binary PATH]
+  crewlight status [--json]
+  crewlight run [--source generic-cli] [--cwd PATH] -- <command> [args...]
 `;
 
 export async function main(

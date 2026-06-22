@@ -1,6 +1,7 @@
 {
-  "name": "agentpulse",
-  "version": "0.3.0",
+  "name": "crewlight",
+  "version": "0.4.0",
+  "description": "Crewlight is a local-first companion surface for multi-agent coding workflows.",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.11.0",
@@ -8,10 +9,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b && pnpm --filter @agentpulse/companion copy:assets",
+    "build": "tsc -b && pnpm --filter @crewlight/companion copy:assets",
     "build:standalone": "pnpm build && node scripts/build-standalone.mjs",
     "clean": "tsc -b --clean",
-    "companion:dev": "pnpm --filter @agentpulse/companion dev",
+    "companion:dev": "pnpm --filter @crewlight/companion dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "smoke:standalone": "bash scripts/smoke-standalone.sh",

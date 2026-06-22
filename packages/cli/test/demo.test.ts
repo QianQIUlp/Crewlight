@@ -2,13 +2,13 @@ import type {
   AgentEvent,
   AgentEventInput,
   AgentSession,
-} from "@agentpulse/core";
-import { deriveSessionKey } from "@agentpulse/core";
-import type { IngestResult } from "@agentpulse/daemon";
+} from "@crewlight/core";
+import { deriveSessionKey } from "@crewlight/core";
+import type { IngestResult } from "@crewlight/daemon";
 import { describe, expect, it } from "vitest";
 
 import { main } from "../src/app.js";
-import type { AgentPulseClient } from "../src/daemon-client.js";
+import type { CrewlightClient } from "../src/daemon-client.js";
 import {
   createMultiAgentDemoEvents,
   executeDemoCommand,
@@ -46,9 +46,9 @@ describe("demo command", () => {
     const invalid = captureIo();
 
     expect(await main(["--help"], help.io)).toBe(0);
-    expect(help.output.join("\n")).toContain("agentpulse demo [multi-agent]");
+    expect(help.output.join("\n")).toContain("crewlight demo [multi-agent]");
     expect(help.output.join("\n")).toContain(
-      "agentpulse demo --scenario multi-agent",
+      "crewlight demo --scenario multi-agent",
     );
     expect(await main(["demo", "unknown"], invalid.io)).toBe(1);
     expect(invalid.warnings.join("\n")).toContain("Unknown demo scenario");
@@ -108,7 +108,7 @@ describe("demo command", () => {
       repeated.map(deriveSessionKey),
     );
     expect(
-      events.every((event) => event.workspaceName === "AgentPulse Demo"),
+      events.every((event) => event.workspaceName === "Crewlight Demo"),
     ).toBe(true);
     expect(events.every((event) => event.taskTitle?.startsWith("[Demo]"))).toBe(
       true,
@@ -133,7 +133,7 @@ describe("demo command", () => {
   it("delivers the scenario and prints configured local next steps", async () => {
     const emitted: AgentEventInput[] = [];
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       sessions: async () => [],
       emit: async (event) => {
         emitted.push(event);
@@ -144,8 +144,8 @@ describe("demo command", () => {
     const code = await executeDemoCommand([], client, capture.io, {
       now: () => 1_000_000,
       env: {
-        AGENTPULSE_HOST: "::1",
-        AGENTPULSE_PORT: "4768",
+        CREWLIGHT_HOST: "::1",
+        CREWLIGHT_PORT: "4768",
       },
     });
 
@@ -156,7 +156,7 @@ describe("demo command", () => {
       "Dashboard: http://[::1]:4768/dashboard",
     );
     expect(capture.output.join("\n")).toContain("pnpm companion:dev");
-    expect(capture.output.join("\n")).toContain("agentpulse demo multi-agent");
+    expect(capture.output.join("\n")).toContain("crewlight demo multi-agent");
     expect(capture.output.join("\n")).toContain("restart");
     expect(capture.output.join("\n")).toContain("synthetic local demo data");
   });
@@ -164,7 +164,7 @@ describe("demo command", () => {
   it("performs no event writes when daemon preflight fails", async () => {
     let emitCalls = 0;
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       sessions: async () => {
         throw new Error("private transport detail");
       },
@@ -180,7 +180,7 @@ describe("demo command", () => {
     expect(emitCalls).toBe(0);
     expect(capture.output).toEqual([]);
     expect(capture.warnings.join("\n")).toContain(
-      "agentpulse daemon --dashboard --notifier none",
+      "crewlight daemon --dashboard --notifier none",
     );
     expect(capture.warnings.join("\n")).not.toContain(
       "private transport detail",
@@ -190,7 +190,7 @@ describe("demo command", () => {
   it("reports scoped partial delivery without leaking the daemon error", async () => {
     let emitCalls = 0;
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       sessions: async () => [],
       emit: async (event) => {
         emitCalls += 1;

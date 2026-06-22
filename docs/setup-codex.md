@@ -6,17 +6,17 @@ as a single argument.
 ## Print the snippet
 
 ```bash
-agentpulse setup codex --print
+crewlight setup codex --print
 ```
 
 Output:
 
 ```toml
-notify = ["/absolute/path/to/agentpulse", "ingest", "codex"]
+notify = ["/absolute/path/to/crewlight", "ingest", "codex"]
 ```
 
 This is a snippet for the user-level `~/.codex/config.toml`. Codex does not
-honor `notify` from project-local configuration. AgentPulse never reads or
+honor `notify` from project-local configuration. Crewlight never reads or
 modifies the config file.
 
 Codex stores configuration under `CODEX_HOME`, which defaults to `~/.codex`.
@@ -25,7 +25,7 @@ inside WSL uses the Linux home unless `CODEX_HOME` is explicitly shared.
 
 The default command uses the current standalone executable's absolute path. In
 source mode it uses the absolute Node executable and absolute CLI entry path.
-Use `--binary agentpulse` only when Codex can reliably resolve AgentPulse from
+Use `--binary crewlight` only when Codex can reliably resolve Crewlight from
 `PATH`; use another `--binary` value only for an absolute executable path.
 
 ## Merge it manually
@@ -38,7 +38,7 @@ If `notify` already exists:
 
 1. keep the existing command when it is still required;
 2. create or update a wrapper/dispatcher that invokes both the existing
-   notifier and the generated AgentPulse command;
+   notifier and the generated Crewlight command;
 3. point the single Codex `notify` array at that wrapper.
 
 Only extend an existing argv array directly when that command is already a
@@ -46,7 +46,7 @@ dispatcher designed to accept and invoke additional notifier targets.
 
 ## Supported event
 
-AgentPulse v0.2 supports only the officially documented
+Crewlight v0.2 supports only the officially documented
 `agent-turn-complete -> completed` event. It does not claim Codex running,
 input-waiting, or permission-waiting states.
 
@@ -56,24 +56,24 @@ First run the read-only diagnostics. An unreachable-daemon error is expected
 until the daemon starts:
 
 ```bash
-agentpulse doctor
+crewlight doctor
 ```
 
 Start the daemon in a separate terminal with visible console output:
 
 ```bash
-agentpulse daemon --notifier console
+crewlight daemon --notifier console
 ```
 
 ### Synthetic ingest check
 
-This checks the AgentPulse ingest path without launching Codex:
+This checks the Crewlight ingest path without launching Codex:
 
 ```bash
-agentpulse ingest codex \
+crewlight ingest codex \
   '{"type":"agent-turn-complete","thread-id":"codex-demo","turn-id":"turn-1","cwd":"/tmp/demo","last-assistant-message":"Done"}'
 
-agentpulse status --json
+crewlight status --json
 ```
 
 The resulting session should have source `codex` and status `completed`.
@@ -84,16 +84,16 @@ The resulting session should have source `codex` and status `completed`.
    `.codex/config.toml`.
 2. Start a new Codex CLI turn and let it complete.
 3. Confirm the daemon terminal prints a `codex completed` event.
-4. Run `agentpulse status --json` and confirm the session source is `codex`.
+4. Run `crewlight status --json` and confirm the session source is `codex`.
 
-Codex passes one JSON argument to the external command. AgentPulse currently
+Codex passes one JSON argument to the external command. Crewlight currently
 maps only the documented `agent-turn-complete` notification. Successful notify
 ingest is intentionally quiet in the Codex terminal.
 
 To test OS notifications, restart the daemon with
-`agentpulse daemon --notifier os` and complete another turn. If desktop
-delivery is unavailable, confirm `agentpulse doctor --notifier os` reports only
-a warning and use `agentpulse daemon --notifier console`.
+`crewlight daemon --notifier os` and complete another turn. If desktop
+delivery is unavailable, confirm `crewlight doctor --notifier os` reports only
+a warning and use `crewlight daemon --notifier console`.
 
 See [troubleshooting](troubleshooting.md#codex-notify-not-firing) when no event
 arrives.

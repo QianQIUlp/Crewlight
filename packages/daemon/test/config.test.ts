@@ -10,20 +10,20 @@ describe("daemon config", () => {
   });
 
   it("uses the environment notifier when no override exists", () => {
-    expect(
-      resolveDaemonConfig({}, { AGENTPULSE_NOTIFIER: "os" }),
-    ).toMatchObject({ notifier: "os" });
+    expect(resolveDaemonConfig({}, { CREWLIGHT_NOTIFIER: "os" })).toMatchObject(
+      { notifier: "os" },
+    );
   });
 
   it("gives explicit overrides precedence over the environment", () => {
     expect(
-      resolveDaemonConfig({ notifier: "none" }, { AGENTPULSE_NOTIFIER: "os" }),
+      resolveDaemonConfig({ notifier: "none" }, { CREWLIGHT_NOTIFIER: "os" }),
     ).toMatchObject({ notifier: "none" });
   });
 
   it("rejects invalid notifier kinds", () => {
     expect(() =>
-      resolveDaemonConfig({}, { AGENTPULSE_NOTIFIER: "desktop" }),
+      resolveDaemonConfig({}, { CREWLIGHT_NOTIFIER: "desktop" }),
     ).toThrow("Invalid notifier kind");
   });
 });

@@ -1,10 +1,10 @@
-# 参与贡献 AgentPulse
+# 参与贡献 Crewlight
 
 [English](CONTRIBUTING.md) | 简体中文
 
-感谢你考虑为 AgentPulse 做贡献。
+感谢你考虑为 Crewlight 做贡献。
 
-AgentPulse 的定位是一个小而可靠的 AI coding agent 可观测层。这个项目欢迎协作，但更偏好范围清晰、可验证、容易 review 的改动。
+Crewlight 的定位是一个小而可靠的 AI coding agent 可观测层。这个项目欢迎协作，但更偏好范围清晰、可验证、容易 review 的改动。
 
 ## 适合开始的贡献方向
 
@@ -46,7 +46,7 @@ PR 的范围应足够小，让 review 者不需要重新理解整个项目背景
 
 ## 设计边界
 
-AgentPulse 应保持可预测、克制、可解释。
+Crewlight 应保持可预测、克制、可解释。
 
 请避免引入以下改动：
 
@@ -78,7 +78,7 @@ AgentPulse 应保持可预测、克制、可解释。
 
 - 操作系统与 shell。
 - 使用的 agent 或工具。
-- AgentPulse 版本。
+- Crewlight 版本。
 - 具体命令或配置片段。
 - 预期行为。
 - 实际行为。

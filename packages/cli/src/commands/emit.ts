@@ -1,13 +1,13 @@
 import { parseArgs } from "node:util";
 
-import { agentEventInputSchema } from "@agentpulse/core";
+import { agentEventInputSchema } from "@crewlight/core";
 
-import type { AgentPulseClient } from "../daemon-client.js";
+import type { CrewlightClient } from "../daemon-client.js";
 import type { CommandIo } from "./types.js";
 
 export async function executeEmitCommand(
   args: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
 ): Promise<number> {
   const { values } = parseArgs({

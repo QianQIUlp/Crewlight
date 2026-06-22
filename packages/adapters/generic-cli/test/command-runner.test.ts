@@ -1,4 +1,4 @@
-import type { AgentEventInput } from "@agentpulse/core";
+import type { AgentEventInput } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
 import { runCommand } from "../src/index.js";
@@ -69,7 +69,7 @@ describe("runCommand", () => {
   it("emits failed for a spawn error without a running event", async () => {
     const capture = captureEvents();
     const result = await runCommand({
-      command: `missing-agentpulse-command-${Date.now()}`,
+      command: `missing-crewlight-command-${Date.now()}`,
       emit: capture.emit,
       stdio: "ignore",
     });

@@ -1,6 +1,6 @@
 # Multi-Agent Companion Surface
 
-The AgentPulse companion is a small, local Electron window for monitoring
+The Crewlight companion is a small, local Electron window for monitoring
 multiple coding-agent sessions while working in other applications. It is a
 compact status surface, not a replacement for the browser dashboard and not a
 pet-first interface.
@@ -27,13 +27,13 @@ pnpm companion:dev
 ```
 
 `pnpm companion:dev` is a development command and requires a source checkout;
-it is not included in standalone preview archives.
+it is not included in standalone release archives.
 
 To populate both the browser dashboard and companion with the built-in
 multi-agent scenario, run in another terminal:
 
 ```bash
-agentpulse demo multi-agent
+crewlight demo multi-agent
 ```
 
 The six sessions are synthetic local demo data with deterministic identities.
@@ -41,8 +41,8 @@ Rerun the command to refresh them, or restart the daemon to clear all in-memory
 sessions.
 
 The companion polls `http://127.0.0.1:3768/dashboard/api` every two seconds.
-It honors `AGENTPULSE_HOST` only when the value is `127.0.0.1` or `::1`, and
-honors a valid `AGENTPULSE_PORT`. The browser dashboard does not need to be
+It honors `CREWLIGHT_HOST` only when the value is `127.0.0.1` or `::1`, and
+honors a valid `CREWLIGHT_PORT`. The browser dashboard does not need to be
 open, and the companion never opens it automatically.
 
 The companion continues polling after failures. Polls do not overlap, and each
@@ -53,7 +53,7 @@ JSON parsing. A later successful poll replaces the failure state.
 
 Compact mode is a bottom-right command strip showing:
 
-- the AgentPulse product mark and local-companion identity;
+- the Crewlight product mark and local-companion identity;
 - the global status indicator and summary;
 - running, action-needed, and failed counts;
 - the highest-priority current session or connection diagnostic;
@@ -73,7 +73,7 @@ in-window guidance instead of appearing broken.
 Offline and API-unavailable states can copy the fixed local startup command:
 
 ```bash
-agentpulse daemon --dashboard --notifier none
+crewlight daemon --dashboard --notifier none
 ```
 
 Clipboard access is exposed through a narrow preload method and does not accept
@@ -128,12 +128,12 @@ a response whose body starts but never finishes.
 
 The companion reached a local HTTP server, but `/dashboard/api` returned a
 non-success status, invalid JSON, or an unsupported schema. Confirm that the
-same AgentPulse build is running with `--dashboard`, then restart the daemon if
+same Crewlight build is running with `--dashboard`, then restart the daemon if
 needed. Response and error bodies are never shown in the companion.
 
 ### Host or port override ignored
 
-Only `AGENTPULSE_HOST=127.0.0.1` and `AGENTPULSE_HOST=::1` are accepted. The
+Only `CREWLIGHT_HOST=127.0.0.1` and `CREWLIGHT_HOST=::1` are accepted. The
 port must be an integer from 1 through 65535. An invalid host falls back to
 `127.0.0.1`; an invalid port falls back to `3768`.
 
@@ -149,7 +149,7 @@ The window is frameless, draggable, non-resizable, always on top by default,
 and positioned near the primary display's bottom-right work area. It can
 expand, collapse, and hide.
 
-AgentPulse attempts to create a tray menu with Show/Hide, Always on Top, Open
+Crewlight attempts to create a tray menu with Show/Hide, Always on Top, Open
 Dashboard, and Quit. With a usable tray, Hide and window close hide the
 companion and the tray can restore it. Without a usable tray, Hide and window
 close quit.
@@ -197,7 +197,7 @@ Run these checks in a real graphical desktop session:
 6. Select Open Dashboard and confirm only the configured local loopback
    `/dashboard` URL opens. Confirm no browser opens during startup or polling.
 7. In an offline state, copy the daemon command and confirm the clipboard
-   contains only `agentpulse daemon --dashboard --notifier none`.
+   contains only `crewlight daemon --dashboard --notifier none`.
 
 This repository environment is headless. Build and pure runtime logic can be
 verified here, but visible tray/window behavior remains manual verification for

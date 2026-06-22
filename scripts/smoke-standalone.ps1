@@ -5,13 +5,13 @@ Set-StrictMode -Version Latest
 $Root = Split-Path -Parent $PSScriptRoot
 $Package = Get-Content (Join-Path $Root "package.json") -Raw | ConvertFrom-Json
 $Version = $Package.version
-$Artifact = "agentpulse-v$Version-windows-x64"
+$Artifact = "crewlight-v$Version-windows-x64"
 $Archive = Join-Path $Root "release\$Artifact.zip"
 $Checksum = "$Archive.sha256"
-$Port = if ($env:AGENTPULSE_SMOKE_PORT) { $env:AGENTPULSE_SMOKE_PORT } else { "43768" }
-$Work = Join-Path ([System.IO.Path]::GetTempPath()) "AgentPulseSmoke-$([guid]::NewGuid())"
+$Port = if ($env:CREWLIGHT_SMOKE_PORT) { $env:CREWLIGHT_SMOKE_PORT } else { "43768" }
+$Work = Join-Path ([System.IO.Path]::GetTempPath()) "CrewlightSmoke-$([guid]::NewGuid())"
 $Extracted = Join-Path $Work $Artifact
-$Bin = Join-Path $Extracted "agentpulse.exe"
+$Bin = Join-Path $Extracted "crewlight.exe"
 $HomeDir = Join-Path $Work "home"
 $DaemonOut = Join-Path $Work "daemon.stdout.log"
 $DaemonErr = Join-Path $Work "daemon.stderr.log"
@@ -55,7 +55,7 @@ function Get-ByteCount {
   return 1
 }
 
-function Invoke-AgentPulse {
+function Invoke-Crewlight {
   param(
     [string[]]$Arguments,
     [string]$Stdin,
@@ -95,7 +95,7 @@ function Invoke-AgentPulse {
     StderrBytes = [byte[]]$stderrBytes
   }
   if (-not $AllowFailure -and $result.ExitCode -ne 0) {
-    throw "agentpulse $($Arguments -join ' ') failed with $($result.ExitCode): $stderrText"
+    throw "crewlight $($Arguments -join ' ') failed with $($result.ExitCode): $stderrText"
   }
   return $result
 }
@@ -302,18 +302,18 @@ try {
   }
 
   Expand-Archive -Path $Archive -DestinationPath $Extracted
-  foreach ($name in @("agentpulse.exe", "LICENSE", "BUILD-INFO.txt")) {
+  foreach ($name in @("crewlight.exe", "LICENSE", "BUILD-INFO.txt")) {
     if (-not (Test-Path (Join-Path $Extracted $name))) {
       throw "Archive is missing $name."
     }
   }
   $entries = @(Get-ChildItem $Extracted)
   if ($entries.Count -ne 3) {
-    throw "Archive must contain exactly agentpulse.exe, LICENSE, and BUILD-INFO.txt."
+    throw "Archive must contain exactly crewlight.exe, LICENSE, and BUILD-INFO.txt."
   }
 
   $buildInfo = Get-Content (Join-Path $Extracted "BUILD-INFO.txt") -Raw
-  if ($buildInfo -notmatch "AgentPulse version: $([regex]::Escape($Version))" -or
+  if ($buildInfo -notmatch "Crewlight version: $([regex]::Escape($Version))" -or
       $buildInfo -notmatch "Platform: windows" -or
       $buildInfo -notmatch "Architecture: x64") {
     throw "BUILD-INFO.txt does not describe the Windows x64 artifact."
@@ -322,8 +322,8 @@ try {
   $env:PATH = $Extracted
   $env:HOME = $HomeDir
   $env:USERPROFILE = $HomeDir
-  $env:AGENTPULSE_PORT = $Port
-  Remove-Item Env:AGENTPULSE_HOST -ErrorAction SilentlyContinue
+  $env:CREWLIGHT_PORT = $Port
+  Remove-Item Env:CREWLIGHT_HOST -ErrorAction SilentlyContinue
 
   foreach ($name in @("node", "npm", "pnpm")) {
     $whereOut = Join-Path $Work "where-$name.stdout"
@@ -340,17 +340,17 @@ try {
     }
   }
 
-  $help = Invoke-AgentPulse -Arguments @("--help")
-  if ($help.Stdout -notmatch "AgentPulse v$([regex]::Escape($Version))") {
+  $help = Invoke-Crewlight -Arguments @("--help")
+  if ($help.Stdout -notmatch "Crewlight v$([regex]::Escape($Version))") {
     throw "Help output has the wrong version."
   }
 
-  $claude = Invoke-AgentPulse -Arguments @("setup", "claude-code", "--print")
+  $claude = Invoke-Crewlight -Arguments @("setup", "claude-code", "--print")
   $claudeSetup = ConvertFrom-FirstJsonObject -Text $claude.Stdout -Description "Claude setup"
   $claudeCommand = Get-HookCommand -Parsed $claudeSetup -EventName "Stop" -FieldName "command"
   Assert-SetupCommand -Command $claudeCommand -Description "Claude setup" -IngestTarget "claude-code"
 
-  $codex = Invoke-AgentPulse -Arguments @("setup", "codex", "--print")
+  $codex = Invoke-Crewlight -Arguments @("setup", "codex", "--print")
   $codexArgv = @(ConvertFrom-CodexNotify -Text $codex.Stdout)
   $codexArgvDebug = $codexArgv | ConvertTo-Json -Compress
   if ($codexArgv.Count -ne 3 -or
@@ -365,7 +365,7 @@ try {
     throw "Codex notify argv validation failed. Expected binary path: $Bin. Parsed argv: $codexArgvDebug"
   }
 
-  $codexHooks = Invoke-AgentPulse -Arguments @("setup", "codex-hooks", "--print")
+  $codexHooks = Invoke-Crewlight -Arguments @("setup", "codex-hooks", "--print")
   $codexHooksSetup = ConvertFrom-FirstJsonObject -Text $codexHooks.Stdout -Description "Codex hooks setup"
   foreach ($hookEventName in @("Stop", "PreToolUse")) {
     $codexHooksCommand = Get-HookCommand -Parsed $codexHooksSetup -EventName $hookEventName -FieldName "commandWindows"
@@ -377,7 +377,7 @@ try {
     }
   }
 
-  $opencode = Invoke-AgentPulse -Arguments @("setup", "opencode", "--print")
+  $opencode = Invoke-Crewlight -Arguments @("setup", "opencode", "--print")
   if ($opencode.Stdout -notmatch "bun\.spawn\(" -or
       $opencode.Stdout -notmatch '"opencode-plugin"' -or
       $opencode.Stdout -notmatch '"--event"' -or
@@ -385,17 +385,17 @@ try {
     throw "OpenCode plugin setup output is incomplete."
   }
 
-  $env:AGENTPULSE_HOST = "0.0.0.0"
-  $unsafe = Invoke-AgentPulse -Arguments @("daemon", "--dashboard", "--notifier", "none") -AllowFailure
+  $env:CREWLIGHT_HOST = "0.0.0.0"
+  $unsafe = Invoke-Crewlight -Arguments @("daemon", "--dashboard", "--notifier", "none") -AllowFailure
   if ($unsafe.ExitCode -eq 0 -or $unsafe.Stderr -notmatch "requires --host 127.0.0.1 or --host ::1") {
-    throw "Dashboard did not reject AGENTPULSE_HOST=0.0.0.0."
+    throw "Dashboard did not reject CREWLIGHT_HOST=0.0.0.0."
   }
-  Remove-Item Env:AGENTPULSE_HOST
+  Remove-Item Env:CREWLIGHT_HOST
 
   Start-Daemon -StdoutPath $DaemonOut -StderrPath $DaemonErr
 
   $dashboard = Wait-Dashboard
-  if ($dashboard.Content -notmatch "AgentPulse Dashboard") {
+  if ($dashboard.Content -notmatch "Crewlight Dashboard") {
     throw "Dashboard HTML was not served."
   }
   $dashboardApi = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/dashboard/api"
@@ -403,13 +403,13 @@ try {
     throw "Dashboard API health is not ok."
   }
 
-  $doctor = Invoke-AgentPulse -Arguments @("doctor", "--json", "--notifier", "none")
+  $doctor = Invoke-Crewlight -Arguments @("doctor", "--json", "--notifier", "none")
   if (-not ($doctor.Stdout | ConvertFrom-Json).ok) {
     throw "Doctor did not pass against the standalone daemon."
   }
 
   $hookPayload = '{"session_id":"windows-codex-hook","cwd":"C:\\demo","hook_event_name":"PreToolUse","tool_name":"must-not-win","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"},"tool_response":"must-not-leak","transcript_path":"C:\\must-not-leak"}'
-  $hook = Invoke-AgentPulse -Arguments @("ingest", "codex-hook", "--hook", "Stop") -Stdin $hookPayload
+  $hook = Invoke-Crewlight -Arguments @("ingest", "codex-hook", "--hook", "Stop") -Stdin $hookPayload
   if ($hook.ExitCode -ne 0 -or
       (Get-ByteCount -Value $hook.StdoutBytes) -ne 0 -or
       (Get-ByteCount -Value $hook.StderrBytes) -ne 0) {
@@ -417,7 +417,7 @@ try {
   }
 
   $toolHookPayload = '{"session_id":"windows-codex-tool-hook","cwd":"C:\\demo","hook_event_name":"Stop","tool_name":"Bash","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"}}'
-  $toolHook = Invoke-AgentPulse -Arguments @("ingest", "codex-hook", "--hook", "PreToolUse") -Stdin $toolHookPayload
+  $toolHook = Invoke-Crewlight -Arguments @("ingest", "codex-hook", "--hook", "PreToolUse") -Stdin $toolHookPayload
   if ($toolHook.ExitCode -ne 0 -or
       (Get-ByteCount -Value $toolHook.StdoutBytes) -ne 0 -or
       (Get-ByteCount -Value $toolHook.StderrBytes) -ne 0) {
@@ -425,7 +425,7 @@ try {
   }
 
   $openCodePayload = '{"cwd":"C:\\demo","event":{"type":"tool.execute.before","properties":{"sessionID":"windows-opencode","prompt":"must-not-leak","args":{"command":"must-not-leak"},"result":"must-not-leak"}}}'
-  $openCode = Invoke-AgentPulse -Arguments @("ingest", "opencode-plugin", "--event", "session.idle") -Stdin $openCodePayload
+  $openCode = Invoke-Crewlight -Arguments @("ingest", "opencode-plugin", "--event", "session.idle") -Stdin $openCodePayload
   if ($openCode.ExitCode -ne 0 -or
       (Get-ByteCount -Value $openCode.StdoutBytes) -ne 0 -or
       (Get-ByteCount -Value $openCode.StderrBytes) -ne 0) {
@@ -433,18 +433,18 @@ try {
   }
 
   $antigravityPayload = '{"session_id":"windows-antigravity","cwd":"C:\\demo","prompt":"must-not-leak","transcript":"must-not-leak","env":{"TOKEN":"must-not-leak"}}'
-  $antigravity = Invoke-AgentPulse -Arguments @("ingest", "antigravity-probe", "--event", "SessionStart", "--surface", "desktop") -Stdin $antigravityPayload
+  $antigravity = Invoke-Crewlight -Arguments @("ingest", "antigravity-probe", "--event", "SessionStart", "--surface", "desktop") -Stdin $antigravityPayload
   if ($antigravity.ExitCode -ne 0 -or
       (Get-ByteCount -Value $antigravity.StdoutBytes) -ne 0 -or
       (Get-ByteCount -Value $antigravity.StderrBytes) -ne 0) {
     throw "Antigravity probe ingest should have empty stdout and stderr."
   }
 
-  Invoke-AgentPulse -Arguments @(
+  Invoke-Crewlight -Arguments @(
     "emit", "--source", "custom", "--surface", "manual", "--status", "completed",
     "--session-id", "windows-standalone-smoke", "--message", "done"
   ) | Out-Null
-  $status = Invoke-AgentPulse -Arguments @("status", "--json")
+  $status = Invoke-Crewlight -Arguments @("status", "--json")
   $sessions = @($status.Stdout | ConvertFrom-Json)
   $hookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-hook" })
   $toolHookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-tool-hook" })

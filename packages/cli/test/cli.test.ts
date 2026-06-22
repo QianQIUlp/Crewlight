@@ -2,17 +2,17 @@ import type {
   AgentEvent,
   AgentEventInput,
   AgentSession,
-} from "@agentpulse/core";
+} from "@crewlight/core";
 import {
-  AgentPulseService,
+  CrewlightService,
   startDaemon,
   type DaemonInstance,
   type IngestResult,
-} from "@agentpulse/daemon";
-import type { Notifier } from "@agentpulse/notifier";
+} from "@crewlight/daemon";
+import type { Notifier } from "@crewlight/notifier";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { DaemonClient, type AgentPulseClient } from "../src/daemon-client.js";
+import { DaemonClient, type CrewlightClient } from "../src/daemon-client.js";
 import {
   executeDaemonCommand,
   resolveDaemonCommandOptions,
@@ -58,7 +58,7 @@ describe("CLI commands", () => {
   it("emits and lists a session through the daemon client", async () => {
     daemon = await startDaemon(
       { host: "127.0.0.1", port: 0 },
-      new AgentPulseService({ notifier: new SilentNotifier() }),
+      new CrewlightService({ notifier: new SilentNotifier() }),
     );
     const client = new DaemonClient({ baseUrl: daemon.url });
     const capture = captureIo();
@@ -94,7 +94,7 @@ describe("CLI commands", () => {
 
   it("runs successfully even when the daemon is unavailable", async () => {
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       emit: async (_event: AgentEventInput): Promise<IngestResult> => {
         throw new Error("daemon unavailable");
       },
@@ -126,14 +126,14 @@ describe("CLI commands", () => {
     });
 
     await expect(client.sessions()).rejects.toThrow(
-      "agentpulse daemon --notifier console",
+      "crewlight daemon --notifier console",
     );
     await expect(client.sessions()).rejects.not.toThrow("fetch failed");
   });
 
   it("preserves a wrapped command's non-zero exit code", async () => {
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       emit: async (event): Promise<IngestResult> => ({
         event: event as AgentEvent,
         session: {} as AgentSession,
@@ -153,7 +153,7 @@ describe("CLI commands", () => {
 
   it("rejects platform labels that are not implemented adapters", async () => {
     const capture = captureIo();
-    const client: AgentPulseClient = {
+    const client: CrewlightClient = {
       emit: async () => {
         throw new Error("not called");
       },
@@ -172,7 +172,7 @@ describe("CLI commands", () => {
   it("explains how to recover from a daemon port conflict", async () => {
     daemon = await startDaemon(
       { host: "127.0.0.1", port: 0 },
-      new AgentPulseService({ notifier: new SilentNotifier() }),
+      new CrewlightService({ notifier: new SilentNotifier() }),
     );
     const capture = captureIo();
 
@@ -187,7 +187,7 @@ describe("CLI commands", () => {
         ["--host", "127.0.0.1", "--port", String(daemon.port)],
         capture.io,
       ),
-    ).rejects.toThrow("agentpulse daemon --port <port>");
+    ).rejects.toThrow("crewlight daemon --port <port>");
   });
 
   it("rejects a dashboard bound outside loopback", async () => {
@@ -255,7 +255,7 @@ describe("CLI commands", () => {
   it("rejects an unsafe dashboard host from the environment", () => {
     expect(() =>
       resolveDaemonCommandOptions(["--dashboard"], {
-        AGENTPULSE_HOST: "0.0.0.0",
+        CREWLIGHT_HOST: "0.0.0.0",
       }),
     ).toThrow("127.0.0.1");
   });

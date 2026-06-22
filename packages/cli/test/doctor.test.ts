@@ -25,14 +25,14 @@ function runtime(overrides: Partial<DoctorRuntime> = {}): DoctorRuntime {
     daemonReachable: async () => true,
     osNotifier: async () => ({ available: true }),
     claudeSnippet: () => '{"hooks":{"Stop":[]}}',
-    codexSnippet: () => 'notify = ["/opt/agentpulse", "ingest", "codex"]',
+    codexSnippet: () => 'notify = ["/opt/crewlight", "ingest", "codex"]',
     codexHooksSetup: () => ({
       available: true,
       snippet: '{"hooks":{"Stop":[]}}',
     }),
     daemonEnv: () => ({ host: "127.0.0.1", port: 3768 }),
-    entryPath: () => "/opt/agentpulse/dist/index.js",
-    pathResolvedAgentpulse: () => "/opt/agentpulse/dist/index.js",
+    entryPath: () => "/opt/crewlight/dist/index.js",
+    pathResolvedCrewlight: () => "/opt/crewlight/dist/index.js",
     dashboardCapabilities: async () => ({ taskTitleMode: "off" }),
     ...overrides,
   };
@@ -66,7 +66,7 @@ describe("doctor command", () => {
     expect(code).toBe(1);
     expect(capture.warnings.join("\n")).toContain("[error] daemon");
     expect(capture.warnings.join("\n")).toContain(
-      "agentpulse daemon --notifier console",
+      "crewlight daemon --notifier console",
     );
   });
 
@@ -84,7 +84,7 @@ describe("doctor command", () => {
     expect(code).toBe(0);
     expect(capture.warnings.join("\n")).toContain("[warning] notifier");
     expect(capture.warnings.join("\n")).toContain(
-      "agentpulse daemon --notifier console",
+      "crewlight daemon --notifier console",
     );
   });
 
@@ -146,7 +146,7 @@ describe("doctor command", () => {
             code: "windows-codex-hooks-unsafe-command",
             message: "Codex hooks setup is unavailable for this Windows path.",
             action:
-              "Install AgentPulse into C:\\Users\\<user>\\Tools\\AgentPulse.",
+              "Install Crewlight into C:\\Users\\<user>\\Tools\\Crewlight.",
           },
         }),
       }),
@@ -157,7 +157,7 @@ describe("doctor command", () => {
       "[warning] setup-codex-hooks",
     );
     expect(capture.warnings.join("\n")).toContain(
-      "C:\\Users\\<user>\\Tools\\AgentPulse",
+      "C:\\Users\\<user>\\Tools\\Crewlight",
     );
   });
 
@@ -190,7 +190,7 @@ describe("doctor command", () => {
     expect(report.checks).toContainEqual({
       id: "cli-build",
       status: "ok",
-      message: "AgentPulse is running as a standalone binary.",
+      message: "Crewlight is running as a standalone binary.",
     });
   });
 });

@@ -37,14 +37,14 @@ if (nodeMajor !== 22) {
 }
 
 const targetPlatform = platform === "win32" ? "windows" : "linux";
-const artifactName = `agentpulse-v${version}-${targetPlatform}-x64`;
+const artifactName = `crewlight-v${version}-${targetPlatform}-x64`;
 const releaseDirectory = join(root, "release");
 const stagingDirectory = join(releaseDirectory, artifactName);
 const workDirectory = join(releaseDirectory, ".work");
-const bundlePath = join(workDirectory, "agentpulse.cjs");
+const bundlePath = join(workDirectory, "crewlight.cjs");
 const seaConfigPath = join(workDirectory, "sea-config.json");
-const seaBlobPath = join(workDirectory, "agentpulse.blob");
-const binaryName = platform === "win32" ? "agentpulse.exe" : "agentpulse";
+const seaBlobPath = join(workDirectory, "crewlight.blob");
+const binaryName = platform === "win32" ? "crewlight.exe" : "crewlight";
 const binaryPath = join(stagingDirectory, binaryName);
 const archiveExtension = platform === "win32" ? ".zip" : ".tar.gz";
 const archivePath = join(
@@ -59,7 +59,7 @@ const commit =
     encoding: "utf8",
   }).trim();
 
-console.log(`Building AgentPulse ${version} standalone binary`);
+console.log(`Building Crewlight ${version} standalone binary`);
 console.log(`Node runtime: ${process.version}`);
 console.log(`Target: ${platform}/${architecture}`);
 
@@ -134,7 +134,7 @@ await copyFile(join(root, "LICENSE"), join(stagingDirectory, "LICENSE"));
 await writeFile(
   join(stagingDirectory, "BUILD-INFO.txt"),
   [
-    `AgentPulse version: ${version}`,
+    `Crewlight version: ${version}`,
     `Node version: ${process.version}`,
     `Platform: ${targetPlatform}`,
     `Architecture: ${architecture}`,
@@ -151,14 +151,14 @@ if (platform === "win32") {
       "-NoProfile",
       "-NonInteractive",
       "-Command",
-      "Compress-Archive -Path (Join-Path $env:AGENTPULSE_STAGING '*') -DestinationPath $env:AGENTPULSE_ARCHIVE -CompressionLevel Optimal -Force",
+      "Compress-Archive -Path (Join-Path $env:CREWLIGHT_STAGING '*') -DestinationPath $env:CREWLIGHT_ARCHIVE -CompressionLevel Optimal -Force",
     ],
     {
       cwd: root,
       env: {
         ...process.env,
-        AGENTPULSE_ARCHIVE: archivePath,
-        AGENTPULSE_STAGING: stagingDirectory,
+        CREWLIGHT_ARCHIVE: archivePath,
+        CREWLIGHT_STAGING: stagingDirectory,
       },
       stdio: "inherit",
     },

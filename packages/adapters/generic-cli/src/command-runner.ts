@@ -6,7 +6,7 @@ import {
   type StdioOptions,
 } from "node:child_process";
 
-import type { AgentEventInput, AgentSource } from "@agentpulse/core";
+import type { AgentEventInput, AgentSource } from "@crewlight/core";
 
 import {
   createCommandEvent,

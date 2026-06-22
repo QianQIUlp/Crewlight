@@ -1,6 +1,6 @@
 {
-  "name": "@agentpulse/notifier",
-  "version": "0.3.0",
+  "name": "@crewlight/notifier",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -16,7 +16,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpulse/core": "workspace:^",
+    "@crewlight/core": "workspace:^",
     "node-notifier": "10.0.1"
   },
   "devDependencies": {

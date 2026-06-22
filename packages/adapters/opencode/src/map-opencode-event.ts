@@ -1,4 +1,4 @@
-import type { AgentEventInput, AgentStatus } from "@agentpulse/core";
+import type { AgentEventInput, AgentStatus } from "@crewlight/core";
 
 import {
   openCodePluginInputSchema,

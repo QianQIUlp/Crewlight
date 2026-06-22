@@ -1,10 +1,10 @@
 import { constants as osConstants } from "node:os";
 import { parseArgs } from "node:util";
 
-import { runCommand } from "@agentpulse/adapter-generic-cli";
-import { agentSourceSchema } from "@agentpulse/core";
+import { runCommand } from "@crewlight/adapter-generic-cli";
+import { agentSourceSchema } from "@crewlight/core";
 
-import type { AgentPulseClient } from "../daemon-client.js";
+import type { CrewlightClient } from "../daemon-client.js";
 import type { CommandIo } from "./types.js";
 
 function signalExitCode(signal: NodeJS.Signals): number {
@@ -13,7 +13,7 @@ function signalExitCode(signal: NodeJS.Signals): number {
 
 export async function executeRunCommand(
   args: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
 ): Promise<number> {
   const separator = args.indexOf("--");
@@ -38,7 +38,7 @@ export async function executeRunCommand(
   });
   const source = agentSourceSchema.parse(values.source);
   if (source !== "generic-cli") {
-    throw new Error("agentpulse run supports only --source generic-cli");
+    throw new Error("crewlight run supports only --source generic-cli");
   }
 
   const result = await runCommand({
@@ -47,13 +47,13 @@ export async function executeRunCommand(
     ...(values.cwd ? { cwd: values.cwd } : {}),
     source,
     emit: async (event) => {
-      io.write(`[AgentPulse] ${event.status}: ${event.message ?? ""}`);
+      io.write(`[Crewlight] ${event.status}: ${event.message ?? ""}`);
       await client.emit(event);
     },
     onEmitError: (error, event) => {
       const message = error instanceof Error ? error.message : String(error);
       io.warn(
-        `[AgentPulse] warning: could not deliver ${event.status} event: ${message}`,
+        `[Crewlight] warning: could not deliver ${event.status} event: ${message}`,
       );
     },
   });

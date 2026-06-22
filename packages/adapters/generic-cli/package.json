@@ -1,6 +1,6 @@
 {
-  "name": "@agentpulse/adapter-generic-cli",
-  "version": "0.3.0",
+  "name": "@crewlight/adapter-generic-cli",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "exports": {
@@ -16,6 +16,6 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@agentpulse/core": "workspace:^"
+    "@crewlight/core": "workspace:^"
   }
 }

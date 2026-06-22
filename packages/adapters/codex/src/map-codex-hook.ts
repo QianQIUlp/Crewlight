@@ -3,7 +3,7 @@ import {
   AgentEventInput,
   AgentStatus,
   AgentSurface,
-} from "@agentpulse/core";
+} from "@crewlight/core";
 
 import { codexHookInputSchema } from "./codex-hook-input.js";
 import type { CodexAdapterResult } from "./map-codex-notification.js";

@@ -1,25 +1,25 @@
-import { ingestClaudeHookJson } from "@agentpulse/adapter-claude-code";
+import { ingestClaudeHookJson } from "@crewlight/adapter-claude-code";
 import {
   ingestCodexHookJson,
   ingestCodexNotifyJson,
   isCodexHookEventName,
   type CodexHookEventName,
-} from "@agentpulse/adapter-codex";
+} from "@crewlight/adapter-codex";
 import {
   ingestCursorBridgeJson,
   mapCursorBridgeEvent,
   type CursorAdapterResult,
-} from "@agentpulse/adapter-cursor";
+} from "@crewlight/adapter-cursor";
 import {
   ingestOpenCodePluginJson,
   isOpenCodeEventType,
-} from "@agentpulse/adapter-opencode";
-import type { AgentEventInput, AgentSurface } from "@agentpulse/core";
+} from "@crewlight/adapter-opencode";
+import type { AgentEventInput, AgentSurface } from "@crewlight/core";
 
-import type { AgentPulseClient } from "../daemon-client.js";
+import type { CrewlightClient } from "../daemon-client.js";
 import type { CommandIo, StdinReader } from "./types.js";
 
-const WARNING_PREFIX = "AgentPulse ingest warning:";
+const WARNING_PREFIX = "Crewlight ingest warning:";
 type ProbeSurface = Extract<AgentSurface, "unknown" | "cli" | "desktop">;
 type IngestAdapter = (
   json: string,
@@ -40,7 +40,7 @@ function warnAdapterResult(
   if (result.kind === "invalid") {
     warn(
       io,
-      `${result.reason}. No event was recorded. Verify the platform setup and run \`agentpulse doctor\`.`,
+      `${result.reason}. No event was recorded. Verify the platform setup and run \`crewlight doctor\`.`,
     );
     return;
   }
@@ -54,7 +54,7 @@ function warnAdapterResult(
 async function deliver(
   json: string,
   adapter: IngestAdapter,
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
 ): Promise<number> {
   return deliverAdapterResult(adapter(json), client, io);
@@ -62,7 +62,7 @@ async function deliver(
 
 async function deliverAdapterResult(
   result: CursorAdapterResult | ReturnType<IngestAdapter>,
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
 ): Promise<number> {
   if (result.kind !== "event") {
@@ -75,7 +75,7 @@ async function deliverAdapterResult(
   } catch {
     warn(
       io,
-      "unable to deliver the event, so it was not recorded. Start the daemon with `agentpulse daemon --notifier console`, then run `agentpulse doctor`. The host workflow will continue.",
+      "unable to deliver the event, so it was not recorded. Start the daemon with `crewlight daemon --notifier console`, then run `crewlight doctor`. The host workflow will continue.",
     );
   }
 
@@ -84,7 +84,7 @@ async function deliverAdapterResult(
 
 async function ingestCursor(
   platformArgs: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
   readStdin: StdinReader,
 ): Promise<number> {
@@ -137,7 +137,7 @@ function hookEventNameFromJson(json: string): string | undefined {
 }
 
 async function promptPreviewEnabled(
-  client: AgentPulseClient,
+  client: CrewlightClient,
   hookEventName: string | undefined,
 ): Promise<boolean> {
   if (
@@ -158,7 +158,7 @@ async function promptPreviewEnabled(
 
 async function ingestCodexHook(
   platformArgs: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   readStdin: StdinReader,
 ): Promise<number> {
   const options = parseUniqueOptions(platformArgs, ["--hook", "--surface"]);
@@ -256,7 +256,7 @@ function parseProbeSurface(
 
 async function deliverSilently(
   event: AgentEventInput | undefined,
-  client: AgentPulseClient,
+  client: CrewlightClient,
 ): Promise<number> {
   if (!event) {
     return 0;
@@ -272,7 +272,7 @@ async function deliverSilently(
 
 async function ingestOpenCodePlugin(
   platformArgs: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   readStdin: StdinReader,
 ): Promise<number> {
   const options = parseUniqueOptions(platformArgs, ["--event"]);
@@ -366,7 +366,7 @@ function antigravityProbeEvent(
 
 async function ingestAntigravityProbe(
   platformArgs: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   readStdin: StdinReader,
 ): Promise<number> {
   const options = parseUniqueOptions(platformArgs, ["--event", "--surface"]);
@@ -394,7 +394,7 @@ async function ingestAntigravityProbe(
 
 async function ingest(
   args: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
   readStdin: StdinReader,
 ): Promise<number> {
@@ -404,7 +404,7 @@ async function ingest(
     if (platformArgs.length > 0) {
       warn(
         io,
-        "Claude Code ingest accepts JSON on stdin only. No event was recorded. Regenerate the hook with `agentpulse setup claude-code --print`.",
+        "Claude Code ingest accepts JSON on stdin only. No event was recorded. Regenerate the hook with `crewlight setup claude-code --print`.",
       );
       return 0;
     }
@@ -426,7 +426,7 @@ async function ingest(
     if (platformArgs.length > 1) {
       warn(
         io,
-        "Codex ingest accepts one JSON argument or stdin. No event was recorded. Regenerate the notify snippet with `agentpulse setup codex --print`.",
+        "Codex ingest accepts one JSON argument or stdin. No event was recorded. Regenerate the notify snippet with `crewlight setup codex --print`.",
       );
       return 0;
     }
@@ -453,14 +453,14 @@ async function ingest(
 
   warn(
     io,
-    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `cursor`, `opencode-plugin`, or `antigravity-probe`, then run `agentpulse doctor`.",
+    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `cursor`, `opencode-plugin`, or `antigravity-probe`, then run `crewlight doctor`.",
   );
   return 0;
 }
 
 export async function executeIngestCommand(
   args: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
   readStdin: StdinReader,
 ): Promise<number> {
@@ -469,7 +469,7 @@ export async function executeIngestCommand(
   } catch {
     warn(
       io,
-      "unable to read platform input, so no event was recorded. Verify the generated setup snippet and run `agentpulse doctor`; the host workflow will continue.",
+      "unable to read platform input, so no event was recorded. Verify the generated setup snippet and run `crewlight doctor`; the host workflow will continue.",
     );
     return 0;
   }

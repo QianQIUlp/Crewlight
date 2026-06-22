@@ -76,8 +76,8 @@ describe("DaemonClient dashboard capabilities", () => {
     });
     const client = new DaemonClient({
       env: {
-        AGENTPULSE_HOST: "127.0.0.1",
-        AGENTPULSE_PORT: String(target.port),
+        CREWLIGHT_HOST: "127.0.0.1",
+        CREWLIGHT_PORT: String(target.port),
       },
     });
 

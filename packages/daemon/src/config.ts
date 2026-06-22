@@ -1,5 +1,5 @@
-import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@agentpulse/shared";
-import { isNotifierKind, type NotifierKind } from "@agentpulse/notifier";
+import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
+import { isNotifierKind, type NotifierKind } from "@crewlight/notifier";
 
 export interface DaemonListenConfig {
   host: string;
@@ -18,9 +18,8 @@ export function resolveDaemonConfig(
   overrides: DaemonConfigOverrides = {},
   env: NodeJS.ProcessEnv = process.env,
 ): DaemonConfig {
-  const host = overrides.host ?? env.AGENTPULSE_HOST ?? DEFAULT_DAEMON_HOST;
-  const portValue =
-    overrides.port ?? env.AGENTPULSE_PORT ?? DEFAULT_DAEMON_PORT;
+  const host = overrides.host ?? env.CREWLIGHT_HOST ?? DEFAULT_DAEMON_HOST;
+  const portValue = overrides.port ?? env.CREWLIGHT_PORT ?? DEFAULT_DAEMON_PORT;
   const port = typeof portValue === "number" ? portValue : Number(portValue);
 
   if (!host) {
@@ -32,7 +31,7 @@ export function resolveDaemonConfig(
   }
 
   const notifierValue =
-    overrides.notifier ?? env.AGENTPULSE_NOTIFIER ?? "console";
+    overrides.notifier ?? env.CREWLIGHT_NOTIFIER ?? "console";
   if (!isNotifierKind(notifierValue)) {
     throw new Error(`Invalid notifier kind: ${String(notifierValue)}`);
   }

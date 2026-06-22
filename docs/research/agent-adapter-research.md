@@ -1,13 +1,13 @@
 # Agent Adapter Research
 
 This note records evidence boundaries for the OpenCode, Codex Desktop, and
-Antigravity work. An available interface is not treated as verified AgentPulse
+Antigravity work. An available interface is not treated as verified Crewlight
 support until the generated integration has been exercised against the real
 product.
 
 ## Support matrix
 
-| Platform surface        | AgentPulse level                                           |
+| Platform surface        | Crewlight level                                            |
 | ----------------------- | ---------------------------------------------------------- |
 | Claude Code hooks       | `supported`                                                |
 | Codex CLI hooks         | `supported` after real Windows testing                     |
@@ -16,7 +16,7 @@ product.
 | Codex Desktop           | `experimental`; reuses Codex hooks                         |
 | Antigravity CLI/Desktop | `research-only`; probe command is not a stable integration |
 
-The level names used in AgentPulse documentation are `supported`,
+The level names used in Crewlight documentation are `supported`,
 `experimental`, `research-only`, and `unsupported`. OpenCode remains below
 `supported` until a real local verification confirms plugin loading, event
 delivery, and non-blocking failure behavior.
@@ -37,7 +37,7 @@ delivery, and non-blocking failure behavior.
 
 The public [OpenCode repository](https://github.com/anomalyco/opencode)
 defines plugin event payloads with session identifiers and status types. The
-AgentPulse implementation follows those public shapes conservatively and
+Crewlight implementation follows those public shapes conservatively and
 forwards only whitelisted identity and status metadata.
 
 ### Local experiment required
@@ -47,7 +47,7 @@ forwards only whitelisted identity and status metadata.
 - Confirm the generated `Bun.spawn` invocation remains detached and silent.
 - Test native Windows, WSL, and OpenCode Desktop separately.
 
-### Current AgentPulse level
+### Current Crewlight level
 
 OpenCode CLI/TUI plugin: implemented, pending real local verification before a
 `supported` label. OpenCode Desktop: `experimental`.
@@ -65,10 +65,10 @@ OpenCode CLI/TUI plugin: implemented, pending real local verification before a
 
 ### Local experiment required
 
-AgentPulse has not verified that every Desktop thread runs the same hook events
+Crewlight has not verified that every Desktop thread runs the same hook events
 with the same payload and working-directory behavior as Codex CLI.
 
-### Current AgentPulse level
+### Current Crewlight level
 
 `experimental`. It reuses the Codex adapter with `source=codex` and an explicit
 `surface=desktop`; no separate Desktop adapter exists.
@@ -84,7 +84,7 @@ customization concepts. A
 
 ### Not confirmed
 
-AgentPulse has not verified readable hook documentation content, a hooks
+Crewlight has not verified readable hook documentation content, a hooks
 configuration shape, payload schema, command execution contract, or whether
 CLI and Desktop share configuration and runtime behavior.
 
@@ -94,7 +94,7 @@ Follow the checklist in [Antigravity research](../antigravity.md) without
 capturing prompts, transcripts, tool input/output, credentials, or file
 contents.
 
-### Current AgentPulse level
+### Current Crewlight level
 
 `research-only`. The probe command is diagnostic scaffolding, not a stable
 adapter or setup path.

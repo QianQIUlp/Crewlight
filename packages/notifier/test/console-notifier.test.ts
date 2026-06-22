@@ -1,4 +1,4 @@
-import { normalizeAgentEvent, SessionStore } from "@agentpulse/core";
+import { normalizeAgentEvent, SessionStore } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
 import { ConsoleNotifier, shouldNotify } from "../src/index.js";

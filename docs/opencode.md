@@ -1,34 +1,34 @@
 # OpenCode Plugin MVP
 
-AgentPulse includes an OpenCode plugin MVP. It is implemented but pending real
+Crewlight includes an OpenCode plugin MVP. It is implemented but pending real
 local verification before receiving a `supported` label.
 
 ## Print the plugin
 
 ```bash
-agentpulse setup opencode --print
+crewlight setup opencode --print
 ```
 
 The command prints one JavaScript plugin file. It does not inspect or modify
 OpenCode configuration. Save the output to either:
 
-- `.opencode/plugins/agentpulse.js` for one project;
-- `~/.config/opencode/plugins/agentpulse.js` for global use.
+- `.opencode/plugins/crewlight.js` for one project;
+- `~/.config/opencode/plugins/crewlight.js` for global use.
 
 OpenCode automatically loads local plugin files from these locations at
 startup. Preserve other plugins already present.
 
 By default the generated plugin embeds the current standalone executable path,
 or the absolute Node executable and CLI entry path in source mode. Use
-`--binary agentpulse` only when OpenCode can reliably resolve AgentPulse from
+`--binary crewlight` only when OpenCode can reliably resolve Crewlight from
 `PATH`.
 
 ## Run and verify
 
-Start AgentPulse:
+Start Crewlight:
 
 ```bash
-agentpulse daemon --dashboard --notifier console
+crewlight daemon --dashboard --notifier console
 ```
 
 Restart OpenCode after placing the plugin, start a minimal session, exercise a
@@ -38,7 +38,7 @@ as `running`, `using_tool`, `waiting_permission`, `completed`, or `failed`.
 
 The MVP maps:
 
-| OpenCode event        | AgentPulse status    |
+| OpenCode event        | Crewlight status     |
 | --------------------- | -------------------- |
 | `session.created`     | `running`            |
 | `session.updated`     | `running`            |
@@ -57,13 +57,13 @@ Unknown events are ignored.
 
 The generated plugin uses `Bun.spawn` with an argv array, not a shell command
 string. It checks that `Bun.spawn` exists, discards child stdout and stderr,
-guards optional `unref()`, catches all errors, and does not wait for AgentPulse.
+guards optional `unref()`, catches all errors, and does not wait for Crewlight.
 
 Only event type, session identity, status type, project directory, and a local
 timestamp are sent. Prompts, message content, tool arguments, tool results,
 file contents, raw events, and environment data are not forwarded.
 
-`agentpulse ingest opencode-plugin` always exits zero and writes nothing to
+`crewlight ingest opencode-plugin` always exits zero and writes nothing to
 stdout or stderr, including for invalid input, unsupported events, stdin
 failures, and daemon connection failures.
 
@@ -74,5 +74,5 @@ Windows experience, although native installs exist. Native Windows and WSL
 must be verified separately.
 
 OpenCode Desktop runs an OpenCode sidecar and may load the same plugin
-configuration, but AgentPulse has not verified that behavior. OpenCode Desktop
+configuration, but Crewlight has not verified that behavior. OpenCode Desktop
 support is `experimental`.

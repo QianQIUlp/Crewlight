@@ -20,7 +20,7 @@ const onlineResult: DashboardPollResult = {
         lastEventAgeMs: 1_000,
         isStale: false,
         displayName: "Custom",
-        displayWorkspace: "AgentPulse",
+        displayWorkspace: "Crewlight",
         attention: "passive",
       },
     ],

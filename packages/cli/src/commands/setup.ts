@@ -6,7 +6,7 @@ import { parseArgs } from "node:util";
 import {
   CODEX_HOOK_EVENT_NAMES,
   type CodexHookEventName,
-} from "@agentpulse/adapter-codex";
+} from "@crewlight/adapter-codex";
 
 import type { CommandIo } from "./types.js";
 
@@ -50,14 +50,14 @@ export type CodexHooksSetupResult =
   | { available: false; reason: SetupUnavailableReason };
 
 const SETUP_USAGE =
-  "Usage: agentpulse setup <claude-code|codex|codex-hooks|cursor|opencode> --print [--binary <absolute-path|agentpulse>] [--surface <unknown|cli|desktop>]";
+  "Usage: crewlight setup <claude-code|codex|codex-hooks|cursor|opencode> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]";
 const WINDOWS_CODEX_HOOK_SIMPLE_TOKEN = /^[\p{L}\p{N}:\\/._-]+$/u;
 const WINDOWS_CODEX_HOOKS_UNAVAILABLE: SetupUnavailableReason = {
   code: "windows-codex-hooks-unsafe-command",
   message:
-    "Codex hooks setup is unavailable because Codex CLI 0.141.0 on Windows cannot reliably run a leading quoted executable command, and the resolved AgentPulse command is not a simple unquoted path.",
+    "Codex hooks setup is unavailable because Codex CLI 0.141.0 on Windows cannot reliably run a leading quoted executable command, and the resolved Crewlight command is not a simple unquoted path.",
   action:
-    "Install AgentPulse into a simple no-space path such as C:\\Users\\<user>\\Tools\\AgentPulse\\agentpulse.exe, then rerun `agentpulse setup codex-hooks --print`.",
+    "Install Crewlight into a simple no-space path such as C:\\Users\\<user>\\Tools\\Crewlight\\crewlight.exe, then rerun `crewlight setup codex-hooks --print`.",
 };
 
 function currentSetupRuntime(): SetupRuntime {
@@ -106,18 +106,18 @@ function validateToken(token: string): void {
   }
 }
 
-export function resolveAgentPulseCommand(
+export function resolveCrewlightCommand(
   binary: string | undefined,
   runtime: SetupRuntime = currentSetupRuntime(),
 ): string[] {
   if (binary !== undefined) {
     validateToken(binary);
-    if (binary === "agentpulse") {
+    if (binary === "crewlight") {
       return [binary];
     }
     if (!isAbsoluteForPlatform(binary, runtime.platform)) {
       throw new Error(
-        "--binary must be an absolute path or the exact value `agentpulse` for PATH mode.",
+        "--binary must be an absolute path or the exact value `crewlight` for PATH mode.",
       );
     }
     return [binary];
@@ -129,7 +129,7 @@ export function resolveAgentPulseCommand(
 
   if (!runtime.entryPath) {
     throw new Error(
-      "Unable to determine the current CLI entry path. Use --binary with an absolute executable path or `agentpulse`.",
+      "Unable to determine the current CLI entry path. Use --binary with an absolute executable path or `crewlight`.",
     );
   }
 
@@ -269,7 +269,7 @@ function createCodexHooksSnippet(
 
 function createOpenCodePlugin(command: readonly string[]): string {
   const commandJson = JSON.stringify(command);
-  return `const AGENTPULSE_COMMAND = ${commandJson};
+  return `const CREWLIGHT_COMMAND = ${commandJson};
 const EVENT_TYPES = new Set([
   "session.created",
   "session.updated",
@@ -317,7 +317,7 @@ function publish(eventType, sessionID, statusType, cwd) {
     };
     const proc = bun.spawn(
       [
-        ...AGENTPULSE_COMMAND,
+        ...CREWLIGHT_COMMAND,
         "ingest",
         "opencode-plugin",
         "--event",
@@ -337,7 +337,7 @@ function publish(eventType, sessionID, statusType, cwd) {
   } catch {}
 }
 
-export const AgentPulsePlugin = async ({ directory }) => ({
+export const CrewlightPlugin = async ({ directory }) => ({
   event: async ({ event }) => {
     try {
       const eventType = safeText(event?.type);
@@ -391,9 +391,9 @@ function createCursorCommands(
         "--surface",
         "ide-extension",
         "--session",
-        "cursor-agentpulse",
+        "cursor-crewlight",
         "--workspace",
-        "AgentPulse",
+        "Crewlight",
         "--title",
         title,
       ],
@@ -422,9 +422,9 @@ function createCursorVerificationCommand(
       "--surface",
       "ide-extension",
       "--session",
-      "agentpulse-verify-cursor",
+      "crewlight-verify-cursor",
       "--workspace",
-      "AgentPulse",
+      "Crewlight",
       "--title",
       "Cursor verification",
     ],
@@ -460,7 +460,7 @@ export function createAntigravityProbeCommand(
   runtime: SetupRuntime = currentSetupRuntime(),
 ): string {
   return renderAntigravityProbe(
-    resolveAgentPulseCommand(binary, runtime),
+    resolveCrewlightCommand(binary, runtime),
     runtime.platform,
   );
 }
@@ -470,7 +470,7 @@ export function createSetupSnippets(
   runtime: SetupRuntime = currentSetupRuntime(),
   codexHooksSurface: CodexHookSurface = "cli",
 ): SetupSnippets {
-  const command = resolveAgentPulseCommand(binary, runtime);
+  const command = resolveCrewlightCommand(binary, runtime);
   const ingestClaude = renderHookCommand(
     [...command, "ingest", "claude-code"],
     runtime.platform,
@@ -482,15 +482,15 @@ export function createSetupSnippets(
 
   const claudePayload = JSON.stringify({
     hook_event_name: "UserPromptSubmit",
-    prompt: "AgentPulse verification test",
-    session_id: "agentpulse-verify-claude-code",
+    prompt: "Crewlight verification test",
+    session_id: "crewlight-verify-claude-code",
   });
 
   const codexPayload = JSON.stringify({
     notify: "activity",
-    message: "AgentPulse verification test",
+    message: "Crewlight verification test",
     source: "codex",
-    session_id: "agentpulse-verify-codex",
+    session_id: "crewlight-verify-codex",
   });
 
   const claudeEcho =
@@ -528,39 +528,39 @@ export function formatCodexHooksSetup(result: CodexHooksSetupResult): string {
   return `Codex hooks setup unavailable.\n${result.reason.message}\nAction: ${result.reason.action}`;
 }
 
-const CLAUDE_CODE_SETUP_GUIDANCE = `AgentPulse only printed a mergeable snippet; it did not read or modify Claude Code configuration.
+const CLAUDE_CODE_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Claude Code configuration.
 Merge it manually into ~/.claude/settings.json (Windows: %USERPROFILE%\\.claude\\settings.json), .claude/settings.json, or .claude/settings.local.json.
-If a hooks object or any matching event already exists, preserve it and append the AgentPulse handler. Do not replace the whole file.
-Use \`--binary agentpulse\` only when the hook environment can reliably resolve AgentPulse from PATH.
-Next: start \`agentpulse daemon --notifier console\`, run \`agentpulse doctor\`, then use Claude Code \`/hooks\` to confirm the handlers are loaded.`;
+If a hooks object or any matching event already exists, preserve it and append the Crewlight handler. Do not replace the whole file.
+Use \`--binary crewlight\` only when the hook environment can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then use Claude Code \`/hooks\` to confirm the handlers are loaded.`;
 
-const CODEX_SETUP_GUIDANCE = `AgentPulse only printed a mergeable snippet; it did not read or modify Codex configuration.
+const CODEX_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Codex configuration.
 Merge it manually into ~/.codex/config.toml (Windows: %USERPROFILE%\\.codex\\config.toml, or $CODEX_HOME/config.toml when CODEX_HOME is set).
 If notify already exists, do not overwrite it. Codex accepts one external notifier command, so keep the existing command or route both through a wrapper.
 Do not place notify in project .codex/config.toml; Codex ignores machine-local notification commands there.
-Use \`--binary agentpulse\` only when Codex can reliably resolve AgentPulse from PATH.
-Next: start \`agentpulse daemon --notifier console\`, run \`agentpulse doctor\`, then complete one Codex CLI turn.`;
+Use \`--binary crewlight\` only when Codex can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then complete one Codex CLI turn.`;
 
-const CODEX_HOOKS_SETUP_GUIDANCE = `AgentPulse only printed a mergeable hooks.json snippet; it did not read or modify Codex configuration.
+const CODEX_HOOKS_SETUP_GUIDANCE = `Crewlight only printed a mergeable hooks.json snippet; it did not read or modify Codex configuration.
 Merge it manually into ~/.codex/hooks.json or a trusted project .codex/hooks.json while preserving existing hook groups.
-Codex requires non-managed command hooks to be reviewed and trusted. Open \`/hooks\`, inspect the exact AgentPulse commands, and trust them only if they match your installation.
-AgentPulse observes hook events only. It does not return permission decisions, context, or turn-control output, and it does not bypass Codex hook trust.
+Codex requires non-managed command hooks to be reviewed and trusted. Open \`/hooks\`, inspect the exact Crewlight commands, and trust them only if they match your installation.
+Crewlight observes hook events only. It does not return permission decisions, context, or turn-control output, and it does not bypass Codex hook trust.
 Each generated command passes its matching lifecycle event through \`--hook <EventName>\`; stdin is treated as optional payload data.
 The default setup marks events as \`--surface cli\`, which preserves the verified Codex CLI path. Use \`--surface desktop\` only for an explicit local Codex Desktop verification.
-On Windows, Codex hooks execute the \`commandWindows\` field. Codex CLI 0.141.0 requires AgentPulse to be installed at a simple no-space path so this field can use an unquoted executable command.
-Use \`--binary agentpulse\` only when Codex can reliably resolve AgentPulse from PATH.`;
+On Windows, Codex hooks execute the \`commandWindows\` field. Codex CLI 0.141.0 requires Crewlight to be installed at a simple no-space path so this field can use an unquoted executable command.
+Use \`--binary crewlight\` only when Codex can reliably resolve Crewlight from PATH.`;
 
-const OPENCODE_SETUP_GUIDANCE = `AgentPulse only printed an OpenCode plugin file; it did not read or modify OpenCode configuration.
-Save it as .opencode/plugins/agentpulse.js for one project or ~/.config/opencode/plugins/agentpulse.js for global use.
+const OPENCODE_SETUP_GUIDANCE = `Crewlight only printed an OpenCode plugin file; it did not read or modify OpenCode configuration.
+Save it as .opencode/plugins/crewlight.js for one project or ~/.config/opencode/plugins/crewlight.js for global use.
 The plugin uses an argv-array Bun.spawn call, sends only whitelisted session metadata, ignores child output, and swallows all errors.
-Use \`--binary agentpulse\` only when OpenCode can reliably resolve AgentPulse from PATH.
+Use \`--binary crewlight\` only when OpenCode can reliably resolve Crewlight from PATH.
 OpenCode support is implemented but pending real local verification before it receives a supported label.`;
 
-const CURSOR_SETUP_GUIDANCE = `AgentPulse only printed manual Cursor bridge commands; it did not read or modify Cursor settings.
+const CURSOR_SETUP_GUIDANCE = `Crewlight only printed manual Cursor bridge commands; it did not read or modify Cursor settings.
 This integration is manual and experimental. It does not observe Cursor internals or claim a stable automatic lifecycle hook.
-Start \`agentpulse daemon --dashboard\`, then run the commands from Cursor's integrated terminal or user-defined tasks.
-Use one stable \`--session\` value per Cursor work stream so later commands update the same AgentPulse session.
-Use \`--binary agentpulse\` only when Cursor's integrated terminal can reliably resolve AgentPulse from PATH.`;
+Start \`crewlight daemon --dashboard\`, then run the commands from Cursor's integrated terminal or user-defined tasks.
+Use one stable \`--session\` value per Cursor work stream so later commands update the same Crewlight session.
+Use \`--binary crewlight\` only when Cursor's integrated terminal can reliably resolve Crewlight from PATH.`;
 
 export function executeSetupCommand(
   args: readonly string[],

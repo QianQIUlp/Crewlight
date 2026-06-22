@@ -2,7 +2,7 @@
 
 Use this checklist in review mode or as the final pass after an authorized
 implementation. Apply the Microsoft frontend-design-review source only as a
-review framework; do not use its creation mode to redefine AgentPulse.
+review framework; do not use its creation mode to redefine Crewlight.
 
 ## Product and Scope
 

@@ -5,10 +5,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('$ROOT/package.json', 'utf8')).version")"
 NODE_VERSION="$(node --version)"
-ARTIFACT="agentpulse-v${VERSION}-linux-x64"
+ARTIFACT="crewlight-v${VERSION}-linux-x64"
 ARCHIVE="$ROOT/release/${ARTIFACT}.tar.gz"
 CHECKSUM="$ARCHIVE.sha256"
-PORT="${AGENTPULSE_SMOKE_PORT:-43768}"
+PORT="${CREWLIGHT_SMOKE_PORT:-43768}"
 
 CURL="$(command -v curl)"
 ENV_COMMAND="$(command -v env)"
@@ -37,12 +37,12 @@ trap cleanup EXIT
 "$TAR" -xzf "$ARCHIVE" -C "$WORK"
 
 BIN_DIR="$WORK/$ARTIFACT"
-BIN="$BIN_DIR/agentpulse"
+BIN="$BIN_DIR/crewlight"
 HOME_DIR="$WORK/home"
 mkdir -p "$HOME_DIR"
 
 test -x "$BIN"
-"$GREP" -qF "AgentPulse version: $VERSION" "$BIN_DIR/BUILD-INFO.txt"
+"$GREP" -qF "Crewlight version: $VERSION" "$BIN_DIR/BUILD-INFO.txt"
 "$GREP" -qF "Node version: $NODE_VERSION" "$BIN_DIR/BUILD-INFO.txt"
 "$GREP" -qF "Platform: linux" "$BIN_DIR/BUILD-INFO.txt"
 "$GREP" -qF "Architecture: x64" "$BIN_DIR/BUILD-INFO.txt"
@@ -60,12 +60,12 @@ run_binary() {
   "$ENV_COMMAND" -i \
     PATH="$BIN_DIR" \
     HOME="$HOME_DIR" \
-    AGENTPULSE_PORT="$PORT" \
+    CREWLIGHT_PORT="$PORT" \
     "$BIN" "$@"
 }
 
 run_binary --help >"$WORK/help.txt"
-"$GREP" -qF "AgentPulse v$VERSION" "$WORK/help.txt"
+"$GREP" -qF "Crewlight v$VERSION" "$WORK/help.txt"
 run_binary setup claude-code --print >"$WORK/claude-setup.txt" 2>"$WORK/claude-guidance.txt"
 "$GREP" -qF '"hooks"' "$WORK/claude-setup.txt"
 "$GREP" -qF "$BIN ingest claude-code" "$WORK/claude-setup.txt"
@@ -85,10 +85,10 @@ run_binary setup opencode --print >"$WORK/opencode-setup.js" 2>"$WORK/opencode-g
 if "$ENV_COMMAND" -i \
   PATH="$BIN_DIR" \
   HOME="$HOME_DIR" \
-  AGENTPULSE_HOST="0.0.0.0" \
-  AGENTPULSE_PORT="$PORT" \
+  CREWLIGHT_HOST="0.0.0.0" \
+  CREWLIGHT_PORT="$PORT" \
   "$BIN" daemon --dashboard --notifier none >"$WORK/unsafe-dashboard.txt" 2>&1; then
-  echo "Dashboard unexpectedly accepted AGENTPULSE_HOST=0.0.0.0" >&2
+  echo "Dashboard unexpectedly accepted CREWLIGHT_HOST=0.0.0.0" >&2
   exit 1
 fi
 "$GREP" -qF "requires --host 127.0.0.1 or --host ::1" "$WORK/unsafe-dashboard.txt"
@@ -96,7 +96,7 @@ fi
 "$ENV_COMMAND" -i \
   PATH="$BIN_DIR" \
   HOME="$HOME_DIR" \
-  AGENTPULSE_PORT="$PORT" \
+  CREWLIGHT_PORT="$PORT" \
   "$BIN" daemon \
   --port "$PORT" \
   --notifier none \
@@ -111,7 +111,7 @@ for _ in {1..50}; do
 done
 
 "$CURL" --fail --silent "http://127.0.0.1:${PORT}/dashboard" >"$WORK/dashboard.html"
-"$GREP" -qF "AgentPulse Dashboard" "$WORK/dashboard.html"
+"$GREP" -qF "Crewlight Dashboard" "$WORK/dashboard.html"
 "$CURL" \
   --dump-header "$WORK/dashboard.headers" \
   --fail \
@@ -191,6 +191,6 @@ run_binary status --json >"$WORK/status.json"
 kill -TERM "$DAEMON_PID"
 wait "$DAEMON_PID"
 DAEMON_PID=""
-"$GREP" -qF "AgentPulse daemon stopped" "$WORK/daemon.log"
+"$GREP" -qF "Crewlight daemon stopped" "$WORK/daemon.log"
 
 echo "Standalone binary smoke test passed with restricted PATH=$BIN_DIR"

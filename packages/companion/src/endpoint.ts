@@ -1,4 +1,4 @@
-import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@agentpulse/shared";
+import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
 
 export interface CompanionEndpoint {
   host: string;
@@ -20,8 +20,8 @@ function formatHost(host: string): string {
 export function resolveCompanionEndpoint(
   env: NodeJS.ProcessEnv = process.env,
 ): CompanionEndpoint {
-  const requestedHost = env.AGENTPULSE_HOST;
-  const requestedPort = env.AGENTPULSE_PORT;
+  const requestedHost = env.CREWLIGHT_HOST;
+  const requestedPort = env.CREWLIGHT_PORT;
   const issues: string[] = [];
 
   let host = DEFAULT_DAEMON_HOST;
@@ -30,7 +30,7 @@ export function resolveCompanionEndpoint(
       host = requestedHost;
     } else {
       issues.push(
-        `Ignoring non-loopback AGENTPULSE_HOST=${requestedHost}; using ${DEFAULT_DAEMON_HOST}.`,
+        `Ignoring non-loopback CREWLIGHT_HOST=${requestedHost}; using ${DEFAULT_DAEMON_HOST}.`,
       );
     }
   }
@@ -42,7 +42,7 @@ export function resolveCompanionEndpoint(
       port = parsed;
     } else {
       issues.push(
-        `Ignoring invalid AGENTPULSE_PORT=${requestedPort}; using ${DEFAULT_DAEMON_PORT}.`,
+        `Ignoring invalid CREWLIGHT_PORT=${requestedPort}; using ${DEFAULT_DAEMON_PORT}.`,
       );
     }
   }

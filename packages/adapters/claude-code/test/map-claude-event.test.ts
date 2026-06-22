@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { normalizeAgentEvent } from "@agentpulse/core";
+import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
 import { ingestClaudeHookJson, mapClaudeEvent } from "../src/index.js";

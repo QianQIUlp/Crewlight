@@ -1,19 +1,19 @@
 # Browser Dashboard
 
 The dashboard is an optional, local, read-only view of the current daemon
-process. The v0.3 design is a status-first daily-use surface rather than a
+process. The v0.4 design is a status-first daily-use surface rather than a
 setup-first diagnostic page.
 
 ## Start
 
 ```bash
-agentpulse daemon --dashboard
+crewlight daemon --dashboard
 ```
 
 Prompt-derived task titles are disabled by default. To opt in locally:
 
 ```bash
-agentpulse daemon --dashboard --dashboard-task-titles prompt-preview
+crewlight daemon --dashboard --dashboard-task-titles prompt-preview
 ```
 
 This mode reads the documented `UserPromptSubmit.prompt` field from Claude Code
@@ -33,18 +33,18 @@ http://127.0.0.1:3768/dashboard
 Start the dashboard-enabled daemon, then load the built-in scenario:
 
 ```bash
-agentpulse daemon --dashboard --notifier none
-agentpulse demo multi-agent
+crewlight daemon --dashboard --notifier none
+crewlight demo multi-agent
 ```
 
-`agentpulse demo` and `agentpulse demo --scenario multi-agent` are equivalent.
+`crewlight demo` and `crewlight demo --scenario multi-agent` are equivalent.
 The command submits six safe synthetic events through the ordinary local event
 ingestion path. The sessions cover active work, permission and input requests,
 completion, failure, and an older running session that the existing dashboard
 heuristic marks as possibly stale.
 
 Demo session identities are deterministic, so rerunning the command refreshes
-the same sessions instead of adding duplicates. AgentPulse has no session
+the same sessions instead of adding duplicates. Crewlight has no session
 deletion or persistence mechanism; restart the daemon to clear all current
 in-memory sessions.
 
@@ -55,13 +55,13 @@ agent credentials, and it does not impersonate upstream event formats.
 IPv6 loopback is also accepted:
 
 ```bash
-agentpulse daemon --dashboard --host ::1
+crewlight daemon --dashboard --host ::1
 ```
 
-When `--dashboard` is enabled, AgentPulse rejects every host except
+When `--dashboard` is enabled, Crewlight rejects every host except
 `127.0.0.1` and `::1`. The dashboard cannot be combined with `0.0.0.0`, a LAN
 address, or another non-loopback binding. This also applies when the unsafe
-value comes from `AGENTPULSE_HOST`; with no host override the dashboard always
+value comes from `CREWLIGHT_HOST`; with no host override the dashboard always
 binds to `127.0.0.1`.
 
 ## Displayed Information
@@ -111,8 +111,8 @@ newest event appears first within each group. This ordering changes only the
 compact presentation; it does not change session status or attention.
 
 Selecting a row opens Focus Mode while retaining `view=compact` in the URL, so
-the return link goes back to Compact Mode. Compact Mode is a browser prototype
-for a possible future floating or desktop status surface. It does not add a
+the return link goes back to Compact Mode. Compact Mode is a browser baseline
+for the floating companion surface. It does not add a
 desktop shell.
 
 ### Focus Mode
@@ -132,7 +132,7 @@ The retained `view` parameter only determines whether the return link targets
 Compact or Overview Mode.
 
 The browser requests `/dashboard/api` every two seconds and also provides a
-manual refresh button. This is ordinary HTTP polling. AgentPulse does not use
+manual refresh button. This is ordinary HTTP polling. Crewlight does not use
 SSE or WebSocket.
 
 Hook ingest may request `/dashboard/capabilities` to discover whether local
@@ -146,7 +146,7 @@ presentation-only derived fields:
 
 - `displayName`;
 - `displayWorkspace`;
-- `shortSessionKey`, the final eight characters of the AgentPulse-owned
+- `shortSessionKey`, the final eight characters of the Crewlight-owned
   `sessionKey`, or the complete key when shorter;
 - `identityLine`, formatted as
   `<workspace> · <surface label> · #<shortSessionKey>`;
@@ -183,7 +183,7 @@ The attention mapping and future floating-mode direction are documented in
   styles, frameworks, or CDNs.
 - Session, setup, and doctor values are rendered with DOM `textContent`; they
   are never inserted as dynamic HTML.
-- API sessions are explicitly serialized from normalized AgentPulse fields.
+- API sessions are explicitly serialized from normalized Crewlight fields.
 - Task titles never inspect event labels, arbitrary messages, command bodies,
   or unallowlisted platform fields.
 - Prompt-preview task titles are generated only when the daemon starts with
@@ -199,7 +199,7 @@ The attention mapping and future floating-mode direction are documented in
   to disabled without interrupting the host workflow.
 - There is no login because the dashboard is forcibly restricted to loopback.
 
-AgentPulse still accepts local event submissions through the daemon API. Do not
+Crewlight still accepts local event submissions through the daemon API. Do not
 forward or proxy the unauthenticated daemon outside the trusted machine.
 
 ## Lifecycle
@@ -222,4 +222,4 @@ config mutation, installers, or release automation. See
 [Multi-Agent Companion Surface](companion-surface.md).
 
 Existing Claude Code and Codex hook snippets do not need regeneration as long
-as they invoke the updated AgentPulse binary or CLI.
+as they invoke the updated Crewlight binary or CLI.

@@ -1,10 +1,10 @@
-# Contributing to AgentPulse
+# Contributing to Crewlight
 
 [简体中文](CONTRIBUTING.zh-CN.md) | English
 
-Thanks for considering a contribution to AgentPulse.
+Thanks for considering a contribution to Crewlight.
 
-AgentPulse is intended to be a small, reliable observability layer for AI coding agents. Contributions are welcome, but the project works best when changes are scoped, testable, and easy to review.
+Crewlight is intended to be a small, reliable observability layer for AI coding agents. Contributions are welcome, but the project works best when changes are scoped, testable, and easy to review.
 
 ## Good first contribution areas
 
@@ -46,7 +46,7 @@ Keep PRs small enough that a reviewer can understand the intent without reconstr
 
 ## Design boundaries
 
-AgentPulse should remain predictable and conservative.
+Crewlight should remain predictable and conservative.
 
 Please do not introduce changes that:
 
@@ -78,7 +78,7 @@ Useful issue reports include:
 
 - Operating system and shell.
 - Agent or tool being used.
-- AgentPulse version.
+- Crewlight version.
 - The exact command or configuration snippet.
 - Expected behavior.
 - Actual behavior.

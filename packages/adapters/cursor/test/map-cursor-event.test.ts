@@ -1,4 +1,4 @@
-import type { AgentStatus } from "@agentpulse/core";
+import type { AgentStatus } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
 import { ingestCursorBridgeJson, mapCursorBridgeEvent } from "../src/index.js";
@@ -40,9 +40,9 @@ describe("Cursor manual bridge adapter", () => {
       mapCursorBridgeEvent({
         event: "WAITING-INPUT",
         surface: "desktop",
-        sessionId: "cursor-agentpulse",
-        workspaceName: "AgentPulse",
-        projectPath: "/workspace/AgentPulse",
+        sessionId: "cursor-crewlight",
+        workspaceName: "Crewlight",
+        projectPath: "/workspace/Crewlight",
         title: "Cursor needs review",
         message: "Manual bridge event",
         timestamp: 1_710_000_000_000,
@@ -53,9 +53,9 @@ describe("Cursor manual bridge adapter", () => {
         source: "cursor",
         surface: "desktop",
         status: "waiting_input",
-        sessionId: "cursor-agentpulse",
-        workspaceName: "AgentPulse",
-        projectPath: "/workspace/AgentPulse",
+        sessionId: "cursor-crewlight",
+        workspaceName: "Crewlight",
+        projectPath: "/workspace/Crewlight",
         taskTitle: "Cursor needs review",
         message: "Manual bridge event",
         timestamp: 1_710_000_000_000,

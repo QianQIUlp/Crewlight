@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/readme/agentpulse-mark.svg" width="112" alt="AgentPulse pulse mark">
+  <img src="assets/readme/crewlight-mark.svg" width="112" alt="Crewlight pulse mark">
 </p>
 
-<h1 align="center">AgentPulse</h1>
+<h1 align="center">Crewlight</h1>
 
-<p align="center"><strong>Universal activity monitor for AI coding agents.</strong></p>
+<p align="center"><strong>Local activity radar for AI coding agents.</strong></p>
 
 <p align="center">
   <a href="README.md">English</a>
@@ -13,41 +13,44 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/QianQIUlp/AgentPulse/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/published_preview-v0.3.0-7c3aed" alt="Published preview v0.3.0"></a>
+  <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-0f766e" alt="Release v0.4.0"></a>
   <img src="https://img.shields.io/badge/platform-Linux_x64_%7C_Windows_x64-334155" alt="Platforms: Linux x64 and Windows x64">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/QianQIUlp/AgentPulse" alt="MIT license"></a>
-  <a href="https://github.com/QianQIUlp/AgentPulse/actions/workflows/ci.yml"><img src="https://github.com/QianQIUlp/AgentPulse/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/QianQIUlp/Crewlight" alt="MIT license"></a>
+  <a href="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml"><img src="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
 </p>
 
-AgentPulse is a local activity hub that normalizes supported AI coding-agent
-events into one current view, with safe notifications, CLI inspection, and an
-optional read-only dashboard.
+Crewlight is a local-first companion surface for multi-agent coding workflows.
+It shows which AI coding agents are running, blocked, stale, failed,
+completed, or waiting for attention across local developer tools.
 
 <p align="center">
-  <img src="assets/readme/agentpulse-flow.svg" width="100%" alt="AgentPulse flow from bounded agent integrations through allowlisted adapters and a local daemon to read-only status outputs">
+  <img src="assets/readme/crewlight-flow.svg" width="100%" alt="Crewlight flow from bounded agent integrations through allowlisted adapters and a local daemon to read-only status outputs">
 </p>
 
 ## Feature Overview
 
-- **One local activity view:** aggregate supported agent lifecycle events into
-  AgentPulse-owned, namespaced sessions.
-- **Status-first dashboard:** inspect current work, action-needed states,
-  failures, stale activity, setup snippets, and basic doctor output.
+- **Local activity radar:** aggregate supported agent lifecycle events into
+  Crewlight-owned, namespaced sessions.
+- **Companion and dashboard surfaces:** inspect current work, action-needed
+  states, failures, stale activity, setup snippets, and basic doctor output.
 - **Flexible notifications:** select console, OS, or no-op output without
   coupling notification failures to event ingestion.
 - **Safe adapter boundary:** translate only allowlisted status, identity,
   location, and short safe-message fields.
 - **Non-blocking integrations:** malformed input and daemon failures degrade
   safely so hook and notify workflows can continue.
-- **Standalone preview builds:** run the supported Linux x64 and Windows x64
+- **Standalone release builds:** run the supported Linux x64 and Windows x64
   artifacts without installing Node.js, npm, or pnpm.
 
 The browser dashboard is opt-in, read-only, and restricted to loopback. It
 reflects only the current daemon's in-memory state.
 
+Crewlight is not a cloud observability platform, an agent orchestrator, or a
+private API wrapper. It stays local-first and attention-first.
+
 ## Supported Integrations and Levels
 
-AgentPulse distinguishes verified interfaces from experiments and bounded
+Crewlight distinguishes verified interfaces from experiments and bounded
 fallbacks:
 
 | Integration              | Level                             | Current boundary                                                                  |
@@ -59,10 +62,10 @@ fallbacks:
 | Cursor                   | Manual / Experimental bridge      | Explicit terminal or task commands only; no automatic lifecycle hook is claimed   |
 | Codex Desktop            | Experimental                      | Reuses Codex hooks with an explicit desktop surface; real verification is pending |
 | Antigravity              | Research-only                     | Sanitized manual probe scaffolding, not a supported adapter                       |
-| Generic CLI wrapper      | Best-effort                       | Observes only the process started by `agentpulse run`                             |
-| Manual normalized events | Manual                            | Caller-supplied events through `agentpulse emit`                                  |
+| Generic CLI wrapper      | Best-effort                       | Observes only the process started by `crewlight run`                              |
+| Manual normalized events | Manual                            | Caller-supplied events through `crewlight emit`                                   |
 
-Codex hooks are observation-only. AgentPulse does not return permission
+Codex hooks are observation-only. Crewlight does not return permission
 decisions, context, updated tool input, or turn-control output.
 
 See [integration boundaries](docs/integration-boundaries.md) for the exact
@@ -70,11 +73,11 @@ event and data contracts.
 
 ## Quick Start
 
-The recommended user path is a standalone
-[AgentPulse v0.3.0 Preview](https://github.com/QianQIUlp/AgentPulse/releases/tag/v0.3.0)
+The recommended user path is the standalone
+[Crewlight v0.4.0 release](https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0)
 binary:
 
-| Platform    | v0.3.0 Preview status                                |
+| Platform    | v0.4.0 release status                                |
 | ----------- | ---------------------------------------------------- |
 | Linux x64   | Supported and verified by CI standalone smoke tests  |
 | Windows x64 | Supported and verified by CI standalone smoke tests  |
@@ -83,52 +86,52 @@ binary:
 1. Download the archive and matching checksum:
 
    - Linux:
-     [`agentpulse-v0.3.0-linux-x64.tar.gz`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-linux-x64.tar.gz)
+     [`crewlight-v0.4.0-linux-x64.tar.gz`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-linux-x64.tar.gz)
      and
-     [`agentpulse-v0.3.0-linux-x64.tar.gz.sha256`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-linux-x64.tar.gz.sha256)
+     [`crewlight-v0.4.0-linux-x64.tar.gz.sha256`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-linux-x64.tar.gz.sha256)
    - Windows:
-     [`agentpulse-v0.3.0-windows-x64.zip`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-windows-x64.zip)
+     [`crewlight-v0.4.0-windows-x64.zip`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-windows-x64.zip)
      and
-     [`agentpulse-v0.3.0-windows-x64.zip.sha256`](https://github.com/QianQIUlp/AgentPulse/releases/download/v0.3.0/agentpulse-v0.3.0-windows-x64.zip.sha256)
+     [`crewlight-v0.4.0-windows-x64.zip.sha256`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-windows-x64.zip.sha256)
 
 2. Verify and extract it.
 
    Linux:
 
    ```bash
-   sha256sum --check agentpulse-v0.3.0-linux-x64.tar.gz.sha256
-   tar -xzf agentpulse-v0.3.0-linux-x64.tar.gz
-   cd agentpulse-v0.3.0-linux-x64
+   sha256sum --check crewlight-v0.4.0-linux-x64.tar.gz.sha256
+   tar -xzf crewlight-v0.4.0-linux-x64.tar.gz
+   cd crewlight-v0.4.0-linux-x64
    ```
 
    Windows PowerShell:
 
    ```powershell
-   $expected = (Get-Content .\agentpulse-v0.3.0-windows-x64.zip.sha256).Split()[0]
-   $actual = (Get-FileHash .\agentpulse-v0.3.0-windows-x64.zip -Algorithm SHA256).Hash
+   $expected = (Get-Content .\crewlight-v0.4.0-windows-x64.zip.sha256).Split()[0]
+   $actual = (Get-FileHash .\crewlight-v0.4.0-windows-x64.zip -Algorithm SHA256).Hash
    if ($actual.ToLower() -ne $expected.ToLower()) { throw "Checksum mismatch" }
-   Expand-Archive .\agentpulse-v0.3.0-windows-x64.zip -DestinationPath .\agentpulse-v0.3.0-windows-x64
-   Set-Location .\agentpulse-v0.3.0-windows-x64
+   Expand-Archive .\crewlight-v0.4.0-windows-x64.zip -DestinationPath .\crewlight-v0.4.0-windows-x64
+   Set-Location .\crewlight-v0.4.0-windows-x64
    ```
 
 3. Start the daemon with the optional dashboard:
 
    ```bash
-   ./agentpulse daemon --dashboard
+   ./crewlight daemon --dashboard
    ```
 
    On Windows, use:
 
    ```powershell
-   .\agentpulse.exe daemon --dashboard
+   .\crewlight.exe daemon --dashboard
    ```
 
 4. Open the printed local URL, normally
    `http://127.0.0.1:3768/dashboard`, then verify the installation:
 
    ```bash
-   ./agentpulse doctor
-   ./agentpulse status
+   ./crewlight doctor
+   ./crewlight status
    ```
 
 For a standalone binary, `doctor` reports that source-build checks are not
@@ -138,17 +141,17 @@ and the [dashboard guide](docs/dashboard.md). Developers working with the
 experimental Electron status window should use the
 [companion surface guide](docs/companion-surface.md).
 
-Commands below use `agentpulse` on `PATH`. When running directly from an
-extracted Linux archive, replace it with `./agentpulse`; on Windows, use
-`.\agentpulse.exe`.
+Commands below use `crewlight` on `PATH`. When running directly from an
+extracted Linux archive, replace it with `./crewlight`; on Windows, use
+`.\crewlight.exe`.
 
 ## Try the Demo
 
 See a realistic local multi-agent workflow without configuring integrations:
 
 ```bash
-agentpulse daemon --dashboard --notifier none
-agentpulse demo multi-agent
+crewlight daemon --dashboard --notifier none
+crewlight demo multi-agent
 ```
 
 Open the printed browser dashboard URL. From a source checkout, run
@@ -156,21 +159,45 @@ Open the printed browser dashboard URL. From a source checkout, run
 Electron companion. Rerunning the demo refreshes the same six sessions;
 restarting the daemon clears them.
 
-## Platform Setup
+## Breaking Rename
 
-AgentPulse prints reviewable, mergeable setup fragments:
+Crewlight is the renamed v0.4.0 successor to AgentPulse.
+
+- `agentpulse` has been replaced by `crewlight`.
+- `AGENTPULSE_*` has been replaced by `CREWLIGHT_*`.
+- `.agentpulse` has been replaced by `.crewlight` in docs and migration notes.
+- `@agentpulse/*` workspace packages have been renamed to `@crewlight/*`.
+- Regenerate local setup snippets with `crewlight setup ... --print`.
+- After the GitHub repository rename, update the remote:
 
 ```bash
-agentpulse setup claude-code --print
-agentpulse setup codex --print
-agentpulse setup codex-hooks --print
-agentpulse setup cursor --print
-agentpulse setup opencode --print
+git remote set-url origin https://github.com/QianQIUlp/Crewlight.git
+```
+
+## Screenshot Gate
+
+Actual running dashboard and companion screenshots are captured during the
+release verification gate on a GUI-capable machine and stored at:
+
+- `assets/readme/dashboard-demo.png`
+- `assets/readme/companion-compact-demo.png`
+- `assets/readme/companion-expanded-demo.png`
+
+## Platform Setup
+
+Crewlight prints reviewable, mergeable setup fragments:
+
+```bash
+crewlight setup claude-code --print
+crewlight setup codex --print
+crewlight setup codex-hooks --print
+crewlight setup cursor --print
+crewlight setup opencode --print
 ```
 
 These commands never read or modify user configuration. By default, generated
 commands include the current standalone binary path or the source-mode Node.js
-and CLI paths. Use `--binary agentpulse` only when explicitly selecting `PATH`
+and CLI paths. Use `--binary crewlight` only when explicitly selecting `PATH`
 mode.
 
 Follow the platform-specific merge and verification steps:
@@ -189,9 +216,9 @@ malformed input or daemon failure.
 Choose a notifier when starting the daemon:
 
 ```bash
-agentpulse daemon --notifier console
-agentpulse daemon --notifier os
-agentpulse daemon --notifier none
+crewlight daemon --notifier console
+crewlight daemon --notifier os
+crewlight daemon --notifier none
 ```
 
 The default is `console`. On Linux, OS notifications require a graphical
@@ -201,13 +228,13 @@ Inspect current in-memory sessions or wrap one command with the best-effort
 adapter:
 
 ```bash
-agentpulse status
-agentpulse status --json
-agentpulse run --source generic-cli -- npm test
+crewlight status
+crewlight status --json
+crewlight run --source generic-cli -- npm test
 ```
 
 The wrapper preserves the command's exit result. Manual callers can submit
-normalized events with `agentpulse emit`.
+normalized events with `crewlight emit`.
 
 ## Developer Setup
 
@@ -247,12 +274,12 @@ pnpm smoke:standalone
 ## Architecture and Safety
 
 Platform adapters translate source payloads into a whitelisted
-`AgentEventInput`. The daemon normalizes those inputs, derives an AgentPulse
+`AgentEventInput`. The daemon normalizes those inputs, derives a Crewlight-owned
 `sessionKey`, keeps current sessions in memory, and exposes selected notifier
 and read-only status outputs.
 
 - `sessionId` is an optional original platform identifier.
-- `sessionKey` is AgentPulse-owned, namespaced, and stable for aggregation;
+- `sessionKey` is Crewlight-owned, namespaced, and stable for aggregation;
   external IDs are never used directly as internal keys.
 - Complete platform payloads, raw events, prompts, transcripts, tool
   input/output, and Codex `input-messages` are not forwarded into normalized
@@ -264,7 +291,7 @@ and read-only status outputs.
   trusted development environments because the HTTP API has no authentication.
 - Sessions exist only for the daemon process lifetime. There is no persistence,
   history recovery, or session garbage collection.
-- Setup commands print snippets only; AgentPulse never mutates Claude, Codex,
+- Setup commands print snippets only; Crewlight never mutates Claude, Codex,
   or OpenCode user configuration automatically.
 - Core integrations do not depend on private API reverse engineering, OCR,
   screen scraping, window watching, simulated input, or hidden platform
@@ -280,17 +307,17 @@ See [architecture](docs/architecture.md),
   be labeled supported.
 - Codex Desktop remains experimental.
 - Antigravity remains research-only and is not a stable adapter or setup path.
-- macOS has no supported v0.3.0 standalone artifact.
+- macOS has no supported v0.4.0 standalone artifact.
 - The dashboard has no persistence, authentication, remote access, historical
   recovery, SSE/WebSocket streaming, or mutation controls.
-- The development-only Electron companion prototype is not a desktop installer
-  or v0.3.0 release artifact and provides no autostart behavior.
-- Cursor support is a manual, experimental bridge; AgentPulse does not claim
+- The Electron companion is a local companion surface for source checkouts. It
+  is not a desktop installer, background service, or autostarted app.
+- Cursor support is a manual, experimental bridge; Crewlight does not claim
   automatic Cursor lifecycle observation.
-- AgentPulse does not currently include a VS Code extension, persistence,
+- Crewlight does not currently include a VS Code extension, persistence,
   session cleanup, hardware output, or automatic configuration mutation.
 
-These boundaries are intentional for the v0.3.0 Preview and should not be read
+These boundaries are intentional for the v0.4.0 release and should not be read
 as claims of stable API, installer, or desktop-product maturity.
 
 ## Documentation and License
@@ -302,4 +329,4 @@ as claims of stable API, installer, or desktop-product maturity.
 - [Contributing guide](CONTRIBUTING.md)
 - [中文贡献指南](CONTRIBUTING.zh-CN.md)
 
-AgentPulse is available under the [MIT License](LICENSE).
+Crewlight is available under the [MIT License](LICENSE).

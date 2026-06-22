@@ -3,11 +3,11 @@ import type {
   AgentSource,
   AgentStatus,
   AgentSurface,
-} from "@agentpulse/core";
-import type { NotifierKind } from "@agentpulse/notifier";
+} from "@crewlight/core";
+import type { NotifierKind } from "@crewlight/notifier";
 import type { ServerResponse } from "node:http";
 
-import type { AgentPulseService } from "./service.js";
+import type { CrewlightService } from "./service.js";
 
 export type DashboardTaskTitleMode = "off" | "prompt-preview";
 
@@ -311,7 +311,7 @@ const DASHBOARD_HTML = `<!doctype html>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AgentPulse Dashboard</title>
+    <title>Crewlight Dashboard</title>
     <link rel="stylesheet" href="/dashboard/styles.css">
   </head>
   <body>
@@ -319,7 +319,7 @@ const DASHBOARD_HTML = `<!doctype html>
       <header>
         <div>
           <p class="eyebrow">Local agent activity</p>
-          <h1>AgentPulse</h1>
+          <h1>Crewlight</h1>
         </div>
         <button id="refresh" type="button">Refresh</button>
       </header>
@@ -366,7 +366,7 @@ const DASHBOARD_HTML = `<!doctype html>
           <p class="eyebrow">Ready for activity</p>
           <h2>No agent sessions yet</h2>
           <p>
-            AgentPulse is running. Connect an agent or emit an event to make its
+            Crewlight is running. Connect an agent or emit an event to make its
             current status visible here.
           </p>
           <a href="#setup">Review setup snippets</a>
@@ -401,7 +401,7 @@ const DASHBOARD_HTML = `<!doctype html>
         <div id="compact-empty-state" class="empty-state" hidden>
           <h3>No agent sessions yet</h3>
           <p>
-            AgentPulse is running. Connect an agent or emit an event to make its
+            Crewlight is running. Connect an agent or emit an event to make its
             current status visible here.
           </p>
           <a href="#setup">Review setup snippets</a>
@@ -447,7 +447,7 @@ const DASHBOARD_HTML = `<!doctype html>
             <h3>Antigravity probe</h3>
             <p class="muted">
               Research-only command for manual probing. Antigravity is not a
-              supported AgentPulse integration.
+              supported Crewlight integration.
             </p>
             <pre id="setup-antigravity-probe"></pre>
             <p class="eyebrow verify-label">Verification command</p>
@@ -1161,7 +1161,7 @@ function createSessionCard(session, expanded = false) {
     const confidence = document.createElement("p");
     confidence.className = "confidence-note";
     confidence.textContent =
-      "AgentPulse could not determine a more specific status.";
+      "Crewlight could not determine a more specific status.";
     card.append(confidence);
   }
 
@@ -1550,7 +1550,7 @@ async function doctorReport(
           id: "dashboard-doctor",
           status: "error",
           message: "Doctor checks could not be generated.",
-          action: "Run `agentpulse doctor` in a terminal.",
+          action: "Run `crewlight doctor` in a terminal.",
         },
       ],
     };
@@ -1560,7 +1560,7 @@ async function doctorReport(
 export async function handleDashboardRequest(
   pathname: string,
   response: ServerResponse,
-  service: AgentPulseService,
+  service: CrewlightService,
   options: DashboardOptions,
   startedAt: number,
 ): Promise<boolean> {

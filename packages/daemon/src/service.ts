@@ -4,15 +4,15 @@ import {
   type AgentEvent,
   type AgentEventInput,
   type AgentSession,
-} from "@agentpulse/core";
-import { ConsoleNotifier, type Notifier } from "@agentpulse/notifier";
+} from "@crewlight/core";
+import { ConsoleNotifier, type Notifier } from "@crewlight/notifier";
 
 export interface IngestResult {
   event: AgentEvent;
   session: AgentSession;
 }
 
-export class AgentPulseService {
+export class CrewlightService {
   readonly #notifier: Notifier;
   readonly #sessions: SessionStore;
 

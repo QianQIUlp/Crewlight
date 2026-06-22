@@ -1,6 +1,6 @@
-# AgentPulse Architecture
+# Crewlight Architecture
 
-AgentPulse is a local event normalization and session aggregation service.
+Crewlight is a local event normalization and session aggregation service.
 Platform integrations observe documented or explicitly bounded activity,
 translate it to `AgentEventInput`, and submit it to the daemon.
 
@@ -37,20 +37,20 @@ notification policy, UI, or platform permission decisions.
 
 ## Package responsibilities
 
-- `@agentpulse/core`: schemas, normalized types, session key derivation, and
+- `@crewlight/core`: schemas, normalized types, session key derivation, and
   in-memory session aggregation.
-- `@agentpulse/daemon`: local HTTP receiver, process-lifetime state, optional
+- `@crewlight/daemon`: local HTTP receiver, process-lifetime state, optional
   browser dashboard, and daemon configuration.
-- `@agentpulse/notifier`: notification policy plus console, OS, and no-op
+- `@crewlight/notifier`: notification policy plus console, OS, and no-op
   outputs.
-- `@agentpulse/adapter-claude-code`: documented Claude Code hook translation.
-- `@agentpulse/adapter-codex`: documented Codex external notify translation.
-- `@agentpulse/adapter-cursor`: manual, experimental Cursor bridge
+- `@crewlight/adapter-claude-code`: documented Claude Code hook translation.
+- `@crewlight/adapter-codex`: documented Codex external notify translation.
+- `@crewlight/adapter-cursor`: manual, experimental Cursor bridge
   translation.
-- `@agentpulse/adapter-generic-cli`: best-effort command lifecycle observation.
-- `@agentpulse/cli`: daemon/dashboard startup, diagnostics, emit, ingest, setup,
+- `@crewlight/adapter-generic-cli`: best-effort command lifecycle observation.
+- `@crewlight/cli`: daemon/dashboard startup, diagnostics, emit, ingest, setup,
   status, and run commands.
-- `@agentpulse/shared`: runtime configuration defaults.
+- `@crewlight/shared`: runtime configuration defaults.
 
 Dependencies flow toward `core`; adapters never depend on notifier outputs.
 
@@ -71,7 +71,7 @@ stored or printed.
 
 ## Session identity and lifecycle
 
-`sessionId` is supplied by a platform; `sessionKey` is AgentPulse-owned and
+`sessionId` is supplied by a platform; `sessionKey` is Crewlight-owned and
 namespaced by source and surface. Without a session ID, normalized project path
 is used as a stable fallback.
 
@@ -98,14 +98,14 @@ The daemon listens on `127.0.0.1:3768` by default:
 - `GET /dashboard/api` returns health, notifier mode, whitelisted sessions,
   setup snippets, and basic doctor output with `Cache-Control: no-store`.
 
-`AGENTPULSE_HOST` and `AGENTPULSE_PORT` configure both daemon and clients.
-`AGENTPULSE_NOTIFIER` selects `console`, `os`, or `none`; the daemon
+`CREWLIGHT_HOST` and `CREWLIGHT_PORT` configure both daemon and clients.
+`CREWLIGHT_NOTIFIER` selects `console`, `os`, or `none`; the daemon
 `--notifier` flag takes precedence.
 
-Dashboard routes are registered only for `agentpulse daemon --dashboard`.
+Dashboard routes are registered only for `crewlight daemon --dashboard`.
 Dashboard startup defaults to `127.0.0.1` and rejects every non-loopback host
 before opening a listener, including unsafe values inherited from
-`AGENTPULSE_HOST`.
+`CREWLIGHT_HOST`.
 Dashboard mode requires `127.0.0.1` or `::1` even if a trusted developer would
 otherwise choose a broader daemon bind address.
 

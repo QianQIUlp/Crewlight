@@ -16,7 +16,7 @@ export interface DashboardRequestOptions {
 
 const DEFAULT_TIMEOUT_MS = 1_500;
 const OFFLINE_DIAGNOSTIC =
-  "Run agentpulse daemon --dashboard. The companion will retry.";
+  "Run crewlight daemon --dashboard. The companion will retry.";
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException
@@ -49,7 +49,7 @@ export async function fetchCompanionSnapshot(
       if (response.status === 404) {
         return {
           kind: "api-unavailable",
-          diagnostic: "Restart with: agentpulse daemon --dashboard.",
+          diagnostic: "Restart with: crewlight daemon --dashboard.",
         };
       }
       if (!response.ok) {

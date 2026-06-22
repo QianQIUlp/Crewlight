@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentSession } from "@agentpulse/core";
+import type { AgentEvent, AgentSession } from "@crewlight/core";
 
 import type { Notifier } from "./notifier.js";
 import { shouldNotify } from "./notification-policy.js";
@@ -9,15 +9,15 @@ export const OS_NOTIFICATION_TIMEOUT_MS = 1_000;
 
 export const OS_NOTIFIER_WARNINGS = {
   callback:
-    "AgentPulse warning: the OS notifier reported a delivery failure. The event was ingested, but no desktop notification was confirmed. The daemon is still running. Fallback: restart with `agentpulse daemon --notifier console`.",
+    "Crewlight warning: the OS notifier reported a delivery failure. The event was ingested, but no desktop notification was confirmed. The daemon is still running. Fallback: restart with `crewlight daemon --notifier console`.",
   import:
-    "AgentPulse warning: the OS notifier module could not be loaded. Desktop notifications are unavailable, but the daemon will continue ingesting events. Fallback: restart with `agentpulse daemon --notifier console`.",
+    "Crewlight warning: the OS notifier module could not be loaded. Desktop notifications are unavailable, but the daemon will continue ingesting events. Fallback: restart with `crewlight daemon --notifier console`.",
   runtime:
-    "AgentPulse warning: the OS notifier failed while sending a notification. The event was ingested and the daemon is still running. Fallback: restart with `agentpulse daemon --notifier console`.",
+    "Crewlight warning: the OS notifier failed while sending a notification. The event was ingested and the daemon is still running. Fallback: restart with `crewlight daemon --notifier console`.",
   shape:
-    "AgentPulse warning: the installed OS notifier module has an unsupported interface. Desktop notifications are unavailable, but the daemon will continue ingesting events. Fallback: restart with `agentpulse daemon --notifier console`.",
+    "Crewlight warning: the installed OS notifier module has an unsupported interface. Desktop notifications are unavailable, but the daemon will continue ingesting events. Fallback: restart with `crewlight daemon --notifier console`.",
   timeout:
-    "AgentPulse warning: the OS notifier timed out before confirming delivery. The event was ingested and the daemon is still running. Fallback: restart with `agentpulse daemon --notifier console`.",
+    "Crewlight warning: the OS notifier timed out before confirming delivery. The event was ingested and the daemon is still running. Fallback: restart with `crewlight daemon --notifier console`.",
 } as const;
 
 export interface OsNotification {
@@ -101,7 +101,7 @@ export function formatOsNotification(
 
   return {
     title: truncate(
-      `AgentPulse · ${event.source} · ${event.status}`,
+      `Crewlight · ${event.source} · ${event.status}`,
       OS_NOTIFICATION_TITLE_LIMIT,
     ),
     message: truncate(`${location}: ${detail}`, OS_NOTIFICATION_MESSAGE_LIMIT),

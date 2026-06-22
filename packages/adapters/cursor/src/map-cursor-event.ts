@@ -2,7 +2,7 @@ import type {
   AgentEventInput,
   AgentStatus,
   AgentSurface,
-} from "@agentpulse/core";
+} from "@crewlight/core";
 
 import {
   cursorBridgeInputSchema,

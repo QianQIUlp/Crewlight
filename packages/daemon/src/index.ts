@@ -37,4 +37,4 @@ export {
   getSurfaceLabel,
   serializeDashboardSession,
 } from "./dashboard.js";
-export { AgentPulseService, type IngestResult } from "./service.js";
+export { CrewlightService, type IngestResult } from "./service.js";

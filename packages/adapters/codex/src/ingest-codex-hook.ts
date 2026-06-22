@@ -1,4 +1,4 @@
-import type { AgentSurface } from "@agentpulse/core";
+import type { AgentSurface } from "@crewlight/core";
 
 import type { CodexAdapterResult } from "./map-codex-notification.js";
 import {

@@ -2,13 +2,13 @@
 
 ## Project Structure & Module Organization
 
-AgentPulse is a pnpm TypeScript ESM monorepo targeting Node.js 22.
+Crewlight is a pnpm TypeScript ESM monorepo targeting Node.js 22.
 
 - `packages/core`: event schemas, normalization, session keys, and in-memory sessions.
 - `packages/daemon`: HTTP server, configuration, and event ingestion service.
 - `packages/notifier`: console, OS, and no-op notification outputs.
 - `packages/adapters/*`: source-specific translators for Claude Code, Codex, and generic CLI commands.
-- `packages/cli`: the `agentpulse` executable and command handlers.
+- `packages/cli`: the `crewlight` executable and command handlers.
 - `packages/shared`: shared runtime constants.
 - `docs/`: architecture, integration boundaries, and setup guides.
 
@@ -50,14 +50,14 @@ Use strict TypeScript, ESM imports, two-space indentation, and Prettier defaults
 
 Use kebab-case filenames, PascalCase for classes and exported types, and camelCase for functions and variables. Keep package APIs explicit through each `src/index.ts`.
 
-Prefer small, source-specific adapters. Adapters should translate platform payloads into safe AgentPulse events; they should not perform notification, daemon storage, UI behavior, or user configuration mutation.
+Prefer small, source-specific adapters. Adapters should translate platform payloads into safe Crewlight events; they should not perform notification, daemon storage, UI behavior, or user configuration mutation.
 
-## AgentPulse Data Safety Rules
+## Crewlight Data Safety Rules
 
-Preserve the distinction between platform identity and AgentPulse identity:
+Preserve the distinction between platform identity and Crewlight identity:
 
 - `sessionId`: optional original identifier supplied by a platform or adapter.
-- `sessionKey`: AgentPulse-owned, namespaced, stable aggregation key.
+- `sessionKey`: Crewlight-owned, namespaced, stable aggregation key.
 
 Do not use an external `sessionId` directly as the internal `sessionKey`.
 

@@ -1,10 +1,10 @@
 import { parseArgs } from "node:util";
 
-import type { AgentEventInput } from "@agentpulse/core";
-import { formatDaemonUrl } from "@agentpulse/daemon";
-import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@agentpulse/shared";
+import type { AgentEventInput } from "@crewlight/core";
+import { formatDaemonUrl } from "@crewlight/daemon";
+import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
 
-import type { AgentPulseClient } from "../daemon-client.js";
+import type { CrewlightClient } from "../daemon-client.js";
 import type { CommandIo } from "./types.js";
 
 export type DemoScenario = "multi-agent";
@@ -14,7 +14,7 @@ export interface DemoCommandOptions {
   now?: () => number;
 }
 
-const DEMO_WORKSPACE = "AgentPulse Demo";
+const DEMO_WORKSPACE = "Crewlight Demo";
 const DEMO_EVENT_COUNT = 6;
 
 export function resolveDemoScenario(args: readonly string[]): DemoScenario {
@@ -28,7 +28,7 @@ export function resolveDemoScenario(args: readonly string[]): DemoScenario {
   });
 
   if (positionals.length > 1) {
-    throw new Error("agentpulse demo accepts only one scenario name");
+    throw new Error("crewlight demo accepts only one scenario name");
   }
   if (positionals[0] !== undefined && values.scenario !== undefined) {
     throw new Error(
@@ -55,7 +55,7 @@ export function createMultiAgentDemoEvents(
       sessionId: "demo:claude-code:tests",
       workspaceName: DEMO_WORKSPACE,
       status: "using_tool",
-      taskTitle: "[Demo] Running AgentPulse tests",
+      taskTitle: "[Demo] Running Crewlight tests",
       title: "DemoClaudeTests",
       timestamp: now - 5_000,
     },
@@ -115,14 +115,14 @@ export function createMultiAgentDemoEvents(
 export function getDemoDashboardUrl(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const host = env.AGENTPULSE_HOST ?? DEFAULT_DAEMON_HOST;
-  const port = Number(env.AGENTPULSE_PORT ?? DEFAULT_DAEMON_PORT);
+  const host = env.CREWLIGHT_HOST ?? DEFAULT_DAEMON_HOST;
+  const port = Number(env.CREWLIGHT_PORT ?? DEFAULT_DAEMON_PORT);
   return `${formatDaemonUrl(host, port)}/dashboard`;
 }
 
 export async function executeDemoCommand(
   args: readonly string[],
-  client: AgentPulseClient,
+  client: CrewlightClient,
   io: CommandIo,
   options: DemoCommandOptions = {},
 ): Promise<number> {
@@ -132,7 +132,7 @@ export async function executeDemoCommand(
     await client.sessions();
   } catch {
     io.warn(
-      "AgentPulse demo warning: cannot reach the local daemon. Start `agentpulse daemon --dashboard --notifier none`, then rerun `agentpulse demo multi-agent`.",
+      "Crewlight demo warning: cannot reach the local daemon. Start `crewlight daemon --dashboard --notifier none`, then rerun `crewlight demo multi-agent`.",
     );
     return 1;
   }
@@ -145,7 +145,7 @@ export async function executeDemoCommand(
       delivered += 1;
     } catch {
       io.warn(
-        `AgentPulse demo warning: stopped after ${delivered} of ${DEMO_EVENT_COUNT} synthetic events. Check the daemon, then rerun \`agentpulse demo multi-agent\`.`,
+        `Crewlight demo warning: stopped after ${delivered} of ${DEMO_EVENT_COUNT} synthetic events. Check the daemon, then rerun \`crewlight demo multi-agent\`.`,
       );
       return 1;
     }
@@ -154,9 +154,9 @@ export async function executeDemoCommand(
   io.write(`Loaded ${delivered} synthetic sessions for ${scenario}.`);
   io.write(`Dashboard: ${getDemoDashboardUrl(options.env)}`);
   io.write("Companion (source checkout): pnpm companion:dev");
-  io.write("Refresh demo sessions: agentpulse demo multi-agent");
+  io.write("Refresh demo sessions: crewlight demo multi-agent");
   io.write(
-    "Clear demo sessions: restart the AgentPulse daemon; all sessions are in memory.",
+    "Clear demo sessions: restart the Crewlight daemon; all sessions are in memory.",
   );
   io.write(
     "These sessions are synthetic local demo data; no real agent telemetry was used.",

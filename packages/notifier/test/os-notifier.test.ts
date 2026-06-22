@@ -1,4 +1,4 @@
-import { normalizeAgentEvent, SessionStore } from "@agentpulse/core";
+import { normalizeAgentEvent, SessionStore } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -119,7 +119,7 @@ describe("OS notifier", () => {
     await expect(notifier.notify(event, session)).resolves.toBeUndefined();
     expect(warnings).toEqual([expected]);
     expect(warnings.join("\n")).not.toContain("module detail");
-    expect(warnings[0]).toContain("agentpulse daemon --notifier console");
+    expect(warnings[0]).toContain("crewlight daemon --notifier console");
   });
 
   it("contains synchronous runtime failures", async () => {

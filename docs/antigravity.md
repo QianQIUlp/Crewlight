@@ -1,12 +1,12 @@
 # Antigravity Research Probe
 
-Antigravity CLI and Desktop support is `research-only`. AgentPulse does not
+Antigravity CLI and Desktop support is `research-only`. Crewlight does not
 provide a stable Antigravity adapter or setup command.
 
 The following command is diagnostic scaffolding for controlled experiments:
 
 ```bash
-agentpulse ingest antigravity-probe \
+crewlight ingest antigravity-probe \
   --event <observed-event-name> \
   --surface unknown
 ```
@@ -17,7 +17,7 @@ session ID, cwd, timestamp, and selected surface. The emitted status is always
 all exit zero with empty stdout and stderr.
 
 Google has published a technical documentation entry point and a
-[hooks URL](https://antigravity.google/docs/hooks), but AgentPulse has not
+[hooks URL](https://antigravity.google/docs/hooks), but Crewlight has not
 verified readable page content, a hooks configuration shape, payload schema,
 command execution behavior, or shared CLI/Desktop runtime behavior. Do not use
 the probe as a stable integration.
@@ -38,4 +38,4 @@ the probe as a stable integration.
 9. Document the verified support boundary before implementing stable setup.
 
 The probe is intentionally generic because no Antigravity hook contract has
-been verified by AgentPulse.
+been verified by Crewlight.

@@ -1,21 +1,22 @@
-# v0.3.0 Release Checklist
+# v0.4.0 Release Checklist
 
 Status: **Unreleased**
 
-This checklist prepares the v0.3.0 release candidate. It does not authorize a
-tag, GitHub Release, merge, or publication step.
+This checklist prepares the breaking Crewlight rebrand release. It requires the
+release artifacts, screenshots, repository identity, and GitHub Release to all
+line up before publication.
 
-## Version and documentation consistency
+## Identity and documentation consistency
 
-- [ ] Root and workspace package versions are `0.3.0`.
-- [ ] CLI help displays `AgentPulse v0.3.0`.
-- [ ] CI standalone artifact names and paths use `v0.3.0`.
-- [ ] `CHANGELOG.md` keeps v0.3.0 marked `Unreleased`.
-- [ ] Historical version-specific documentation retains its original versions.
-- [ ] Public install instructions continue to reference the latest published
-      release until v0.3.0 assets exist.
-- [ ] Known limitations describe OpenCode as pending real local verification,
-      Codex Desktop as experimental, and Antigravity as research-only.
+- [ ] Root and workspace package versions are `0.4.0`.
+- [ ] CLI help displays `Crewlight v0.4.0`.
+- [ ] Standalone artifact names and paths use `crewlight-v0.4.0-*`.
+- [ ] README, README.zh-CN, install docs, dashboard docs, companion docs, and
+      Cursor docs use Crewlight as the primary identity and `crewlight` as the
+      primary command.
+- [ ] The README and CHANGELOG include the breaking migration note.
+- [ ] Historical changelog entries remain historical; active latest-version
+      references use `0.4.0`.
 
 ## Safety and scope review
 
@@ -24,34 +25,64 @@ tag, GitHub Release, merge, or publication step.
 - [ ] No complete platform payloads, prompts, transcripts, tool input/output,
       Codex input messages, or raw events are exposed.
 - [ ] Daemon and dashboard defaults remain restricted to loopback.
-- [ ] The release freeze adds no persistence, GUI, adapter, protocol, streaming,
-      background-service, or dashboard-redesign work.
+- [ ] Cursor remains documented as a manual / experimental bridge.
+- [ ] Docs do not claim cloud sync, private API scraping, or automatic
+      permission approval.
 
 ## Required validation
 
+- [ ] `pnpm install --frozen-lockfile`
 - [ ] `pnpm format:check`
 - [ ] `pnpm typecheck`
 - [ ] `pnpm test`
 - [ ] `pnpm build`
+- [ ] `pnpm build:standalone`
+- [ ] `pnpm smoke:standalone`
+- [ ] Windows standalone CI smoke test passes on the release commit.
 
-## Standalone CI artifacts
+## Screenshot and UI gate
 
-- [ ] Linux CI produces `agentpulse-v0.3.0-linux-x64.tar.gz` and its checksum.
-- [ ] Windows CI produces `agentpulse-v0.3.0-windows-x64.zip` and its checksum.
-- [ ] Both standalone smoke tests pass.
-- [ ] Each `BUILD-INFO.txt` reports version `0.3.0`, the build commit, runtime,
-      platform, and architecture.
+- [ ] Real dashboard and companion screenshots are captured from a GUI-capable
+      environment after the Crewlight rename is applied.
+- [ ] `assets/readme/dashboard-demo.png` shows the Crewlight dashboard with the
+      multi-agent demo loaded.
+- [ ] `assets/readme/companion-compact-demo.png` shows the compact companion
+      with Crewlight branding and populated demo sessions.
+- [ ] `assets/readme/companion-expanded-demo.png` shows the expanded companion
+      with Crewlight branding, filters, and populated demo sessions.
+- [ ] No fake, mocked, or manually composed screenshots are used.
 
-## Deferred release steps
+## Exact-Commit Artifact Gate
 
-Perform these only in an explicitly authorized release task:
+- [ ] The release PR is merged into `main`.
+- [ ] The merged release commit SHA is recorded.
+- [ ] The `ci.yml` workflow succeeds on that exact merged release commit.
+- [ ] The workflow run ID and original run URL are recorded before repo rename.
+- [ ] Linux and Windows artifacts are downloaded from that exact workflow run.
+- [ ] Each downloaded `BUILD-INFO.txt` reports version `0.4.0` and the exact
+      merged release commit SHA.
 
-- [ ] Confirm the release commit and all required CI jobs.
-- [ ] Create and push the `v0.3.0` tag.
-- [ ] Create the GitHub Release and upload verified standalone assets.
-- [ ] After the v0.3.0 assets exist, update public README and install commands
-      from the latest previously published version to v0.3.0.
-- [ ] Replace `Unreleased` with the release date.
+## Repository Rename and Release
 
-Do not merge, tag, publish, create a GitHub Release, or enable automatic
-configuration changes as part of the release-freeze PR.
+- [ ] `gh repo view QianQIUlp/AgentPulse --json nameWithOwner,viewerPermission`
+      confirms `viewerPermission` is `ADMIN` before rename.
+- [ ] The repository is renamed to `QianQIUlp/Crewlight`.
+- [ ] `gh repo view QianQIUlp/Crewlight` succeeds after rename.
+- [ ] Local `origin` is updated to
+      `https://github.com/QianQIUlp/Crewlight.git`.
+- [ ] All post-rename GitHub CLI commands explicitly target
+      `--repo QianQIUlp/Crewlight`.
+- [ ] The `v0.4.0` annotated tag is created and pushed only after artifact
+      verification and repo rename.
+- [ ] The GitHub Release `Crewlight v0.4.0` is created and the already-verified
+      artifacts and checksums are uploaded.
+
+## Old-Name Audit
+
+- [ ] The pre-edit and post-edit old-name scans are archived.
+- [ ] Remaining `AgentPulse`, `agentpulse`, `AGENTPULSE`, and `@agentpulse`
+      references are listed with an explicit justification.
+
+Do not publish the release if docs still present AgentPulse as the current
+product name, if screenshots are missing or fake, if exact-commit artifacts
+cannot be verified, or if the repository rename is incomplete.

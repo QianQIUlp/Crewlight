@@ -1,9 +1,9 @@
 ---
-name: agentpulse-companion-surface
-description: Shape, implement, or review AgentPulse companion surfaces, including the compact and focus dashboard views, future explicitly authorized floating surfaces, attention hierarchy, and status motion. Use for AgentPulse UI work that must remain multi-agent-first, local, compact, accessible, and privacy-safe. Do not use for platform adapters, daemon APIs, session semantics, notifier behavior, ordinary backend work, or unrelated frontends.
+name: crewlight-companion-surface
+description: Shape, implement, or review Crewlight companion surfaces, including the compact and focus dashboard views, future explicitly authorized floating surfaces, attention hierarchy, and status motion. Use for Crewlight UI work that must remain multi-agent-first, local, compact, accessible, and privacy-safe. Do not use for platform adapters, daemon APIs, session semantics, notifier behavior, ordinary backend work, or unrelated frontends.
 ---
 
-# AgentPulse Companion Surface
+# Crewlight Companion Surface
 
 Build an attention surface for concurrent coding-agent sessions, not a generic
 dashboard or a pet-first product.

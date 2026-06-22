@@ -34,7 +34,7 @@ describe("companion dashboard client", () => {
     expect(result).toMatchObject({
       kind: "offline",
     });
-    expect(result.diagnostic).toContain("agentpulse daemon --dashboard");
+    expect(result.diagnostic).toContain("crewlight daemon --dashboard");
   });
 
   it("aborts slow requests and reports the timeout", async () => {
@@ -81,7 +81,7 @@ describe("companion dashboard client", () => {
       }),
     ).resolves.toEqual({
       kind: "api-unavailable",
-      diagnostic: "Restart with: agentpulse daemon --dashboard.",
+      diagnostic: "Restart with: crewlight daemon --dashboard.",
     });
   });
 

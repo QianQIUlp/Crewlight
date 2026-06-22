@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentStatus } from "@agentpulse/core";
+import type { AgentEvent, AgentStatus } from "@crewlight/core";
 
 const DEFAULT_NOTIFICATION_STATUSES = new Set<AgentStatus>([
   "waiting_input",

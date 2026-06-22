@@ -5,12 +5,12 @@ import {
   type ServerResponse,
 } from "node:http";
 
-import type { AgentEventInput } from "@agentpulse/core";
+import type { AgentEventInput } from "@crewlight/core";
 import { ZodError } from "zod";
 
 import type { DaemonListenConfig } from "./config.js";
 import { handleDashboardRequest, type DashboardOptions } from "./dashboard.js";
-import { AgentPulseService } from "./service.js";
+import { CrewlightService } from "./service.js";
 
 export interface DaemonServerOptions {
   dashboard?: DashboardOptions;
@@ -49,7 +49,7 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
 async function handleRequest(
   request: IncomingMessage,
   response: ServerResponse,
-  service: AgentPulseService,
+  service: CrewlightService,
   options: DaemonServerOptions,
   startedAt: number,
 ): Promise<void> {
@@ -109,7 +109,7 @@ async function handleRequest(
 }
 
 export function createDaemonServer(
-  service: AgentPulseService = new AgentPulseService(),
+  service: CrewlightService = new CrewlightService(),
   options: DaemonServerOptions = {},
 ): Server {
   const startedAt = Date.now();
@@ -128,12 +128,12 @@ export interface DaemonInstance {
 
 export async function startDaemon(
   config: DaemonListenConfig,
-  service: AgentPulseService = new AgentPulseService(),
+  service: CrewlightService = new CrewlightService(),
   options: DaemonServerOptions = {},
 ): Promise<DaemonInstance> {
   if (options.dashboard && !isLoopbackHost(config.host)) {
     throw new Error(
-      "The AgentPulse dashboard requires --host 127.0.0.1 or --host ::1.",
+      "The Crewlight dashboard requires --host 127.0.0.1 or --host ::1.",
     );
   }
 

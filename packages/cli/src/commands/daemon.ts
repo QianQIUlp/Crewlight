@@ -1,15 +1,15 @@
 import { parseArgs } from "node:util";
 
 import {
-  AgentPulseService,
+  CrewlightService,
   formatDaemonUrl,
   isLoopbackHost,
   resolveDaemonConfig,
   startDaemon,
   type DaemonConfig,
   type DashboardTaskTitleMode,
-} from "@agentpulse/daemon";
-import { createNotifier } from "@agentpulse/notifier";
+} from "@crewlight/daemon";
+import { createNotifier } from "@crewlight/notifier";
 
 import { createDoctorRuntime, runDoctor } from "./doctor.js";
 import {
@@ -68,7 +68,7 @@ export function resolveDaemonCommandOptions(
 
   if (values.dashboard && !isLoopbackHost(config.host)) {
     throw new Error(
-      "The AgentPulse dashboard requires --host 127.0.0.1 or --host ::1.",
+      "The Crewlight dashboard requires --host 127.0.0.1 or --host ::1.",
     );
   }
 
@@ -85,7 +85,7 @@ export async function executeDaemonCommand(
 ): Promise<number> {
   const options = resolveDaemonCommandOptions(args);
   const { config } = options;
-  const service = new AgentPulseService({
+  const service = new CrewlightService({
     notifier: createNotifier(config.notifier, {
       warning: io.warn,
     }),
@@ -132,21 +132,21 @@ export async function executeDaemonCommand(
       error.code === "EADDRINUSE"
     ) {
       throw new Error(
-        `Cannot start AgentPulse: ${config.host}:${config.port} is already in use. Stop the process using that port, or choose another port with \`agentpulse daemon --port <port>\` and set AGENTPULSE_PORT to the same value for clients.`,
+        `Cannot start Crewlight: ${config.host}:${config.port} is already in use. Stop the process using that port, or choose another port with \`crewlight daemon --port <port>\` and set CREWLIGHT_PORT to the same value for clients.`,
       );
     }
     throw error;
   }
 
   io.write(
-    `AgentPulse daemon listening at ${daemon.url} (notifier: ${config.notifier})`,
+    `Crewlight daemon listening at ${daemon.url} (notifier: ${config.notifier})`,
   );
   if (dashboard) {
-    io.write(`AgentPulse dashboard: ${daemon.url}/dashboard`);
+    io.write(`Crewlight dashboard: ${daemon.url}/dashboard`);
   }
   if (config.notifier === "os") {
     io.write(
-      "OS notification failures will not stop ingestion. Fallback: restart with `agentpulse daemon --notifier console`.",
+      "OS notification failures will not stop ingestion. Fallback: restart with `crewlight daemon --notifier console`.",
     );
   }
 
@@ -160,7 +160,7 @@ export async function executeDaemonCommand(
       closing = true;
       void daemon.close().then(() => {
         removeSignalHandlers();
-        io.write("AgentPulse daemon stopped");
+        io.write("Crewlight daemon stopped");
         resolve(0);
       }, reject);
     };

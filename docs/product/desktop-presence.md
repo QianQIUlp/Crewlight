@@ -2,11 +2,11 @@
 
 ## Purpose
 
-AgentPulse should translate normalized agent activity into a clear answer to a
+Crewlight should translate normalized agent activity into a clear answer to a
 daily question: which agents can stay in the background, and which ones need
 attention now?
 
-The browser dashboard is the v0.3 proving ground for this attention model. It
+The browser dashboard is the v0.4 proving ground for this attention model. It
 remains a local, loopback-only, read-only surface backed by the current daemon
 process.
 
@@ -58,7 +58,7 @@ are raised above ordinary passive work, and completed sessions are visually
 quiet. Selecting a row opens Focus Mode and preserves the compact return
 context.
 
-This browser-only view is the current prototype for a future floating status
+This browser-only view is the current baseline for the floating companion
 surface. It does not introduce a desktop shell, tray process, persistence, or
 new lifecycle behavior.
 
@@ -103,7 +103,8 @@ summary, running/action/failure counts, and highest-priority session. Expanded
 mode provides dense current-session rows. It does not reproduce the full
 dashboard, approve permissions, add persistence, or manage agent processes.
 
-The prototype includes a best-effort tray menu and desktop-window lifecycle.
+The current companion implementation includes a best-effort tray menu and
+desktop-window lifecycle.
 Installers, autostart, release packaging, and platform-specific notification
 behavior remain deferred.
 

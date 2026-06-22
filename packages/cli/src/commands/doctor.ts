@@ -10,8 +10,8 @@ import {
   probeOsNotifier,
   type NotifierKind,
   type OsNotifierProbeResult,
-} from "@agentpulse/notifier";
-import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@agentpulse/shared";
+} from "@crewlight/notifier";
+import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
 
 import { DaemonClient } from "../daemon-client.js";
 import { createSetupSnippets, type CodexHooksSetupResult } from "./setup.js";
@@ -38,7 +38,7 @@ export interface DoctorRuntime {
   cliBuilt(): Promise<boolean>;
   daemonReachable(): Promise<boolean>;
   dashboardCapabilities(): Promise<{ taskTitleMode: string } | undefined>;
-  pathResolvedAgentpulse(): string | undefined;
+  pathResolvedCrewlight(): string | undefined;
   entryPath(): string | undefined;
   daemonEnv(): { host: string; port: number };
   osNotifier(): Promise<OsNotifierProbeResult>;
@@ -97,11 +97,11 @@ export function createDoctorRuntime(
         return undefined;
       }
     },
-    pathResolvedAgentpulse: () => {
+    pathResolvedCrewlight: () => {
       try {
         const result = spawnSync(
           process.platform === "win32" ? "where" : "which",
-          ["agentpulse"],
+          ["crewlight"],
           {
             encoding: "utf8",
             stdio: ["ignore", "pipe", "ignore"],
@@ -116,8 +116,8 @@ export function createDoctorRuntime(
     },
     entryPath: () => process.argv[1],
     daemonEnv: () => {
-      const host = process.env.AGENTPULSE_HOST ?? DEFAULT_DAEMON_HOST;
-      const port = Number(process.env.AGENTPULSE_PORT ?? DEFAULT_DAEMON_PORT);
+      const host = process.env.CREWLIGHT_HOST ?? DEFAULT_DAEMON_HOST;
+      const port = Number(process.env.CREWLIGHT_PORT ?? DEFAULT_DAEMON_PORT);
       return { host, port };
     },
     osNotifier: probeOsNotifier,
@@ -134,7 +134,7 @@ function nodeCheck(version: string): DoctorCheck {
       id: "node",
       status: "error",
       message: `Node.js ${version || "unknown"} is unsupported.`,
-      action: "Install Node.js 22 or newer, then rebuild AgentPulse.",
+      action: "Install Node.js 22 or newer, then rebuild Crewlight.",
     };
   }
 
@@ -178,7 +178,7 @@ function setupChecks(runtime: DoctorRuntime): DoctorCheck[] {
             id: "setup-claude-code",
             status: "error",
             message: "Claude Code setup snippet is missing its hooks object.",
-            action: "Rebuild AgentPulse and rerun `agentpulse doctor`.",
+            action: "Rebuild Crewlight and rerun `crewlight doctor`.",
           },
     );
   } catch {
@@ -186,7 +186,7 @@ function setupChecks(runtime: DoctorRuntime): DoctorCheck[] {
       id: "setup-claude-code",
       status: "error",
       message: "Claude Code setup snippet is not valid JSON.",
-      action: "Rebuild AgentPulse and rerun `agentpulse doctor`.",
+      action: "Rebuild Crewlight and rerun `crewlight doctor`.",
     });
   }
 
@@ -202,7 +202,7 @@ function setupChecks(runtime: DoctorRuntime): DoctorCheck[] {
           id: "setup-codex",
           status: "error",
           message: "Codex setup snippet is invalid.",
-          action: "Rebuild AgentPulse and rerun `agentpulse doctor`.",
+          action: "Rebuild Crewlight and rerun `crewlight doctor`.",
         },
   );
 
@@ -232,7 +232,7 @@ function setupChecks(runtime: DoctorRuntime): DoctorCheck[] {
             id: "setup-codex-hooks",
             status: "error",
             message: "Codex hooks setup snippet is missing its Stop hook.",
-            action: "Rebuild AgentPulse and rerun `agentpulse doctor`.",
+            action: "Rebuild Crewlight and rerun `crewlight doctor`.",
           },
     );
   } catch {
@@ -240,7 +240,7 @@ function setupChecks(runtime: DoctorRuntime): DoctorCheck[] {
       id: "setup-codex-hooks",
       status: "error",
       message: "Codex hooks setup snippet is not valid JSON.",
-      action: "Rebuild AgentPulse and rerun `agentpulse doctor`.",
+      action: "Rebuild Crewlight and rerun `crewlight doctor`.",
     });
   }
 
@@ -285,7 +285,7 @@ async function notifierCheck(
       result.reason === "import"
         ? "OS notifier module could not be loaded. Desktop notifications are unavailable."
         : "OS notifier module has an unsupported interface. Desktop notifications are unavailable.",
-    action: "Use `agentpulse daemon --notifier console` as a safe fallback.",
+    action: "Use `crewlight daemon --notifier console` as a safe fallback.",
   };
 }
 
@@ -314,7 +314,7 @@ function runtimeChecks(runtime: DoctorRuntime): DoctorCheck[] {
   }
 
   const entry = runtime.entryPath();
-  const pathResolved = runtime.pathResolvedAgentpulse();
+  const pathResolved = runtime.pathResolvedCrewlight();
   if (
     entry &&
     pathResolved &&
@@ -324,15 +324,15 @@ function runtimeChecks(runtime: DoctorRuntime): DoctorCheck[] {
     checks.push({
       id: "cli-resolution",
       status: "warning",
-      message: `The current process entry (${entry}) differs from the PATH-resolved agentpulse (${pathResolved}).`,
+      message: `The current process entry (${entry}) differs from the PATH-resolved crewlight (${pathResolved}).`,
       action:
-        "Ensure your shell hooks and ingest commands invoke the intended AgentPulse installation.",
+        "Ensure your shell hooks and ingest commands invoke the intended Crewlight installation.",
     });
   } else if (pathResolved) {
     checks.push({
       id: "cli-resolution",
       status: "ok",
-      message: `PATH-resolved agentpulse: ${pathResolved}`,
+      message: `PATH-resolved crewlight: ${pathResolved}`,
     });
   }
 
@@ -349,15 +349,15 @@ async function capabilitiesChecks(
     checks.push({
       id: "capabilities-endpoint",
       status: "error",
-      message: "AgentPulse capabilities endpoint is unreachable.",
-      action: "Start `agentpulse daemon` and ensure the dashboard is enabled.",
+      message: "Crewlight capabilities endpoint is unreachable.",
+      action: "Start `crewlight daemon` and ensure the dashboard is enabled.",
     });
     return checks;
   }
   checks.push({
     id: "capabilities-endpoint",
     status: "ok",
-    message: "AgentPulse capabilities endpoint is reachable.",
+    message: "Crewlight capabilities endpoint is reachable.",
   });
 
   if (expectTaskTitles !== undefined) {
@@ -405,18 +405,18 @@ export async function runDoctor(
       ? {
           id: "cli-build",
           status: "ok",
-          message: "AgentPulse is running as a standalone binary.",
+          message: "Crewlight is running as a standalone binary.",
         }
       : (await runtime.cliBuilt())
         ? {
             id: "cli-build",
             status: "ok",
-            message: "The current AgentPulse CLI is running from built output.",
+            message: "The current Crewlight CLI is running from built output.",
           }
         : {
             id: "cli-build",
             status: "error",
-            message: "AgentPulse CLI built output could not be verified.",
+            message: "Crewlight CLI built output could not be verified.",
             action:
               "Run `pnpm build`, then invoke `node packages/cli/dist/index.js doctor`.",
           },
@@ -425,15 +425,15 @@ export async function runDoctor(
       ? {
           id: "daemon",
           status: "ok",
-          message: "AgentPulse daemon endpoint is reachable.",
+          message: "Crewlight daemon endpoint is reachable.",
         }
       : {
           id: "daemon",
           status: "error",
           message:
-            "AgentPulse daemon endpoint is unreachable, so events cannot be recorded.",
+            "Crewlight daemon endpoint is unreachable, so events cannot be recorded.",
           action:
-            "Start `agentpulse daemon --notifier console`, verify AGENTPULSE_HOST/PORT, then rerun doctor.",
+            "Start `crewlight daemon --notifier console`, verify CREWLIGHT_HOST/PORT, then rerun doctor.",
         },
     ...(await capabilitiesChecks(runtime, expectTaskTitles)),
     await notifierCheck(notifier, runtime),

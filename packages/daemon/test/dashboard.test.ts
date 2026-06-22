@@ -3,7 +3,7 @@ import type {
   AgentSource,
   AgentStatus,
   AgentSurface,
-} from "@agentpulse/core";
+} from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -112,9 +112,9 @@ describe("dashboard session derivation", () => {
         ...baseSession,
         sessionKey: "session:1234567890",
         surface: "ide-extension",
-        workspaceName: "AgentPulse",
+        workspaceName: "Crewlight",
       }),
-    ).toBe("AgentPulse · IDE extension · #34567890");
+    ).toBe("Crewlight · IDE extension · #34567890");
   });
 
   it("serializes Cursor sessions for dashboard and companion presentation", () => {
@@ -122,11 +122,11 @@ describe("dashboard session derivation", () => {
       serializeDashboardSession(
         {
           ...baseSession,
-          sessionKey: "cursor:ide-extension:cursor-agentpulse",
+          sessionKey: "cursor:ide-extension:cursor-crewlight",
           source: "cursor",
           surface: "ide-extension",
           status: "waiting_input",
-          workspaceName: "AgentPulse",
+          workspaceName: "Crewlight",
           taskTitle: "Cursor needs review",
         },
         1_000,
@@ -134,8 +134,8 @@ describe("dashboard session derivation", () => {
     ).toMatchObject({
       source: "cursor",
       displayName: "Cursor",
-      displayWorkspace: "AgentPulse",
-      identityLine: "AgentPulse · IDE extension · #entpulse",
+      displayWorkspace: "Crewlight",
+      identityLine: "Crewlight · IDE extension · #rewlight",
       taskTitle: "Cursor needs review",
       activityLabel: "Input requested",
       attention: "action",

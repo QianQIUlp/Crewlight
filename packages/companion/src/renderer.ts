@@ -156,7 +156,7 @@ function renderConnectionState(viewModel: CompanionViewModel): void {
   setText(
     "connection-detail",
     viewModel.diagnostic ??
-      "Start the dashboard-enabled daemon. AgentPulse will reconnect automatically.",
+      "Start the dashboard-enabled daemon. Crewlight will reconnect automatically.",
   );
 }
 
@@ -216,30 +216,30 @@ function isSessionFilter(
 }
 
 byId("expand").addEventListener("click", () => {
-  window.agentPulse.setExpanded(!expanded);
+  window.crewlight.setExpanded(!expanded);
 });
 byId("hide").addEventListener("click", () => {
-  window.agentPulse.hide();
+  window.crewlight.hide();
 });
 byId("always-on-top").addEventListener("click", () => {
-  window.agentPulse.toggleAlwaysOnTop();
+  window.crewlight.toggleAlwaysOnTop();
 });
 document
   .querySelectorAll<HTMLButtonElement>(".open-dashboard")
   .forEach((button) => {
     button.addEventListener("click", () => {
-      window.agentPulse.openDashboard();
+      window.crewlight.openDashboard();
     });
   });
 byId("quit").addEventListener("click", () => {
-  window.agentPulse.quit();
+  window.crewlight.quit();
 });
 byId("copy-command").addEventListener("click", async () => {
   const button = byId<HTMLButtonElement>("copy-command");
   if (copyFeedbackTimer !== undefined) {
     window.clearTimeout(copyFeedbackTimer);
   }
-  button.textContent = (await window.agentPulse.copyDaemonCommand())
+  button.textContent = (await window.crewlight.copyDaemonCommand())
     ? "Copied"
     : "Copy failed";
   copyFeedbackTimer = window.setTimeout(() => {
@@ -261,5 +261,5 @@ document
     });
   });
 
-window.agentPulse.onViewModel(render);
-void window.agentPulse.getViewModel().then(render);
+window.crewlight.onViewModel(render);
+void window.crewlight.getViewModel().then(render);

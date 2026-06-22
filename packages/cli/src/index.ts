@@ -29,4 +29,4 @@ export {
   DASHBOARD_CAPABILITIES_TIMEOUT_MS,
   DaemonClient,
 } from "./daemon-client.js";
-export type { AgentPulseClient } from "./daemon-client.js";
+export type { CrewlightClient } from "./daemon-client.js";

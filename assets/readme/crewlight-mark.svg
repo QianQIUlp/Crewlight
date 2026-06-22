@@ -6,7 +6,7 @@
   role="img"
   aria-labelledby="title description"
 >
-  <title id="title">AgentPulse pulse mark</title>
+  <title id="title">Crewlight pulse mark</title>
   <desc id="description">
     An abstract pulse line inside a rounded local activity node.
   </desc>

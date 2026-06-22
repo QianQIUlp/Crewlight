@@ -44,7 +44,7 @@ Use motion as a secondary status cue, never as decoration or the only cue.
 | `idle`               | Still or nearly still                                          |
 | `unknown`            | Neutral and still; do not imply confidence                     |
 
-This taxonomy is adapted for normalized AgentPulse statuses. Do not import pet
+This taxonomy is adapted for normalized Crewlight statuses. Do not import pet
 poses, spritesheets, generated characters, or upstream animation assets.
 
 ## Motion Implementation
