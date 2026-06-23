@@ -9,6 +9,7 @@ Crewlight is intended to be a small, reliable observability layer for AI coding 
 ## Good first contribution areas
 
 - Documentation fixes and bilingual documentation improvements.
+- Small desktop-shell or companion-surface improvements.
 - Small CLI usability improvements.
 - Adapter examples for AI coding agents.
 - Smoke tests for release artifacts.
@@ -29,6 +30,13 @@ pnpm format:check
 pnpm typecheck
 pnpm test
 pnpm build
+```
+
+For desktop work on Windows, also verify:
+
+```bash
+pnpm package:desktop:portable
+pnpm package:desktop:installer
 ```
 
 For documentation-only changes, at least review the rendered Markdown and check that links are valid.

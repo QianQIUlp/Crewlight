@@ -1,4 +1,5 @@
 # Product Documentation
 
 - [Product positioning](positioning.md)
-- [Desktop presence product design](desktop-presence.md)
+- [Desktop companion surface](../companion-surface.md)
+- [Browser dashboard](../dashboard.md)

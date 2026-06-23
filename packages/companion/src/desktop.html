@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Crewlight Desktop</title>
+    <link rel="stylesheet" href="./desktop.css" />
+    <script src="./desktop-renderer.js" defer></script>
+  </head>
+  <body data-theme="system" data-accent="teal" data-density="comfortable">
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-lockup">
+          <span class="product-mark" aria-hidden="true">
+            <span></span>
+          </span>
+          <div>
+            <p class="brand-eyebrow">Crewlight Desktop</p>
+            <h1>Crewlight</h1>
+            <p class="brand-copy">Local activity radar for AI coding agents.</p>
+          </div>
+        </div>
+
+        <nav
+          id="sidebar-nav"
+          class="sidebar-nav"
+          aria-label="Primary sections"
+        ></nav>
+
+        <section class="sidebar-footer">
+          <p>Desktop-first release surface</p>
+          <p>Loopback only · local synthetic demo included</p>
+        </section>
+      </aside>
+
+      <main class="main-shell">
+        <header class="topbar">
+          <div>
+            <p class="section-eyebrow">Command Center</p>
+            <h2 id="page-title">Crewlight Desktop</h2>
+            <p id="page-subtitle" class="page-subtitle">
+              Start the local service, run the demo, and keep the companion
+              nearby.
+            </p>
+          </div>
+          <div class="topbar-meta">
+            <span id="service-badge" class="status-badge neutral"
+              >Local service stopped</span
+            >
+            <span id="last-updated" class="last-updated"
+              >Waiting for local status</span
+            >
+          </div>
+        </header>
+
+        <section id="notice" class="notice" hidden></section>
+
+        <section id="onboarding-root" class="onboarding-shell" hidden>
+          <div class="onboarding-card hero-card">
+            <div class="card-heading">
+              <p class="section-eyebrow">First run</p>
+              <h3 id="onboarding-title">Welcome to Crewlight Desktop</h3>
+              <p id="onboarding-description" class="section-copy"></p>
+            </div>
+            <div id="onboarding-progress" class="onboarding-progress"></div>
+            <div id="onboarding-body" class="onboarding-body"></div>
+            <div class="button-row">
+              <button
+                id="onboarding-primary"
+                class="primary-button"
+                type="button"
+              >
+                Continue
+              </button>
+              <button
+                id="onboarding-secondary"
+                class="secondary-button"
+                type="button"
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <div id="app-content">
+          <section id="home-section" class="section-view">
+            <div class="home-grid">
+              <article class="hero-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Home</p>
+                  <h3 id="home-hero-title">Command Center</h3>
+                  <p id="home-hero-copy" class="section-copy"></p>
+                </div>
+                <div class="button-row">
+                  <button
+                    id="home-primary-action"
+                    class="primary-button"
+                    type="button"
+                  ></button>
+                  <button
+                    id="home-open-dashboard"
+                    class="secondary-button"
+                    type="button"
+                  >
+                    Open browser dashboard
+                  </button>
+                </div>
+              </article>
+
+              <div class="metric-grid">
+                <article class="metric-card">
+                  <p class="section-eyebrow">Total sessions</p>
+                  <strong id="metric-total">0</strong>
+                </article>
+                <article class="metric-card">
+                  <p class="section-eyebrow">Running</p>
+                  <strong id="metric-running">0</strong>
+                </article>
+                <article class="metric-card">
+                  <p class="section-eyebrow">Needs attention</p>
+                  <strong id="metric-attention">0</strong>
+                </article>
+                <article class="metric-card">
+                  <p class="section-eyebrow">Failed / stale</p>
+                  <strong id="metric-failed-stale">0</strong>
+                </article>
+              </div>
+            </div>
+
+            <article class="panel-card">
+              <div class="card-heading card-heading-inline">
+                <div>
+                  <p class="section-eyebrow">Live session preview</p>
+                  <h3>Current local activity</h3>
+                </div>
+              </div>
+              <div id="home-preview-sessions" class="session-grid"></div>
+              <section id="home-preview-empty" class="empty-state" hidden>
+                <h4>No sessions yet</h4>
+                <p>
+                  Start the local service and run the demo to see Crewlight in
+                  motion.
+                </p>
+              </section>
+            </article>
+          </section>
+
+          <section id="doctor-section" class="section-view" hidden>
+            <div class="panel-grid two-up">
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Doctor</p>
+                  <h3>Local diagnostics</h3>
+                  <p id="doctor-summary" class="section-copy"></p>
+                </div>
+                <div class="button-row">
+                  <button
+                    data-action="service:start"
+                    class="primary-button"
+                    type="button"
+                  >
+                    Start local service
+                  </button>
+                  <button
+                    data-action="service:restart"
+                    class="secondary-button"
+                    type="button"
+                  >
+                    Restart
+                  </button>
+                  <button
+                    data-action="service:stop"
+                    class="secondary-button"
+                    type="button"
+                  >
+                    Stop
+                  </button>
+                  <button
+                    data-action="copy:diagnostic-summary"
+                    class="text-button"
+                    type="button"
+                  >
+                    Copy diagnostic summary
+                  </button>
+                </div>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Runtime</p>
+                  <h3>Desktop and daemon state</h3>
+                </div>
+                <dl id="doctor-facts" class="fact-list"></dl>
+              </article>
+            </div>
+
+            <article class="panel-card">
+              <div class="card-heading">
+                <p class="section-eyebrow">Checks</p>
+                <h3>Detailed health report</h3>
+              </div>
+              <div id="doctor-checks" class="check-list"></div>
+            </article>
+          </section>
+
+          <section id="agents-section" class="section-view" hidden>
+            <article class="panel-card">
+              <div class="card-heading">
+                <p class="section-eyebrow">Integrations</p>
+                <h3>Choose a setup path</h3>
+                <p class="section-copy">
+                  Crewlight stays local-first and read-only. Integration cards
+                  expose setup snippets, verification commands, and honest
+                  boundaries.
+                </p>
+              </div>
+              <div id="agent-cards" class="integration-grid"></div>
+            </article>
+          </section>
+
+          <section id="companion-section" class="section-view" hidden>
+            <div class="panel-grid two-up">
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Floating companion</p>
+                  <h3>Keep live status nearby</h3>
+                </div>
+                <div class="button-row">
+                  <button
+                    data-action="companion:show"
+                    class="primary-button"
+                    type="button"
+                  >
+                    Show companion
+                  </button>
+                  <button
+                    data-action="companion:hide"
+                    class="secondary-button"
+                    type="button"
+                  >
+                    Hide companion
+                  </button>
+                  <button
+                    data-action="companion:bring-to-front"
+                    class="secondary-button"
+                    type="button"
+                  >
+                    Bring to front
+                  </button>
+                </div>
+                <div class="button-row compact-row">
+                  <button
+                    data-action="companion:set-expanded"
+                    data-expanded="false"
+                    class="text-button"
+                    type="button"
+                  >
+                    Compact mode
+                  </button>
+                  <button
+                    data-action="companion:set-expanded"
+                    data-expanded="true"
+                    class="text-button"
+                    type="button"
+                  >
+                    Expanded mode
+                  </button>
+                  <button
+                    data-action="companion:toggle-always-on-top"
+                    class="text-button"
+                    type="button"
+                  >
+                    Toggle always on top
+                  </button>
+                </div>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Status</p>
+                  <h3 id="companion-status-title">Companion hidden</h3>
+                  <p id="companion-status-copy" class="section-copy"></p>
+                </div>
+                <dl id="companion-facts" class="fact-list"></dl>
+              </article>
+            </div>
+          </section>
+
+          <section id="demo-section" class="section-view" hidden>
+            <div class="panel-grid two-up">
+              <article class="hero-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Demo</p>
+                  <h3>Run the local multi-agent scenario</h3>
+                  <p id="demo-summary" class="section-copy"></p>
+                </div>
+                <div class="button-row">
+                  <button
+                    data-action="demo:run"
+                    class="primary-button"
+                    type="button"
+                  >
+                    Run multi-agent demo
+                  </button>
+                  <button
+                    data-action="companion:show"
+                    class="secondary-button"
+                    type="button"
+                  >
+                    Show companion
+                  </button>
+                </div>
+              </article>
+
+              <article class="panel-card reward-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Synthetic data only</p>
+                  <h3>Safe, local, repeatable</h3>
+                  <p class="section-copy">
+                    The demo uses deterministic local sessions. No real prompts,
+                    transcripts, tool I/O, or cloud data are involved.
+                  </p>
+                </div>
+              </article>
+            </div>
+
+            <article class="panel-card">
+              <div class="card-heading">
+                <p class="section-eyebrow">Scenario sessions</p>
+                <h3>Demo session list</h3>
+              </div>
+              <div id="demo-sessions" class="session-grid"></div>
+              <section id="demo-empty" class="empty-state" hidden>
+                <h4>Demo not loaded yet</h4>
+                <p>
+                  Run the scenario to populate Home, Demo, and Companion
+                  together.
+                </p>
+              </section>
+            </article>
+          </section>
+
+          <section id="appearance-section" class="section-view" hidden>
+            <div class="panel-grid two-up">
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Appearance</p>
+                  <h3>Saved desktop preferences</h3>
+                  <p class="section-copy">
+                    Theme, accent, density, and companion visibility preference
+                    persist locally.
+                  </p>
+                </div>
+                <div class="control-stack">
+                  <label class="field">
+                    <span>Theme</span>
+                    <select id="theme-select">
+                      <option value="system">System</option>
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Density</span>
+                    <select id="density-select">
+                      <option value="comfortable">Comfortable</option>
+                      <option value="compact">Compact</option>
+                    </select>
+                  </label>
+                  <label class="toggle-field">
+                    <input id="companion-visible-pref" type="checkbox" />
+                    <span>Show companion when Crewlight Desktop launches</span>
+                  </label>
+                </div>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Accent and motion</p>
+                  <h3>Visual tone</h3>
+                  <p class="section-copy">
+                    The companion and main window share this token set. Reduced
+                    motion is respected.
+                  </p>
+                </div>
+                <div id="accent-options" class="accent-grid"></div>
+                <div class="companion-preview">
+                  <div class="preview-window">
+                    <span class="preview-dot"></span>
+                    <span class="preview-line short"></span>
+                    <span class="preview-line long"></span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section id="settings-section" class="section-view" hidden>
+            <div class="panel-grid two-up">
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Local service</p>
+                  <h3>Current app-session settings</h3>
+                  <p class="section-copy">
+                    Host, port, and notifier apply to the next service start or
+                    restart.
+                  </p>
+                </div>
+                <div class="control-stack">
+                  <label class="field">
+                    <span>Host</span>
+                    <select id="host-select">
+                      <option value="127.0.0.1">127.0.0.1</option>
+                      <option value="::1">::1</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Port</span>
+                    <input id="port-input" type="number" min="1" max="65535" />
+                  </label>
+                  <label class="field">
+                    <span>Notifier</span>
+                    <select id="notifier-select">
+                      <option value="console">Console</option>
+                      <option value="none">None</option>
+                      <option value="os">OS</option>
+                    </select>
+                  </label>
+                  <label class="toggle-field">
+                    <input id="auto-start-toggle" type="checkbox" />
+                    <span
+                      >Attempt to start the local service when the desktop app
+                      launches</span
+                    >
+                  </label>
+                </div>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Desktop state</p>
+                  <h3>Reset or replay</h3>
+                  <p class="section-copy">
+                    Reset only desktop UI preferences. No prompts, transcripts,
+                    sessions, or raw payloads are persisted.
+                  </p>
+                </div>
+                <div class="button-column">
+                  <button
+                    data-action="preferences:reset"
+                    class="secondary-button"
+                    type="button"
+                  >
+                    Reset desktop UI state
+                  </button>
+                  <button
+                    data-action="onboarding:start-over"
+                    class="secondary-button"
+                    type="button"
+                  >
+                    Replay onboarding
+                  </button>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section id="about-section" class="section-view" hidden>
+            <article class="panel-card">
+              <div class="card-heading">
+                <p class="section-eyebrow">About</p>
+                <h3 id="about-title">Crewlight v0.4.0</h3>
+                <p id="about-tagline" class="section-copy"></p>
+              </div>
+              <div id="about-migration" class="bullet-list"></div>
+              <div id="about-boundaries" class="bullet-list"></div>
+              <div class="button-row">
+                <button
+                  data-action="shell:open-repository"
+                  class="text-button"
+                  type="button"
+                >
+                  Open repository
+                </button>
+              </div>
+            </article>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

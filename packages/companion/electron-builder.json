@@ -1,0 +1,28 @@
+{
+  "appId": "com.qianqiulp.crewlight.desktop",
+  "asar": true,
+  "directories": {
+    "output": "../../release/desktop-builder"
+  },
+  "executableName": "Crewlight",
+  "extraResources": [
+    {
+      "from": ".desktop-resources",
+      "to": "crewlight-cli",
+      "filter": ["**/*"]
+    }
+  ],
+  "files": ["dist/**/*", "package.json"],
+  "npmRebuild": false,
+  "productName": "Crewlight",
+  "win": {
+    "artifactName": "Crewlight-${version}.${ext}",
+    "icon": "./assets/crewlight-icon.ico"
+  },
+  "nsis": {
+    "artifactName": "Crewlight-Setup-v${version}.${ext}",
+    "oneClick": true,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": false
+  }
+}

@@ -9,3 +9,4 @@ release/
 !.env.example
 .claude
 .codex
+packages/companion/.desktop-resources/

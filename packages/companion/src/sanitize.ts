@@ -35,6 +35,13 @@ export interface SanitizedDashboardData {
   sessions: SanitizedSession[];
 }
 
+export interface SanitizedDashboardSnapshot extends SanitizedDashboardData {
+  health: {
+    status: "ok";
+  };
+  notifier?: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -150,6 +157,13 @@ function sanitizeSession(value: unknown): SanitizedSession | undefined {
 export function sanitizeDashboardResponse(
   value: unknown,
 ): SanitizedDashboardData | undefined {
+  const snapshot = sanitizeDashboardSnapshot(value);
+  return snapshot ? { sessions: snapshot.sessions } : undefined;
+}
+
+export function sanitizeDashboardSnapshot(
+  value: unknown,
+): SanitizedDashboardSnapshot | undefined {
   if (
     !isRecord(value) ||
     !isRecord(value.health) ||
@@ -164,5 +178,10 @@ export function sanitizeDashboardResponse(
     return undefined;
   }
 
-  return { sessions: sessions as SanitizedSession[] };
+  const notifier = safeString(value.notifier, 24);
+  return {
+    health: { status: "ok" },
+    ...(notifier ? { notifier } : {}),
+    sessions: sessions as SanitizedSession[],
+  };
 }

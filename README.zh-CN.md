@@ -14,299 +14,167 @@
 
 <p align="center">
   <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-0f766e" alt="Release v0.4.0"></a>
-  <img src="https://img.shields.io/badge/platform-Linux_x64_%7C_Windows_x64-334155" alt="支持平台：Linux x64 和 Windows x64">
+  <img src="https://img.shields.io/badge/desktop-Windows_x64-334155" alt="主要桌面平台：Windows x64">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/QianQIUlp/Crewlight" alt="MIT 许可证"></a>
   <a href="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml"><img src="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a>
 </p>
 
-Crewlight 是一个面向多代理编码工作流的本地优先 companion surface。
-它帮助开发者查看哪些 AI 编程代理正在运行、被阻塞、可能停滞、失败、完成或等待关注。
+Crewlight Desktop 是 v0.4.0 的主要用户入口。它把主控窗口、浮动 companion、
+本地服务控制、demo 流程和集成配置收进一个本地优先的桌面应用里。
 
-<p align="center">
-  <img src="assets/readme/crewlight-flow.svg" width="100%" alt="Crewlight 将有限的代理集成事件经过白名单 adapter 和本地 daemon 转换为只读状态输出">
-</p>
+浏览器 dashboard 现在是次级开发者界面。CLI 则保留为高级和自动化入口。
 
-## 功能概览
+## Windows 桌面端优先
 
-- **统一的本地活动视图：** 将受支持的代理生命周期事件聚合为由 Crewlight
-  管理、带命名空间的 session。
-- **状态优先的 dashboard：** 查看当前工作、需要操作的状态、失败、可能停滞的活动、配置片段和基础 doctor 输出。
-- **灵活的通知方式：** 可选择 console、OS 或 no-op 输出；通知失败不会影响事件接收。
-- **安全的 adapter 边界：** 仅转换白名单内的状态、身份、位置和简短安全消息字段。
-- **非阻塞集成：** 输入格式错误或 daemon 不可达时安全降级，避免中断 hook 与 notify 工作流。
-- **Standalone release 构建：** 支持的 Linux x64 和 Windows x64
-  构建无需安装 Node.js、npm 或 pnpm。
+### 主要下载项
 
-浏览器 dashboard 默认不启用，只读且强制限制在 loopback；它只反映当前 daemon
-进程内存中的状态。
+- 便携桌面包：
+  [`crewlight-v0.4.0-windows-x64-desktop.zip`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-windows-x64-desktop.zip)
+- 未签名安装器：
+  [`Crewlight-Setup-v0.4.0.exe`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/Crewlight-Setup-v0.4.0.exe)
 
-## 支持的集成与集成等级
+### 首次体验流程
 
-Crewlight 明确区分已验证接口、实验性路径和有限回退能力：
+1. 下载并解压 `crewlight-v0.4.0-windows-x64-desktop.zip`
+2. 双击 `Crewlight.exe`
+3. 完成 onboarding：
+   - Welcome
+   - Start local service
+   - Run demo
+   - Show companion
+   - Choose an integration path
+4. 进入 `Home`，在桌面端完成本地服务、demo session 和 companion 的首轮体验
 
-| 集成                     | 等级                              | 当前边界                                                                  |
-| ------------------------ | --------------------------------- | ------------------------------------------------------------------------- |
-| Claude Code              | Precise                           | 使用文档化生命周期 hooks；仅观察                                          |
-| Codex hooks              | Precise lifecycle                 | 用户确认信任后，观察文档化 session、prompt、tool、permission 和 stop 事件 |
-| Codex `notify`           | Narrow official                   | 仅映射文档化的 `agent-turn-complete` 通知                                 |
-| OpenCode                 | Implemented, verification pending | 使用文档化本地 plugin 事件；尚未标记为 supported                          |
-| Cursor                   | Manual / Experimental bridge      | 仅使用显式 terminal 或 task 命令；不声明存在自动 lifecycle hook           |
-| Codex Desktop            | Experimental                      | 通过显式 desktop surface 复用 Codex hooks；仍待真实环境验证               |
-| Antigravity              | Research-only                     | 仅提供经过清理的手动 probe 脚手架，不是受支持 adapter                     |
-| Generic CLI wrapper      | Best-effort                       | 只能观察 `crewlight run` 启动的进程                                       |
-| Manual normalized events | Manual                            | 调用方通过 `crewlight emit` 显式提交事件                                  |
+首次体验不需要手动开终端，也不需要先打开浏览器 dashboard。
 
-Codex hooks 仅用于观察。Crewlight 不返回 permission 决策、上下文、更新后的
-tool input 或 turn-control 输出。
+## 产品界面分层
 
-精确事件和数据契约见
-[集成边界文档](docs/integration-boundaries.md)。
+| 界面              | v0.4.0 中的角色                                    |
+| ----------------- | -------------------------------------------------- |
+| Crewlight Desktop | 主要用户发布界面                                   |
+| 浮动 companion    | 由桌面端控制的次级常驻状态界面                     |
+| 浏览器 dashboard  | 次级开发者 / 检查界面                              |
+| CLI               | 高级配置、脚本、ingest、诊断和 standalone 构建入口 |
 
-## 快速开始
+## 桌面端包含什么
 
-推荐用户使用 standalone
-[Crewlight v0.4.0 release](https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0)
-构建：
+- `Home` 指挥台：本地服务状态、实时计数和主要 CTA
+- `Doctor`：启动、停止、重启、诊断和可复制摘要
+- `Agents`：产品化的集成卡片
+- `Companion`：显示、隐藏、模式、置顶和前置控制
+- `Demo`：确定性的本地合成多代理场景
+- `Appearance`：主题、强调色和密度
+- `Settings`：host、port、notifier、onboarding 重放和本地自动启动偏好
+- `About`：迁移说明与产品边界
 
-| 平台        | v0.4.0 release 状态                               |
-| ----------- | ------------------------------------------------- |
-| Linux x64   | 受支持，并通过 CI standalone smoke test 验证      |
-| Windows x64 | 受支持，并通过 CI standalone smoke test 验证      |
-| macOS       | 计划中 / 未验证；当前不声明存在受支持的二进制文件 |
+## 支持的集成
 
-1. 下载压缩包和对应的 checksum：
+| 集成                   | 等级                              | 当前边界                                                  |
+| ---------------------- | --------------------------------- | --------------------------------------------------------- |
+| Claude Code            | Precise                           | 使用文档化 lifecycle hooks；仅观察                        |
+| Codex hooks            | Precise lifecycle                 | 观察文档化 session、prompt、tool、permission 和 stop 事件 |
+| Codex `notify`         | Narrow official                   | 仅映射文档化的 `agent-turn-complete`                      |
+| OpenCode               | Implemented, verification pending | 使用文档化本地 plugin 事件                                |
+| Cursor                 | Manual / Experimental bridge      | 仅显式命令；不声明自动 Cursor 生命周期 hook 或私有 API    |
+| Manual / custom ingest | Manual                            | 手动规范化事件与有限本地探针                              |
 
-   - Linux：
-     [`crewlight-v0.4.0-linux-x64.tar.gz`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-linux-x64.tar.gz)
-     与
-     [`crewlight-v0.4.0-linux-x64.tar.gz.sha256`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-linux-x64.tar.gz.sha256)
-   - Windows：
-     [`crewlight-v0.4.0-windows-x64.zip`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-windows-x64.zip)
-     与
-     [`crewlight-v0.4.0-windows-x64.zip.sha256`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-windows-x64.zip.sha256)
+Crewlight 保持本地优先、只读。它不会自动批准权限，不控制 agent turn，不持久化
+session 历史，也不依赖私有 API 抓取。
 
-2. 校验并解压。
+## 截图资源
 
-   Linux：
+真实桌面端截图会保存在：
 
-   ```bash
-   sha256sum --check crewlight-v0.4.0-linux-x64.tar.gz.sha256
-   tar -xzf crewlight-v0.4.0-linux-x64.tar.gz
-   cd crewlight-v0.4.0-linux-x64
-   ```
+- `assets/readme/crewlight-desktop-overview.png`
+- `assets/readme/crewlight-desktop-agents.png`
+- `assets/readme/crewlight-desktop-demo.png`
+- `assets/readme/crewlight-desktop-companion.png`
+- `assets/readme/companion-expanded-demo.png`
 
-   Windows PowerShell：
+当前仓库环境是 headless，真实截图仍然需要在 GUI release gate 中采集。
 
-   ```powershell
-   $expected = (Get-Content .\crewlight-v0.4.0-windows-x64.zip.sha256).Split()[0]
-   $actual = (Get-FileHash .\crewlight-v0.4.0-windows-x64.zip -Algorithm SHA256).Hash
-   if ($actual.ToLower() -ne $expected.ToLower()) { throw "Checksum mismatch" }
-   Expand-Archive .\crewlight-v0.4.0-windows-x64.zip -DestinationPath .\crewlight-v0.4.0-windows-x64
-   Set-Location .\crewlight-v0.4.0-windows-x64
-   ```
+## 浏览器 Dashboard
 
-3. 启动 daemon 和可选 dashboard：
+Dashboard 仍然存在于 loopback-only 的 daemon 端点上，但它不再是主要产品入口。
+当你需要额外的浏览器视图来查看当前本地 session、配置片段和诊断时再使用它。
 
-   ```bash
-   ./crewlight daemon --dashboard
-   ```
+参见 [dashboard 指南](docs/dashboard.md)。
 
-   Windows 使用：
+## 高级 CLI 用法
 
-   ```powershell
-   .\crewlight.exe daemon --dashboard
-   ```
+Standalone CLI 构建仍然保留：
 
-4. 打开命令输出的本地地址，通常是
-   `http://127.0.0.1:3768/dashboard`，然后检查安装：
+- `crewlight-v0.4.0-linux-x64.tar.gz`
+- `crewlight-v0.4.0-windows-x64.zip`
 
-   ```bash
-   ./crewlight doctor
-   ./crewlight status
-   ```
+以下场景仍然适合使用 CLI：
 
-Standalone 模式下，`doctor` 会说明无需执行源码构建检查。压缩包中的
-`BUILD-INFO.txt` 记录构建运行时、commit、平台和架构。更多信息见
-[无需 Node 安装](docs/install-without-node.md)和
-[dashboard 指南](docs/dashboard.md)。开发 experimental Electron 状态窗口时，
-请参考 [companion surface 指南](docs/companion-surface.md)。
+- 生成 Claude Code、Codex、Cursor、OpenCode 的 setup 片段
+- hook 与 notify ingest
+- standalone daemon
+- 脚本与 CI
+- 手动规范化事件
 
-下文命令假设 `crewlight` 已加入 `PATH`。直接从 Linux 解压目录运行时，请替换为
-`./crewlight`；Windows 使用 `.\crewlight.exe`。
-
-## 体验 Demo
-
-无需配置真实集成，即可查看一个本地多代理工作流：
+示例：
 
 ```bash
+crewlight setup claude-code --print
+crewlight setup codex-hooks --print
 crewlight daemon --dashboard --notifier none
 crewlight demo multi-agent
+crewlight status --json
 ```
-
-打开命令输出的浏览器 dashboard URL。在源码 checkout 中运行
-`pnpm companion:dev`，还可以在 experimental Electron companion 中查看同一组
-合成 session。重复运行 demo 会刷新相同的六个 session；重启 daemon 会清除它们。
 
 ## Breaking Rename
 
 Crewlight 是 AgentPulse 在 v0.4.0 的重命名后续版本。
 
-- `agentpulse` 已替换为 `crewlight`。
-- `AGENTPULSE_*` 已替换为 `CREWLIGHT_*`。
-- 文档和迁移说明中的 `.agentpulse` 已替换为 `.crewlight`。
-- `@agentpulse/*` workspace package 已重命名为 `@crewlight/*`。
-- 请使用 `crewlight setup ... --print` 重新生成本地 setup 片段。
-- GitHub 仓库重命名后，请更新本地 remote：
+- `agentpulse` 已替换为 `crewlight`
+- `AGENTPULSE_*` 已替换为 `CREWLIGHT_*`
+- workspace package 现在使用 `@crewlight/*`
+- 本地 setup 片段应通过 `crewlight setup ... --print` 重新生成
+
+仓库重命名后：
 
 ```bash
 git remote set-url origin https://github.com/QianQIUlp/Crewlight.git
 ```
 
-## Screenshot Gate
+## 产品边界
 
-实际运行中的 dashboard 与 companion 截图会在 GUI 环境的 release 验证阶段采集，
-并保存到：
+- 无云服务
+- 不抓取私有 API
+- 不自动批准权限
+- 不保留 prompt、transcript 或 tool I/O
+- v0.4.0 不持久化 session 历史
 
-- `assets/readme/dashboard-demo.png`
-- `assets/readme/companion-compact-demo.png`
-- `assets/readme/companion-expanded-demo.png`
-
-## 平台配置
-
-Crewlight 只打印可检查、可合并的配置片段：
-
-```bash
-crewlight setup claude-code --print
-crewlight setup codex --print
-crewlight setup codex-hooks --print
-crewlight setup cursor --print
-crewlight setup opencode --print
-```
-
-这些命令不会读取或修改用户配置。默认情况下，生成的命令包含当前 standalone
-二进制路径，或源码模式下的 Node.js 与 CLI 路径。只有在明确选择 `PATH`
-模式时才使用 `--binary crewlight`。
-
-请按平台文档完成合并与验证：
-
-- [Claude Code 配置](docs/setup-claude-code.md)
-- [Codex notify 配置](docs/setup-codex.md)
-- [Codex hooks 配置](docs/setup-codex-hooks.md)
-- [Cursor 手动 bridge](docs/cursor.md)
-- [OpenCode plugin MVP](docs/opencode.md)
-
-Hook 风格的 Codex 与 OpenCode ingest 在输入错误或 daemon 不可达时保持静默、非阻塞。
-
-### 日常 CLI
-
-启动 daemon 时选择 notifier：
-
-```bash
-crewlight daemon --notifier console
-crewlight daemon --notifier os
-crewlight daemon --notifier none
-```
-
-默认值为 `console`。Linux 的 OS 通知需要图形会话和 `notify-send`；通知失败不会中断事件接收。
-
-查看当前内存 session，或使用 best-effort adapter 包装单个命令：
-
-```bash
-crewlight status
-crewlight status --json
-crewlight run --source generic-cli -- npm test
-```
-
-Wrapper 会保留原命令的退出结果。手动调用方可以通过 `crewlight emit`
-提交规范化事件。
-
-## 开发者配置
-
-源码构建要求 Node.js 22 或更高版本，以及 pnpm 10.11.0：
+## 开发
 
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
-pnpm build
-cd packages/cli
-npm link
-cd ../..
-```
-
-运行仓库校验：
-
-```bash
 pnpm format:check
 pnpm typecheck
 pnpm test
 pnpm build
 ```
 
-无需全局 link 的本地运行方式：
+桌面端开发：
 
 ```bash
-node packages/cli/dist/index.js
+pnpm desktop:dev
 ```
 
-Node SEA bundle 只用于特定 release 流程：
+Windows 桌面打包：
 
 ```bash
-pnpm build:standalone
-pnpm smoke:standalone
+pnpm package:desktop:portable
+pnpm package:desktop:installer
 ```
 
-## 架构与安全
+相关文档：
 
-平台 adapter 将源 payload 转换为白名单化的 `AgentEventInput`。Daemon
-规范化这些输入、派生 Crewlight 自有的 `sessionKey`、在内存中维护当前
-session，并向选定 notifier 和只读状态界面提供输出。
-
-- `sessionId` 是平台可选提供的原始标识。
-- `sessionKey` 由 Crewlight 管理、带命名空间，并用于稳定聚合；外部 ID
-  不会直接作为内部 key。
-- 完整平台 payload、raw event、prompt、transcript、tool input/output 和
-  Codex `input-messages` 不会转发到规范化事件、session、notifier 输出、日志或
-  dashboard 响应。
-- Dashboard 只读且仅在使用 `--dashboard` 时存在。它拒绝除 `127.0.0.1` 与
-  `::1` 之外的所有 host，返回 `Cache-Control: no-store`，并使用普通 HTTP
-  polling，而不是 SSE 或 WebSocket。
-- Daemon 默认监听 `127.0.0.1:3768`。由于 HTTP API 没有认证，更宽的 daemon
-  绑定仅适用于可信开发环境。
-- Session 只存在于 daemon 进程生命周期内；没有持久化、历史恢复或 session
-  garbage collection。
-- Setup 命令只打印片段；Crewlight 不会自动修改 Claude、Codex 或 OpenCode
-  用户配置。
-- 核心集成不依赖私有 API 逆向、OCR、屏幕抓取、窗口监视、模拟输入或隐藏平台行为。
-
-参见[架构](docs/architecture.md)、
-[集成边界](docs/integration-boundaries.md)和
-[故障排查](docs/troubleshooting.md)。
-
-## 已知限制
-
-- OpenCode 已实现，但仍需真实本地验证后才能标记为 supported。
-- Codex Desktop 仍为 experimental。
-- Antigravity 仍为 research-only，不是稳定 adapter 或配置路径。
-- macOS 没有受支持的 v0.4.0 standalone 构建。
-- Dashboard 不提供持久化、认证、远程访问、历史恢复、SSE/WebSocket
-  streaming 或状态修改控制。
-- Electron companion 是面向源码 checkout 的本地 companion surface；它不是桌面
-  安装器、后台服务，也不提供 autostart。
-- Cursor 支持仍是手动、实验性 bridge；Crewlight 不声明能够自动观察 Cursor
-  lifecycle。
-- Crewlight 当前不包含 VS Code extension、持久化、session cleanup、硬件输出或
-  自动配置修改。
-
-这些边界是 v0.4.0 release 的明确范围，不应被理解为对稳定 API、installer
-或成熟桌面产品的声明。
-
-## 文档与许可证
-
-- [产品定位](docs/product/positioning.md)
-- [Dashboard 指南](docs/dashboard.md)
+- [无需 Node 安装](docs/install-without-node.md)
 - [Companion surface 指南](docs/companion-surface.md)
-- [架构](docs/architecture.md)
-- [贡献指南](CONTRIBUTING.zh-CN.md)
-- [English contributing guide](CONTRIBUTING.md)
-
-Crewlight 使用 [MIT License](LICENSE)。
+- [Browser dashboard 指南](docs/dashboard.md)
+- [产品定位](docs/product/positioning.md)

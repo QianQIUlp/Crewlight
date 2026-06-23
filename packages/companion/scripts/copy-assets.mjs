@@ -10,7 +10,7 @@ const outputDirectory = join(packageRoot, "dist");
 
 await mkdir(outputDirectory, { recursive: true });
 await Promise.all(
-  ["index.html", "styles.css"].map((file) =>
+  ["index.html", "styles.css", "desktop.html", "desktop.css"].map((file) =>
     copyFile(join(sourceDirectory, file), join(outputDirectory, file)),
   ),
 );

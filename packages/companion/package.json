@@ -10,9 +10,13 @@
     "dev": "pnpm build && electron dist/main.js"
   },
   "dependencies": {
+    "@crewlight/cli": "workspace:^",
+    "@crewlight/daemon": "workspace:^",
+    "@crewlight/notifier": "workspace:^",
     "@crewlight/shared": "workspace:^"
   },
   "devDependencies": {
-    "electron": "42.4.1"
+    "electron": "42.4.1",
+    "electron-builder": "26.15.3"
   }
 }

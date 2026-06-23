@@ -17,6 +17,22 @@ function formatHost(host: string): string {
   return host.includes(":") ? `[${host}]` : host;
 }
 
+export function createCompanionEndpoint(
+  host: string,
+  port: number,
+  issues: string[] = [],
+): CompanionEndpoint {
+  const baseUrl = `http://${formatHost(host)}:${port}`;
+  return {
+    host,
+    port,
+    baseUrl,
+    dashboardApiUrl: `${baseUrl}/dashboard/api`,
+    dashboardUrl: `${baseUrl}/dashboard`,
+    issues,
+  };
+}
+
 export function resolveCompanionEndpoint(
   env: NodeJS.ProcessEnv = process.env,
 ): CompanionEndpoint {
@@ -47,15 +63,7 @@ export function resolveCompanionEndpoint(
     }
   }
 
-  const baseUrl = `http://${formatHost(host)}:${port}`;
-  return {
-    host,
-    port,
-    baseUrl,
-    dashboardApiUrl: `${baseUrl}/dashboard/api`,
-    dashboardUrl: `${baseUrl}/dashboard`,
-    issues,
-  };
+  return createCompanionEndpoint(host, port, issues);
 }
 
 function normalizeUrlHostname(hostname: string): string {

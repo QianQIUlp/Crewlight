@@ -25,6 +25,25 @@ if (isMainModule(import.meta.url, process.argv[1])) {
 }
 
 export { main } from "./app.js";
+export { createMultiAgentDemoEvents } from "./commands/demo.js";
+export {
+  createAntigravityProbeCommand,
+  createSetupSnippets,
+  formatCodexHooksSetup,
+  resolveCrewlightCommand,
+  renderHookCommand,
+  type CodexHooksSetupResult,
+  type SetupRuntime,
+  type SetupSnippets,
+} from "./commands/setup.js";
+export {
+  createDoctorRuntime,
+  runDoctor,
+  type DoctorCheck,
+  type DoctorReport,
+  type DoctorRuntime,
+  type DoctorRuntimeOptions,
+} from "./commands/doctor.js";
 export {
   DASHBOARD_CAPABILITIES_TIMEOUT_MS,
   DaemonClient,

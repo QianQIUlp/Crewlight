@@ -15,16 +15,20 @@ Notable Crewlight changes are recorded here.
 
 ### Added
 
-- A productized local companion surface and refreshed dashboard positioning for
-  multi-agent coding workflows.
+- A productized Crewlight Desktop app with a main control window, onboarding,
+  companion controls, demo flow, local service manager, and desktop-first
+  release positioning.
 - The `crewlight demo multi-agent` scenario for repeatable dashboard and
   companion verification.
-- Release-verified standalone artifact naming aligned with Crewlight.
+- A portable Windows desktop artifact and unsigned NSIS installer path for the
+  desktop release.
 
 ### Changed
 
-- Release-facing docs, setup snippets, standalone install instructions, and CI
-  artifact names now use Crewlight as the primary identity.
+- Release-facing docs now describe the desktop app as the primary user-facing
+  v0.4.0 surface.
+- The browser dashboard is now positioned as a secondary developer surface and
+  the CLI as the advanced / automation surface.
 - Migration guidance now points existing users to regenerate setup snippets and
   update the Git remote after the repository rename.
 
