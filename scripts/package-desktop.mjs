@@ -36,7 +36,6 @@ const installerArtifact = join(
   builderOutput,
   `Crewlight-Setup-v${version}.exe`,
 );
-const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 function run(command, args, cwd = root, env) {
   execFileSync(command, args, {
@@ -46,16 +45,24 @@ function run(command, args, cwd = root, env) {
   });
 }
 
+function runPnpm(args, cwd = root, env) {
+  if (process.platform === "win32") {
+    run("cmd.exe", ["/d", "/s", "/c", "pnpm", ...args], cwd, env);
+    return;
+  }
+
+  run("pnpm", args, cwd, env);
+}
+
 await rm(desktopResources, { force: true, recursive: true });
 await mkdir(desktopResources, { recursive: true });
 
-run(pnpmCommand, ["build:standalone"]);
+runPnpm(["build:standalone"]);
 
 await cp(standaloneBinary, join(desktopResources, "crewlight.exe"));
 
 if (mode === "portable") {
-  run(
-    pnpmCommand,
+  runPnpm(
     [
       "--filter",
       "@crewlight/companion",
@@ -90,8 +97,7 @@ if (mode === "portable") {
   );
   console.log(`Archive: ${portableArchive}`);
 } else {
-  run(
-    pnpmCommand,
+  runPnpm(
     [
       "--filter",
       "@crewlight/companion",
