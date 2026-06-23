@@ -2,7 +2,13 @@
 
 Notable Crewlight changes are recorded here.
 
-## v0.4.0 — Unreleased
+## v0.4.0 - Archived prototype release
+
+- Breaking rename from AgentPulse to Crewlight.
+- Current CLI/package/artifact identity uses Crewlight.
+- Includes companion UI, Cursor bridge, and multi-agent demo work from the latest main state.
+- Known limitations remain.
+- This repository is archived and not actively maintained.
 
 ### Breaking changes
 

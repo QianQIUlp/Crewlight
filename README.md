@@ -12,6 +12,8 @@
   <a href="README.zh-CN.md">简体中文</a>
 </p>
 
+> Archived prototype: Crewlight v0.4.0 is a known-bug, no-longer-maintained prototype of a local-first activity radar for AI coding agents. The repository is preserved for reference only.
+
 <p align="center">
   <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-0f766e" alt="Release v0.4.0"></a>
   <img src="https://img.shields.io/badge/desktop-Windows_x64-334155" alt="Primary desktop platform: Windows x64">
