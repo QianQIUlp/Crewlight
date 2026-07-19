@@ -594,7 +594,7 @@ export function deriveDesktopViewModel(
       license: "MIT",
       migrationSummary: [
         "AgentPulse is now Crewlight.",
-        "The desktop app is the primary user-facing v0.4.0 surface.",
+        "The desktop app is the primary user-facing v0.5.0 surface.",
         "CLI and browser dashboard remain available for advanced local workflows.",
       ],
       repoUrl: "https://github.com/QianQIUlp/Crewlight",

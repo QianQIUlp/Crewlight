@@ -9,7 +9,7 @@ import { executeSetupCommand } from "./commands/setup.js";
 import { executeStatusCommand } from "./commands/status.js";
 import { consoleIo, readStdin, type CommandIo } from "./commands/types.js";
 
-const USAGE = `Crewlight v0.4.0
+const USAGE = `Crewlight v0.5.0
 
 Usage:
   crewlight daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard] [--dashboard-task-titles prompt-preview]

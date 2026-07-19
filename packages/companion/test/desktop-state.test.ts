@@ -86,7 +86,7 @@ describe("desktop view-model derivation", () => {
           kind: "offline",
           diagnostic: "offline",
         },
-        version: "v0.4.0",
+        version: "v0.5.0",
       },
       setup,
     );
@@ -125,7 +125,7 @@ describe("desktop view-model derivation", () => {
             sessions: [session("running", { taskTitle: "Normal work" })],
           },
         },
-        version: "v0.4.0",
+        version: "v0.5.0",
       },
       setup,
     );
@@ -174,7 +174,7 @@ describe("desktop view-model derivation", () => {
             ],
           },
         },
-        version: "v0.4.0",
+        version: "v0.5.0",
       },
       setup,
     );

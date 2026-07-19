@@ -24,5 +24,34 @@
     "oneClick": true,
     "perMachine": false,
     "allowToChangeInstallationDirectory": false
+  },
+  "mac": {
+    "artifactName": "Crewlight-${version}-${arch}.${ext}",
+    "icon": "./assets/crewlight-icon.png",
+    "category": "public.app-category.developer-tools",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["arm64", "x64"]
+      }
+    ]
+  },
+  "dmg": {
+    "artifactName": "Crewlight-${version}-${arch}.${ext}"
+  },
+  "linux": {
+    "artifactName": "Crewlight-${version}-${arch}.${ext}",
+    "icon": "./assets/crewlight-icon.png",
+    "category": "Development",
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64", "arm64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64"]
+      }
+    ]
   }
 }
