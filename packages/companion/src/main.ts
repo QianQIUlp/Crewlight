@@ -61,6 +61,16 @@ import {
   type ManagedServiceState,
 } from "./service-manager.js";
 import {
+  parseCrewlightRemoteHosts,
+  type SshConfigHost,
+} from "./ssh-config-parser.js";
+import {
+  createSshTunnel,
+  type SshTunnel,
+  type TunnelState,
+} from "./ssh-tunnel.js";
+import type { DesktopRemoteHost } from "./desktop-state.js";
+import {
   deriveCompanionViewModel,
   type CompanionViewModel,
   type CompanionWindowState,
@@ -121,6 +131,29 @@ let doctorRefreshPromise: Promise<void> | undefined;
 let preferencesStore:
   | ReturnType<typeof createDesktopPreferencesStore>
   | undefined;
+
+let parsedSshConfigHosts: SshConfigHost[] = [];
+let remoteHostsState: DesktopRemoteHost[] = [];
+const activeTunnels = new Map<string, SshTunnel>();
+
+async function scanRemoteHosts() {
+  parsedSshConfigHosts = await parseCrewlightRemoteHosts();
+  remoteHostsState = parsedSshConfigHosts.map((h) => {
+    const existing = remoteHostsState.find((x) => x.alias === h.alias);
+    return {
+      alias: h.alias,
+      hostname: h.hostname,
+      user: h.user,
+      port: h.port,
+      tunnelState: activeTunnels.has(h.alias)
+        ? (existing?.tunnelState ?? "disconnected")
+        : "disconnected",
+      tunnelMessage: existing?.tunnelMessage,
+      hasCli: existing?.hasCli,
+    };
+  });
+  refreshViewModels();
+}
 
 const setupBase = createSetupSnippets(
   undefined,
@@ -385,6 +418,7 @@ function publishDesktopState(): void {
       serviceState,
       snapshot: latestSnapshot,
       version: `v${app.getVersion()}`,
+      remoteHosts: remoteHostsState,
     },
     setupSnippets,
   );
@@ -948,6 +982,69 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
   if (action.type === "onboarding:skip-step") {
     return true;
   }
+  if (action.type === "remote:rescan") {
+    await scanRemoteHosts();
+    return true;
+  }
+  if (action.type === "remote:connect") {
+    const host = remoteHostsState.find((h) => h.alias === action.alias);
+    const parsed = parsedSshConfigHosts.find((h) => h.alias === action.alias);
+    if (!host || !parsed) {
+      return false;
+    }
+
+    if (activeTunnels.has(action.alias)) {
+      activeTunnels.get(action.alias)!.disconnect();
+      activeTunnels.delete(action.alias);
+    }
+
+    host.tunnelState = "connecting";
+    host.tunnelMessage = undefined;
+    publishDesktopState();
+
+    const tunnel = createSshTunnel({
+      host: parsed,
+      remotePort: 3768,
+      localPort: desiredRuntimeSettings.port,
+      onStateChange: (state) => {
+        host.tunnelState = state.kind;
+        if (state.kind === "error") {
+          host.tunnelMessage = state.message;
+        } else if (state.kind === "disconnected") {
+          host.tunnelMessage = state.reason;
+        } else {
+          host.tunnelMessage = undefined;
+        }
+
+        if (state.kind === "connected") {
+          tunnel.checkRemoteCli().then((hasCli) => {
+            host.hasCli = hasCli;
+            publishDesktopState();
+          });
+        }
+        publishDesktopState();
+      },
+    });
+
+    activeTunnels.set(action.alias, tunnel);
+    return true;
+  }
+  if (action.type === "remote:disconnect") {
+    const tunnel = activeTunnels.get(action.alias);
+    if (tunnel) {
+      tunnel.disconnect();
+      activeTunnels.delete(action.alias);
+    }
+    const host = remoteHostsState.find((h) => h.alias === action.alias);
+    if (host) {
+      host.tunnelState = "disconnected";
+      host.tunnelMessage = undefined;
+      host.hasCli = undefined;
+    }
+    publishDesktopState();
+    return true;
+  }
+
   if (action.type === "service:set-host") {
     if (action.host !== "127.0.0.1" && action.host !== "::1") {
       setNotice("error", "Crewlight Desktop accepts loopback hosts only.");
@@ -1036,6 +1133,7 @@ function registerIpc(): void {
         serviceState,
         snapshot: latestSnapshot,
         version: `v${app.getVersion()}`,
+        remoteHosts: remoteHostsState,
       },
       setupSnippets,
     );
@@ -1111,6 +1209,7 @@ try {
 }
 startPolling();
 await refreshDoctorReport(true);
+void scanRemoteHosts();
 
 if (preferences.companionVisibilityPreference) {
   await showCompanion(false);

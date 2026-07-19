@@ -32,6 +32,7 @@ const STATUS_LABELS: Record<SanitizedSession["status"], string> = {
 
 const SECTION_LABELS: Record<DesktopSection, string> = {
   home: "Home",
+  remote: "Remote",
   doctor: "Doctor",
   agents: "Agents",
   companion: "Companion",
@@ -197,6 +198,19 @@ export interface DesktopViewModel {
     preferredIntegration?: PreferredIntegration;
     serviceAutoStart: boolean;
   };
+  remote: {
+    hosts: DesktopRemoteHost[];
+  };
+}
+
+export interface DesktopRemoteHost {
+  alias: string;
+  hostname?: string;
+  user?: string;
+  port?: number;
+  tunnelState: "disconnected" | "connecting" | "connected" | "error";
+  tunnelMessage?: string;
+  hasCli?: boolean;
 }
 
 export interface DesktopViewModelInput {
@@ -208,6 +222,7 @@ export interface DesktopViewModelInput {
   serviceState: ManagedServiceState;
   snapshot: DesktopDashboardResult;
   version: string;
+  remoteHosts: DesktopRemoteHost[];
 }
 
 function formatRelativeAge(milliseconds: number): string {
@@ -674,6 +689,9 @@ export function deriveDesktopViewModel(
         ? { preferredIntegration: input.preferences.preferredIntegration }
         : {}),
       serviceAutoStart: input.preferences.serviceAutoStart,
+    },
+    remote: {
+      hosts: input.remoteHosts,
     },
   };
 }

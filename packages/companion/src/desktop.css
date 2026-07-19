@@ -846,3 +846,72 @@ input:focus-visible {
   color: var(--warning);
   font-weight: 500;
 }
+
+.remote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.remote-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.remote-card:hover {
+  border-color: var(--accent);
+}
+
+.remote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.remote-alias {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.remote-detail {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.remote-status {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.remote-status.connected {
+  color: var(--success);
+}
+
+.remote-status.connecting {
+  color: var(--accent);
+}
+
+.remote-status.disconnected {
+  color: var(--text-muted);
+}
+
+.remote-status.error {
+  color: var(--danger);
+}
+
+.remote-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}

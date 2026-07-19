@@ -150,6 +150,58 @@
             </article>
           </section>
 
+          <section id="remote-section" class="section-view" hidden>
+            <div class="panel-grid two-up">
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">SSH Port Forwarding</p>
+                  <h3>Remote connections</h3>
+                  <p class="section-copy">
+                    Connect local-first daemon to remote servers over secure SSH
+                    tunnel. Mark configurations in
+                    <code>~/.ssh/config</code> with comment
+                    <code># CrewlightRemote: yes</code> to scan.
+                  </p>
+                </div>
+                <div class="button-row">
+                  <button
+                    id="remote-rescan-btn"
+                    class="primary-button"
+                    type="button"
+                  >
+                    Rescan ssh config
+                  </button>
+                </div>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Status</p>
+                  <h3>Active SSH Tunnels</h3>
+                  <p class="section-copy">
+                    Remote events will be securely received on your local
+                    loopback address.
+                  </p>
+                </div>
+              </article>
+            </div>
+
+            <article class="panel-card">
+              <div class="card-heading">
+                <p class="section-eyebrow">Hosts</p>
+                <h3>Detected Remote Hosts</h3>
+              </div>
+              <div id="remote-hosts-list" class="remote-grid"></div>
+              <section id="remote-hosts-empty" class="empty-state" hidden>
+                <h4>No remote hosts detected</h4>
+                <p>
+                  Add <code># CrewlightRemote: yes</code> comment line above
+                  your Host block in your <code>~/.ssh/config</code> file.
+                </p>
+              </section>
+            </article>
+          </section>
+
           <section id="doctor-section" class="section-view" hidden>
             <div class="panel-grid two-up">
               <article class="panel-card">

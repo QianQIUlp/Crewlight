@@ -6,6 +6,7 @@ export const DESKTOP_ACCENTS = ["teal", "amber", "azure"] as const;
 export const DESKTOP_DENSITIES = ["comfortable", "compact"] as const;
 export const DESKTOP_SECTIONS = [
   "home",
+  "remote",
   "doctor",
   "agents",
   "companion",

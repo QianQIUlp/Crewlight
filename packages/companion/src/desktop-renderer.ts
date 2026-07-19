@@ -331,6 +331,81 @@ function renderAccentOptions(state: DesktopViewModel): void {
   );
 }
 
+function renderRemote(state: DesktopViewModel): void {
+  const list = byId("remote-hosts-list");
+  const isEmpty = state.remote.hosts.length === 0;
+  setHidden("remote-hosts-empty", !isEmpty);
+
+  list.replaceChildren(
+    ...state.remote.hosts.map((host) => {
+      const card = createElement("article", "remote-card");
+
+      const header = createElement("div", "remote-header");
+      header.append(createElement("h4", "remote-alias", host.alias));
+
+      const status = createElement(
+        "span",
+        `remote-status ${host.tunnelState}`,
+        host.tunnelState.toUpperCase(),
+      );
+      header.append(status);
+
+      card.append(header);
+
+      if (host.hostname) {
+        card.append(
+          createElement("p", "remote-detail", `HostName: ${host.hostname}`),
+        );
+      }
+      if (host.user) {
+        card.append(createElement("p", "remote-detail", `User: ${host.user}`));
+      }
+      if (host.port) {
+        card.append(createElement("p", "remote-detail", `Port: ${host.port}`));
+      }
+
+      if (host.tunnelMessage) {
+        card.append(
+          createElement("p", "remote-detail stuck-warning", host.tunnelMessage),
+        );
+      }
+
+      if (host.tunnelState === "connected" && host.hasCli !== undefined) {
+        const cliText = host.hasCli
+          ? "✅ Remote Crewlight CLI installed"
+          : "⚠️ Remote Crewlight CLI missing. Run `npm i -g @crewlight/cli` on the remote machine.";
+        card.append(createElement("p", "remote-detail", cliText));
+      }
+
+      const actions = createElement("div", "remote-actions");
+      if (host.tunnelState === "disconnected" || host.tunnelState === "error") {
+        const btn = createElement("button", "primary-button", "Connect");
+        btn.type = "button";
+        btn.addEventListener("click", () => {
+          window.crewlightDesktop.perform({
+            type: "remote:connect",
+            alias: host.alias,
+          });
+        });
+        actions.append(btn);
+      } else {
+        const btn = createElement("button", "secondary-button", "Disconnect");
+        btn.type = "button";
+        btn.addEventListener("click", () => {
+          window.crewlightDesktop.perform({
+            type: "remote:disconnect",
+            alias: host.alias,
+          });
+        });
+        actions.append(btn);
+      }
+
+      card.append(actions);
+      return card;
+    }),
+  );
+}
+
 function renderAppearance(state: DesktopViewModel): void {
   byId<HTMLSelectElement>("theme-select").value = state.appearance.theme;
   byId<HTMLSelectElement>("density-select").value = state.appearance.density;
@@ -506,6 +581,7 @@ function render(state: DesktopViewModel): void {
   renderSidebar(state);
   renderNotice(state);
   renderHome(state);
+  renderRemote(state);
   renderDoctor(state);
   renderAgents(state);
   renderCompanion(state);
@@ -634,6 +710,11 @@ document.addEventListener("click", async (event) => {
 
   if (target.closest("#home-open-dashboard")) {
     await window.crewlightDesktop.perform({ type: "shell:open-dashboard" });
+    return;
+  }
+
+  if (target.closest("#remote-rescan-btn")) {
+    await window.crewlightDesktop.perform({ type: "remote:rescan" });
     return;
   }
 

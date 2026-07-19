@@ -37,7 +37,10 @@ export type DesktopAction =
   | { type: "service:start" }
   | { type: "service:stop" }
   | { type: "shell:open-dashboard" }
-  | { type: "shell:open-repository" };
+  | { type: "shell:open-repository" }
+  | { type: "remote:connect"; alias: string }
+  | { type: "remote:disconnect"; alias: string }
+  | { type: "remote:rescan" };
 
 export interface CrewlightDesktopBridge {
   getState(): Promise<DesktopViewModel>;

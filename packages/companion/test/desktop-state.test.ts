@@ -88,6 +88,7 @@ describe("desktop view-model derivation", () => {
           diagnostic: "offline",
         },
         version: "v0.5.0",
+        remoteHosts: [],
       },
       setup,
     );
@@ -127,6 +128,7 @@ describe("desktop view-model derivation", () => {
           },
         },
         version: "v0.5.0",
+        remoteHosts: [],
       },
       setup,
     );
@@ -176,6 +178,7 @@ describe("desktop view-model derivation", () => {
           },
         },
         version: "v0.5.0",
+        remoteHosts: [],
       },
       setup,
     );
