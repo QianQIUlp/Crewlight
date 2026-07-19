@@ -76,6 +76,13 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
   identity.append(
     createElement("span", "source-dot"),
     createElement("span", "source-name", session.source),
+  );
+  if (session.remoteAlias) {
+    identity.append(
+      createElement("span", "remote-badge", `🌐 ${session.remoteAlias}`),
+    );
+  }
+  identity.append(
     createElement("span", "surface-name", `· ${session.surface}${elapsedText}`),
   );
   const status = createElement("span", "status-badge", session.statusLabel);

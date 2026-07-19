@@ -96,6 +96,7 @@ export interface DesktopSessionCard {
   workspace: string;
   elapsedMs: number;
   stuckWarning: boolean;
+  remoteAlias?: string;
 }
 
 export interface DesktopActionCard {
@@ -341,6 +342,7 @@ function toSessionCard(session: SanitizedSession): DesktopSessionCard {
     workspace: session.displayWorkspace,
     elapsedMs: session.durationMs,
     stuckWarning: isRunning(session) && session.lastEventAgeMs >= 5 * 60 * 1000,
+    ...(session.remoteAlias ? { remoteAlias: session.remoteAlias } : {}),
   };
 }
 

@@ -58,14 +58,23 @@ function renderSessionCard(session: DesktopSessionCard): HTMLElement {
   const topLine = createElement("div", "session-topline");
   const elapsedText =
     session.elapsedMs > 0 ? ` (${formatDuration(session.elapsedMs)})` : "";
-  topLine.append(
-    createElement(
-      "span",
-      "chip",
-      `${session.source} · ${session.surface}${elapsedText}`,
-    ),
-    createElement("span", "chip", session.statusLabel),
+  const sourceChip = createElement(
+    "span",
+    "chip",
+    `${session.source} · ${session.surface}${elapsedText}`,
   );
+  if (session.remoteAlias) {
+    topLine.append(
+      sourceChip,
+      createElement("span", "chip remote-chip", `🌐 ${session.remoteAlias}`),
+      createElement("span", "chip", session.statusLabel),
+    );
+  } else {
+    topLine.append(
+      sourceChip,
+      createElement("span", "chip", session.statusLabel),
+    );
+  }
 
   const title = createElement("h4", "session-title", session.title);
   const activity = createElement("p", "session-meta", session.activity);

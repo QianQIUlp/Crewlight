@@ -16,6 +16,7 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import http from "node:http";
 
 import {
   DaemonClient,
@@ -135,6 +136,59 @@ let preferencesStore:
 let parsedSshConfigHosts: SshConfigHost[] = [];
 let remoteHostsState: DesktopRemoteHost[] = [];
 const activeTunnels = new Map<string, SshTunnel>();
+const activeProxies = new Map<string, { close: () => void }>();
+
+function createLocalHttpProxy(
+  alias: string,
+): Promise<{ port: number; close: () => void }> {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const targetPort = desiredRuntimeSettings.port;
+      const headers = { ...req.headers };
+      headers["x-crewlight-remote-alias"] = alias;
+      headers["host"] = `127.0.0.1:${targetPort}`;
+
+      const proxyReq = http.request(
+        {
+          host: "127.0.0.1",
+          port: targetPort,
+          path: req.url,
+          method: req.method,
+          headers,
+        },
+        (proxyRes) => {
+          res.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
+          proxyRes.pipe(res);
+        },
+      );
+
+      proxyReq.on("error", (err) => {
+        res.writeHead(502);
+        res.end(`Bad Gateway: ${err.message}`);
+      });
+
+      req.pipe(proxyReq);
+    });
+
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address && typeof address === "object") {
+        resolve({
+          port: address.port,
+          close: () => {
+            server.close();
+          },
+        });
+      } else {
+        reject(new Error("Failed to get proxy port"));
+      }
+    });
+
+    server.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
 
 async function scanRemoteHosts() {
   parsedSshConfigHosts = await parseCrewlightRemoteHosts();
@@ -1007,43 +1061,62 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
       activeTunnels.get(action.alias)!.disconnect();
       activeTunnels.delete(action.alias);
     }
+    if (activeProxies.has(action.alias)) {
+      activeProxies.get(action.alias)!.close();
+      activeProxies.delete(action.alias);
+    }
 
     host.tunnelState = "connecting";
     host.tunnelMessage = undefined;
     publishDesktopState();
 
-    const tunnel = createSshTunnel({
-      host: parsed,
-      remotePort: 3768,
-      localPort: desiredRuntimeSettings.port,
-      onStateChange: (state) => {
-        host.tunnelState = state.kind;
-        if (state.kind === "error") {
-          host.tunnelMessage = state.message;
-        } else if (state.kind === "disconnected") {
-          host.tunnelMessage = state.reason;
-        } else {
-          host.tunnelMessage = undefined;
-        }
+    try {
+      const proxy = await createLocalHttpProxy(action.alias);
+      activeProxies.set(action.alias, proxy);
 
-        if (state.kind === "connected") {
-          tunnel.checkRemoteCli().then((hasCli) => {
-            host.hasCli = hasCli;
-            publishDesktopState();
-          });
-        }
-        publishDesktopState();
-      },
-    });
+      const tunnel = createSshTunnel({
+        host: parsed,
+        remotePort: 3768,
+        localPort: proxy.port,
+        onStateChange: (state) => {
+          host.tunnelState = state.kind;
+          if (state.kind === "error") {
+            host.tunnelMessage = state.message;
+          } else if (state.kind === "disconnected") {
+            host.tunnelMessage = state.reason;
+          } else {
+            host.tunnelMessage = undefined;
+          }
 
-    activeTunnels.set(action.alias, tunnel);
-    return true;
+          if (state.kind === "connected") {
+            tunnel.checkRemoteCli().then((hasCli) => {
+              host.hasCli = hasCli;
+              publishDesktopState();
+            });
+          }
+          publishDesktopState();
+        },
+      });
+
+      activeTunnels.set(action.alias, tunnel);
+      return true;
+    } catch (err: any) {
+      host.tunnelState = "error";
+      host.tunnelMessage = `Proxy creation failed: ${err.message}`;
+      publishDesktopState();
+      return false;
+    }
   }
   if (action.type === "remote:disconnect") {
     const tunnel = activeTunnels.get(action.alias);
     if (tunnel) {
       tunnel.disconnect();
       activeTunnels.delete(action.alias);
+    }
+    const proxy = activeProxies.get(action.alias);
+    if (proxy) {
+      proxy.close();
+      activeProxies.delete(action.alias);
     }
     const host = remoteHostsState.find((h) => h.alias === action.alias);
     if (host) {
@@ -1203,6 +1276,18 @@ app.on("before-quit", () => {
   if (pollTimer) {
     clearInterval(pollTimer);
   }
+  for (const proxy of activeProxies.values()) {
+    try {
+      proxy.close();
+    } catch {}
+  }
+  activeProxies.clear();
+  for (const tunnel of activeTunnels.values()) {
+    try {
+      tunnel.disconnect();
+    } catch {}
+  }
+  activeTunnels.clear();
 });
 
 app.on("window-all-closed", () => {

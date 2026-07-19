@@ -47,6 +47,9 @@ export class SessionStore {
       ...((event.message ?? current?.lastMessage)
         ? { lastMessage: event.message ?? current?.lastMessage }
         : {}),
+      ...((event.remoteAlias ?? current?.remoteAlias)
+        ? { remoteAlias: event.remoteAlias ?? current?.remoteAlias }
+        : {}),
       ...(active
         ? {
             startedAt: reopening

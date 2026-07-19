@@ -87,7 +87,12 @@ async function handleRequest(
     }
 
     try {
-      const result = await service.ingest(input as AgentEventInput);
+      const remoteAlias = request.headers["x-crewlight-remote-alias"];
+      const eventInput = {
+        ...(input as Record<string, unknown>),
+        ...(typeof remoteAlias === "string" ? { remoteAlias } : {}),
+      };
+      const result = await service.ingest(eventInput as AgentEventInput);
       sendJson(response, 202, result);
     } catch (error) {
       if (error instanceof ZodError) {

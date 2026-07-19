@@ -375,6 +375,12 @@ input:focus-visible {
   color: var(--text);
 }
 
+.chip.remote-chip {
+  border-color: rgba(111, 214, 198, 0.28);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .status-badge.success {
   background: var(--success-soft);
 }

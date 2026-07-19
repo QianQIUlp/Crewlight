@@ -30,6 +30,7 @@ export interface SanitizedSession {
   activityLabel?: string;
   staleReason?: string;
   actionKind?: CompanionActionKind;
+  remoteAlias?: string;
 }
 
 export interface SanitizedDashboardData {
@@ -140,6 +141,10 @@ function sanitizeSession(value: unknown): SanitizedSession | undefined {
   const actionKind = isActionKind(value.actionKind)
     ? value.actionKind
     : undefined;
+  let remoteAlias = safeString(value.remoteAlias, 64);
+  if (remoteAlias && !/^[a-zA-Z0-9_-]+$/.test(remoteAlias)) {
+    remoteAlias = undefined;
+  }
 
   return {
     sessionKey,
@@ -157,6 +162,7 @@ function sanitizeSession(value: unknown): SanitizedSession | undefined {
     ...(activityLabel ? { activityLabel } : {}),
     ...(staleReason ? { staleReason } : {}),
     ...(actionKind ? { actionKind } : {}),
+    ...(remoteAlias ? { remoteAlias } : {}),
   };
 }
 

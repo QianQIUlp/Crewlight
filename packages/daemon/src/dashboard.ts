@@ -75,6 +75,7 @@ export interface DashboardSession {
   completedAt?: number;
   lastMessage?: string;
   error?: string;
+  remoteAlias?: string;
 }
 
 export interface DashboardApiResponse {
@@ -1548,6 +1549,7 @@ export function serializeDashboardSession(
       : {}),
     ...(session.lastMessage ? { lastMessage: session.lastMessage } : {}),
     ...(session.error ? { error: session.error } : {}),
+    ...(session.remoteAlias ? { remoteAlias: session.remoteAlias } : {}),
   };
 }
 

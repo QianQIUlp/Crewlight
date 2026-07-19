@@ -45,6 +45,25 @@ describe("dashboard response sanitization", () => {
     expect(result?.sessions[0]).not.toHaveProperty("error");
   });
 
+  it("preserves valid remoteAlias and strips invalid ones", () => {
+    const result = sanitizeDashboardResponse({
+      health: { status: "ok" },
+      sessions: [
+        {
+          ...dashboardSession(),
+          remoteAlias: "my-valid-host_123",
+        },
+        {
+          ...dashboardSession(),
+          remoteAlias: "invalid@host!",
+        },
+      ],
+    });
+
+    expect(result?.sessions[0]?.remoteAlias).toBe("my-valid-host_123");
+    expect(result?.sessions[1]?.remoteAlias).toBeUndefined();
+  });
+
   it("normalizes and bounds display strings", () => {
     const result = sanitizeDashboardResponse({
       health: { status: "ok" },

@@ -189,4 +189,41 @@ describe("desktop view-model derivation", () => {
       view.integrations.find((card) => card.id === "cursor")?.highlight,
     ).toBe(true);
   });
+
+  it("propagates remoteAlias to session cards in desktop viewModel", () => {
+    const view = deriveDesktopViewModel(
+      {
+        companion: {
+          alwaysOnTop: true,
+          expanded: false,
+          visible: false,
+        },
+        doctorReport,
+        preferences: DEFAULT_DESKTOP_PREFERENCES,
+        runtimeSettings: {
+          host: "127.0.0.1",
+          port: 3768,
+          notifier: "none",
+        },
+        serviceState,
+        snapshot: {
+          kind: "online",
+          data: {
+            health: { status: "ok" },
+            sessions: [
+              session("running", {
+                taskTitle: "Remote worker",
+                remoteAlias: "staging-server",
+              }),
+            ],
+          },
+        },
+        version: "v0.5.0",
+        remoteHosts: [],
+      },
+      setup,
+    );
+
+    expect(view.home.previewSessions[0]?.remoteAlias).toBe("staging-server");
+  });
 });
