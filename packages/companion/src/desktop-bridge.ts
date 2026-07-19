@@ -40,7 +40,8 @@ export type DesktopAction =
   | { type: "shell:open-repository" }
   | { type: "remote:connect"; alias: string }
   | { type: "remote:disconnect"; alias: string }
-  | { type: "remote:rescan" };
+  | { type: "remote:rescan" }
+  | { type: "remote:set-auto-connect"; alias: string; enabled: boolean };
 
 export interface CrewlightDesktopBridge {
   getState(): Promise<DesktopViewModel>;

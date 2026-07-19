@@ -45,6 +45,12 @@ export type DesktopDensity = (typeof DESKTOP_DENSITIES)[number];
 export type DesktopSection = (typeof DESKTOP_SECTIONS)[number];
 export type PreferredIntegration = (typeof INTEGRATION_IDS)[number];
 
+export interface RemoteHostPreference {
+  alias: string;
+  autoConnect: boolean;
+  lastConnectedAt?: number;
+}
+
 export interface DesktopPreferences {
   version: number;
   theme: DesktopTheme;
@@ -55,6 +61,7 @@ export interface DesktopPreferences {
   serviceAutoStart: boolean;
   preferredIntegration?: PreferredIntegration;
   onboardingCompleted: boolean;
+  remoteHosts: RemoteHostPreference[];
 }
 
 export interface DesktopPreferencesStore {
@@ -72,6 +79,7 @@ export const DEFAULT_DESKTOP_PREFERENCES: DesktopPreferences = {
   companionVisibilityPreference: false,
   serviceAutoStart: false,
   onboardingCompleted: false,
+  remoteHosts: [],
 };
 
 function isTheme(value: unknown): value is DesktopTheme {
@@ -118,6 +126,23 @@ export function sanitizeDesktopPreferences(value: unknown): DesktopPreferences {
     return { ...DEFAULT_DESKTOP_PREFERENCES };
   }
 
+  const remoteHosts: RemoteHostPreference[] = [];
+  if (Array.isArray(value.remoteHosts)) {
+    for (const item of value.remoteHosts) {
+      if (isRecord(item) && typeof item.alias === "string") {
+        remoteHosts.push({
+          alias: item.alias,
+          autoConnect:
+            typeof item.autoConnect === "boolean" ? item.autoConnect : false,
+          lastConnectedAt:
+            typeof item.lastConnectedAt === "number"
+              ? item.lastConnectedAt
+              : undefined,
+        });
+      }
+    }
+  }
+
   return {
     version: DESKTOP_PREFERENCES_VERSION,
     theme: isTheme(value.theme)
@@ -147,6 +172,7 @@ export function sanitizeDesktopPreferences(value: unknown): DesktopPreferences {
       typeof value.onboardingCompleted === "boolean"
         ? value.onboardingCompleted
         : DEFAULT_DESKTOP_PREFERENCES.onboardingCompleted,
+    remoteHosts,
   };
 }
 

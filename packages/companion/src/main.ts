@@ -101,7 +101,7 @@ let quitting = false;
 let companionExpanded = false;
 let pollTimer: NodeJS.Timeout | undefined;
 let polling = false;
-let preferences = { ...DEFAULT_DESKTOP_PREFERENCES };
+let preferences: DesktopPreferences = { ...DEFAULT_DESKTOP_PREFERENCES };
 let desiredRuntimeSettings: DesktopRuntimeSettings = {
   host: DEFAULT_DAEMON_HOST,
   port: DEFAULT_DAEMON_PORT,
@@ -140,6 +140,8 @@ async function scanRemoteHosts() {
   parsedSshConfigHosts = await parseCrewlightRemoteHosts();
   remoteHostsState = parsedSshConfigHosts.map((h) => {
     const existing = remoteHostsState.find((x) => x.alias === h.alias);
+    const pref = preferences.remoteHosts?.find((p) => p.alias === h.alias);
+    const autoConnect = pref ? pref.autoConnect : false;
     return {
       alias: h.alias,
       hostname: h.hostname,
@@ -150,8 +152,16 @@ async function scanRemoteHosts() {
         : "disconnected",
       tunnelMessage: existing?.tunnelMessage,
       hasCli: existing?.hasCli,
+      autoConnect,
     };
   });
+
+  for (const host of remoteHostsState) {
+    if (host.autoConnect && host.tunnelState === "disconnected") {
+      void handleDesktopAction({ type: "remote:connect", alias: host.alias });
+    }
+  }
+
   refreshViewModels();
 }
 
@@ -1040,6 +1050,30 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
       host.tunnelState = "disconnected";
       host.tunnelMessage = undefined;
       host.hasCli = undefined;
+    }
+    publishDesktopState();
+    return true;
+  }
+  if (action.type === "remote:set-auto-connect") {
+    const nextRemoteHosts = [...(preferences.remoteHosts || [])];
+    const index = nextRemoteHosts.findIndex((h) => h.alias === action.alias);
+    if (index >= 0) {
+      const existing = nextRemoteHosts[index]!;
+      nextRemoteHosts[index] = {
+        ...existing,
+        autoConnect: action.enabled,
+      };
+    } else {
+      nextRemoteHosts.push({
+        alias: action.alias,
+        autoConnect: action.enabled,
+      });
+    }
+    await updatePreferences({ remoteHosts: nextRemoteHosts });
+
+    const host = remoteHostsState.find((h) => h.alias === action.alias);
+    if (host) {
+      host.autoConnect = action.enabled;
     }
     publishDesktopState();
     return true;

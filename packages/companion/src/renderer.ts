@@ -24,11 +24,13 @@ function setText(id: string, value: string): void {
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
   tag: K,
-  className: string,
+  className?: string,
   text?: string,
 ): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
-  element.className = className;
+  if (className) {
+    element.className = className;
+  }
   if (text !== undefined) {
     element.textContent = text;
   }
@@ -112,6 +114,35 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
       createElement("p", "session-diagnostic", session.diagnosticHint),
     );
   }
+
+  // Click-to-expand details
+  card.classList.add("expandable");
+  card.setAttribute("aria-expanded", "false");
+
+  const detail = createElement("div", "session-detail");
+  detail.style.display = "none";
+
+  const addDetailLine = (label: string, val: string) => {
+    const line = createElement("p", "session-detail-text");
+    const strong = createElement("strong", undefined, `${label}: `);
+    line.append(strong, document.createTextNode(val));
+    detail.append(line);
+  };
+
+  addDetailLine("Workspace", session.workspace);
+  addDetailLine("Status", session.statusLabel);
+  addDetailLine("Activity", session.activity);
+  if (session.diagnosticHint) {
+    addDetailLine("Diagnostic", session.diagnosticHint);
+  }
+
+  card.append(detail);
+
+  card.addEventListener("click", () => {
+    const isExpanded = card.getAttribute("aria-expanded") === "true";
+    card.setAttribute("aria-expanded", String(!isExpanded));
+    detail.style.display = isExpanded ? "none" : "block";
+  });
 
   return card;
 }

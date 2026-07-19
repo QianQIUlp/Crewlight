@@ -88,6 +88,36 @@ function renderSessionCard(session: DesktopSessionCard): HTMLElement {
   } else if (session.diagnosticHint) {
     card.append(createElement("p", "session-meta", session.diagnosticHint));
   }
+
+  // Click-to-expand details
+  card.classList.add("expandable");
+  card.setAttribute("aria-expanded", "false");
+
+  const detail = createElement("div", "session-detail");
+  detail.style.display = "none";
+
+  const addDetailLine = (label: string, val: string) => {
+    const line = createElement("p", "session-detail-text");
+    const strong = createElement("strong", undefined, `${label}: `);
+    line.append(strong, document.createTextNode(val));
+    detail.append(line);
+  };
+
+  addDetailLine("Workspace", session.workspace);
+  addDetailLine("Status", session.statusLabel);
+  addDetailLine("Activity", session.activity);
+  if (session.diagnosticHint) {
+    addDetailLine("Diagnostic", session.diagnosticHint);
+  }
+
+  card.append(detail);
+
+  card.addEventListener("click", () => {
+    const isExpanded = card.getAttribute("aria-expanded") === "true";
+    card.setAttribute("aria-expanded", String(!isExpanded));
+    detail.style.display = isExpanded ? "none" : "block";
+  });
+
   return card;
 }
 
@@ -376,6 +406,35 @@ function renderRemote(state: DesktopViewModel): void {
           : "⚠️ Remote Crewlight CLI missing. Run `npm i -g @crewlight/cli` on the remote machine.";
         card.append(createElement("p", "remote-detail", cliText));
       }
+
+      const autoConnectRow = createElement("div", "remote-auto-connect-row");
+      autoConnectRow.style.display = "flex";
+      autoConnectRow.style.alignItems = "center";
+      autoConnectRow.style.gap = "8px";
+      autoConnectRow.style.marginTop = "8px";
+      autoConnectRow.style.marginBottom = "8px";
+
+      const autoConnectCheckbox = document.createElement("input");
+      autoConnectCheckbox.type = "checkbox";
+      autoConnectCheckbox.id = `auto-connect-${host.alias}`;
+      autoConnectCheckbox.checked = !!host.autoConnect;
+      autoConnectCheckbox.addEventListener("change", (e) => {
+        const checked = (e.target as HTMLInputElement).checked;
+        window.crewlightDesktop.perform({
+          type: "remote:set-auto-connect",
+          alias: host.alias,
+          enabled: checked,
+        });
+      });
+
+      const autoConnectLabel = document.createElement("label");
+      autoConnectLabel.htmlFor = `auto-connect-${host.alias}`;
+      autoConnectLabel.textContent = "Auto-connect on startup";
+      autoConnectLabel.style.fontSize = "0.85rem";
+      autoConnectLabel.style.cursor = "pointer";
+
+      autoConnectRow.append(autoConnectCheckbox, autoConnectLabel);
+      card.append(autoConnectRow);
 
       const actions = createElement("div", "remote-actions");
       if (host.tunnelState === "disconnected" || host.tunnelState === "error") {

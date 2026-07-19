@@ -211,6 +211,7 @@ export interface DesktopRemoteHost {
   tunnelState: "disconnected" | "connecting" | "connected" | "error";
   tunnelMessage?: string;
   hasCli?: boolean;
+  autoConnect?: boolean;
 }
 
 export interface DesktopViewModelInput {

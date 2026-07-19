@@ -689,8 +689,21 @@ body.expanded .compact-overview {
   white-space: nowrap;
 }
 
+@keyframes pulse-border {
+  0%,
+  100% {
+    border-color: rgba(241, 198, 111, 0.2);
+    box-shadow: 0 0 4px rgba(241, 198, 111, 0.1);
+  }
+  50% {
+    border-color: rgba(241, 198, 111, 0.95);
+    box-shadow: 0 0 10px rgba(241, 198, 111, 0.4);
+  }
+}
+
 .tone-action {
   --tone: var(--action);
+  animation: pulse-border 2.2s ease-in-out infinite;
 }
 
 .tone-error {
@@ -850,4 +863,28 @@ body[data-state="api-unavailable"] .connection-icon {
 .session-diagnostic.stuck-warning {
   color: var(--action);
   font-weight: 500;
+}
+
+.session-card.expandable {
+  cursor: pointer;
+}
+.session-detail {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(205, 224, 239, 0.08);
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.session-detail-title {
+  font-weight: 700;
+  font-size: 7.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--quiet);
+  margin-bottom: 3px;
+}
+.session-detail-text {
+  font-size: 8.5px;
+  color: var(--muted);
+  margin: 0;
 }
