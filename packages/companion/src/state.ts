@@ -51,6 +51,8 @@ export interface CompanionSessionView {
   needsAction: boolean;
   isStale: boolean;
   tone: CompanionSessionTone;
+  elapsedMs: number;
+  stuckWarning: boolean;
   diagnosticHint?: string;
   actionKind?: CompanionActionKind;
 }
@@ -219,6 +221,8 @@ function toSessionView(session: SanitizedSession): CompanionSessionView {
     needsAction: needsAction(session),
     isStale: isStaleRunning(session),
     tone: getTone(session),
+    elapsedMs: session.durationMs,
+    stuckWarning: isRunning(session) && session.lastEventAgeMs >= 5 * 60 * 1000,
     ...(diagnosticHint ? { diagnosticHint } : {}),
     ...(session.actionKind ? { actionKind: session.actionKind } : {}),
   };

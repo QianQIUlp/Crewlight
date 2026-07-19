@@ -846,3 +846,8 @@ body[data-state="api-unavailable"] .connection-icon {
     outline: 2px solid Highlight;
   }
 }
+
+.session-diagnostic.stuck-warning {
+  color: var(--action);
+  font-weight: 500;
+}

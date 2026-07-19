@@ -21,6 +21,7 @@ export interface SanitizedSession {
   status: CompanionStatus;
   lastEventAt: number;
   lastEventAgeMs: number;
+  durationMs: number;
   isStale: boolean;
   displayName: string;
   displayWorkspace: string;
@@ -120,6 +121,8 @@ function sanitizeSession(value: unknown): SanitizedSession | undefined {
     Number(value.lastEventAt) < 0 ||
     !Number.isFinite(value.lastEventAgeMs) ||
     Number(value.lastEventAgeMs) < 0 ||
+    (value.durationMs !== undefined &&
+      (!Number.isFinite(value.durationMs) || Number(value.durationMs) < 0)) ||
     typeof value.isStale !== "boolean" ||
     !isAttention(value.attention) ||
     !hasValidPresentationState(value.status, value.attention, value.actionKind)
@@ -129,6 +132,8 @@ function sanitizeSession(value: unknown): SanitizedSession | undefined {
 
   const lastEventAt = Number(value.lastEventAt);
   const lastEventAgeMs = Number(value.lastEventAgeMs);
+  const durationMs =
+    value.durationMs !== undefined ? Number(value.durationMs) : 0;
   const taskTitle = safeString(value.taskTitle, 120);
   const activityLabel = safeString(value.activityLabel, 120);
   const staleReason = safeString(value.staleReason, 180);
@@ -143,6 +148,7 @@ function sanitizeSession(value: unknown): SanitizedSession | undefined {
     status: value.status,
     lastEventAt,
     lastEventAgeMs,
+    durationMs,
     isStale: value.isStale,
     displayName,
     displayWorkspace,

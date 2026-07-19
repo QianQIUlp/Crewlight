@@ -41,13 +41,29 @@ function setHidden(id: string, hidden: boolean): void {
   byId(id).hidden = hidden;
 }
 
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 function renderSessionCard(session: DesktopSessionCard): HTMLElement {
   const card = createElement("article", "session-card");
   card.dataset.tone = session.tone;
 
   const topLine = createElement("div", "session-topline");
+  const elapsedText =
+    session.elapsedMs > 0 ? ` (${formatDuration(session.elapsedMs)})` : "";
   topLine.append(
-    createElement("span", "chip", `${session.source} · ${session.surface}`),
+    createElement(
+      "span",
+      "chip",
+      `${session.source} · ${session.surface}${elapsedText}`,
+    ),
     createElement("span", "chip", session.statusLabel),
   );
 
@@ -61,7 +77,15 @@ function renderSessionCard(session: DesktopSessionCard): HTMLElement {
   );
 
   card.append(topLine, title, activity, footer);
-  if (session.diagnosticHint) {
+  if (session.stuckWarning) {
+    card.append(
+      createElement(
+        "p",
+        "session-meta stuck-warning",
+        "⚠️ Possibly stuck (no events for 5m)",
+      ),
+    );
+  } else if (session.diagnosticHint) {
     card.append(createElement("p", "session-meta", session.diagnosticHint));
   }
   return card;

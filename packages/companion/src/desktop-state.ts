@@ -93,6 +93,8 @@ export interface DesktopSessionCard {
   title: string;
   tone: "active" | "attention" | "error" | "quiet" | "stale";
   workspace: string;
+  elapsedMs: number;
+  stuckWarning: boolean;
 }
 
 export interface DesktopActionCard {
@@ -321,6 +323,8 @@ function toSessionCard(session: SanitizedSession): DesktopSessionCard {
     title: session.taskTitle ?? session.displayWorkspace,
     tone: sessionTone(session),
     workspace: session.displayWorkspace,
+    elapsedMs: session.durationMs,
+    stuckWarning: isRunning(session) && session.lastEventAgeMs >= 5 * 60 * 1000,
   };
 }
 

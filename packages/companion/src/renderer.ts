@@ -50,6 +50,16 @@ function renderPrimaryDetail(
   setText("primary-session", `${session.source} · ${session.title}`);
 }
 
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 function createSessionCard(session: CompanionSessionView): HTMLElement {
   const card = createElement("article", `session-card tone-${session.tone}`);
   card.setAttribute(
@@ -59,10 +69,12 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
 
   const topLine = createElement("div", "session-topline");
   const identity = createElement("div", "source-identity");
+  const elapsedText =
+    session.elapsedMs > 0 ? ` (${formatDuration(session.elapsedMs)})` : "";
   identity.append(
     createElement("span", "source-dot"),
     createElement("span", "source-name", session.source),
-    createElement("span", "surface-name", `· ${session.surface}`),
+    createElement("span", "surface-name", `· ${session.surface}${elapsedText}`),
   );
   const status = createElement("span", "status-badge", session.statusLabel);
   topLine.append(identity, status);
@@ -87,7 +99,15 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
   );
 
   card.append(topLine, titleLine, footer);
-  if (session.diagnosticHint) {
+  if (session.stuckWarning) {
+    card.append(
+      createElement(
+        "p",
+        "session-diagnostic stuck-warning",
+        "⚠️ Possibly stuck (no events for 5m)",
+      ),
+    );
+  } else if (session.diagnosticHint) {
     card.append(
       createElement("p", "session-diagnostic", session.diagnosticHint),
     );
