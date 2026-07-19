@@ -15,6 +15,7 @@
     { "path": "../adapters/codex" },
     { "path": "../adapters/cursor" },
     { "path": "../adapters/generic-cli" },
-    { "path": "../adapters/opencode" }
+    { "path": "../adapters/opencode" },
+    { "path": "../adapters/multi-agent" }
   ]
 }

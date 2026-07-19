@@ -14,7 +14,12 @@ import {
   ingestOpenCodePluginJson,
   isOpenCodeEventType,
 } from "@crewlight/adapter-opencode";
-import type { AgentEventInput, AgentSurface } from "@crewlight/core";
+import { ingestMultiAgentHookJson } from "@crewlight/adapter-multi-agent";
+import type {
+  AgentEventInput,
+  AgentSource,
+  AgentSurface,
+} from "@crewlight/core";
 
 import type { CrewlightClient } from "../daemon-client.js";
 import type { CommandIo, StdinReader } from "./types.js";
@@ -27,7 +32,8 @@ type IngestAdapter = (
   | ReturnType<typeof ingestClaudeHookJson>
   | ReturnType<typeof ingestCodexNotifyJson>
   | ReturnType<typeof ingestCodexHookJson>
-  | ReturnType<typeof ingestCursorBridgeJson>;
+  | ReturnType<typeof ingestCursorBridgeJson>
+  | ReturnType<typeof ingestMultiAgentHookJson>;
 
 function warn(io: CommandIo, message: string): void {
   io.warn(`${WARNING_PREFIX} ${message}`);
@@ -451,9 +457,38 @@ async function ingest(
     return ingestAntigravityProbe(platformArgs, client, readStdin);
   }
 
+  const MULTI_AGENT_SOURCES = [
+    "gemini-cli",
+    "copilot-cli",
+    "antigravity",
+    "codebuddy",
+    "kiro-cli",
+    "kimi-cli",
+    "qwen-code",
+    "codewhale",
+    "mimo-code",
+    "pi-agent",
+    "openclaw",
+    "hermes-agent",
+    "qoder",
+    "qoderwork",
+    "reasonix-cli",
+    "opencode-compat",
+  ];
+
+  if (platform && MULTI_AGENT_SOURCES.includes(platform)) {
+    const json = await readStdin();
+    return deliver(
+      json,
+      (input) => ingestMultiAgentHookJson(platform as AgentSource, input),
+      client,
+      io,
+    );
+  }
+
   warn(
     io,
-    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `cursor`, `opencode-plugin`, or `antigravity-probe`, then run `crewlight doctor`.",
+    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `cursor`, `opencode-plugin`, `antigravity-probe`, or one of the new multi-agent sources, then run `crewlight doctor`.",
   );
   return 0;
 }

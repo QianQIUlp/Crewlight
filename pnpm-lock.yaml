@@ -59,6 +59,15 @@ importers:
         specifier: workspace:^
         version: link:../../core
 
+  packages/adapters/multi-agent:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
   packages/adapters/opencode:
     dependencies:
       "@crewlight/core":
@@ -82,6 +91,9 @@ importers:
       "@crewlight/adapter-generic-cli":
         specifier: workspace:^
         version: link:../adapters/generic-cli
+      "@crewlight/adapter-multi-agent":
+        specifier: workspace:^
+        version: link:../adapters/multi-agent
       "@crewlight/adapter-opencode":
         specifier: workspace:^
         version: link:../adapters/opencode

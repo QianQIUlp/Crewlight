@@ -23,6 +23,7 @@
     "@crewlight/adapter-codex": "workspace:^",
     "@crewlight/adapter-cursor": "workspace:^",
     "@crewlight/adapter-generic-cli": "workspace:^",
+    "@crewlight/adapter-multi-agent": "workspace:^",
     "@crewlight/adapter-opencode": "workspace:^",
     "@crewlight/core": "workspace:^",
     "@crewlight/daemon": "workspace:^",
