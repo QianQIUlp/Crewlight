@@ -24,11 +24,13 @@ function setText(id: string, value: string): void {
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
   tag: K,
-  className: string,
+  className?: string,
   text?: string,
 ): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
-  element.className = className;
+  if (className) {
+    element.className = className;
+  }
   if (text !== undefined) {
     element.textContent = text;
   }
@@ -50,6 +52,16 @@ function renderPrimaryDetail(
   setText("primary-session", `${session.source} · ${session.title}`);
 }
 
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 function createSessionCard(session: CompanionSessionView): HTMLElement {
   const card = createElement("article", `session-card tone-${session.tone}`);
   card.setAttribute(
@@ -59,10 +71,19 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
 
   const topLine = createElement("div", "session-topline");
   const identity = createElement("div", "source-identity");
+  const elapsedText =
+    session.elapsedMs > 0 ? ` (${formatDuration(session.elapsedMs)})` : "";
   identity.append(
     createElement("span", "source-dot"),
     createElement("span", "source-name", session.source),
-    createElement("span", "surface-name", `· ${session.surface}`),
+  );
+  if (session.remoteAlias) {
+    identity.append(
+      createElement("span", "remote-badge", `🌐 ${session.remoteAlias}`),
+    );
+  }
+  identity.append(
+    createElement("span", "surface-name", `· ${session.surface}${elapsedText}`),
   );
   const status = createElement("span", "status-badge", session.statusLabel);
   topLine.append(identity, status);
@@ -87,11 +108,48 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
   );
 
   card.append(topLine, titleLine, footer);
-  if (session.diagnosticHint) {
+  if (session.stuckWarning) {
+    card.append(
+      createElement(
+        "p",
+        "session-diagnostic stuck-warning",
+        "⚠️ Possibly stuck (no events for 5m)",
+      ),
+    );
+  } else if (session.diagnosticHint) {
     card.append(
       createElement("p", "session-diagnostic", session.diagnosticHint),
     );
   }
+
+  // Click-to-expand details
+  card.classList.add("expandable");
+  card.setAttribute("aria-expanded", "false");
+
+  const detail = createElement("div", "session-detail");
+  detail.style.display = "none";
+
+  const addDetailLine = (label: string, val: string) => {
+    const line = createElement("p", "session-detail-text");
+    const strong = createElement("strong", undefined, `${label}: `);
+    line.append(strong, document.createTextNode(val));
+    detail.append(line);
+  };
+
+  addDetailLine("Workspace", session.workspace);
+  addDetailLine("Status", session.statusLabel);
+  addDetailLine("Activity", session.activity);
+  if (session.diagnosticHint) {
+    addDetailLine("Diagnostic", session.diagnosticHint);
+  }
+
+  card.append(detail);
+
+  card.addEventListener("click", () => {
+    const isExpanded = card.getAttribute("aria-expanded") === "true";
+    card.setAttribute("aria-expanded", String(!isExpanded));
+    detail.style.display = isExpanded ? "none" : "block";
+  });
 
   return card;
 }

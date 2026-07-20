@@ -24,9 +24,22 @@ const platform = process.platform;
 const architecture = process.arch;
 const nodeMajor = Number(process.versions.node.split(".")[0]);
 
-if (!["linux", "win32"].includes(platform) || architecture !== "x64") {
+const targetPlatform =
+  platform === "win32" ? "windows" : platform === "darwin" ? "macos" : "linux";
+const targetArch = architecture === "arm64" ? "arm64" : "x64";
+
+const verifiedTargets = [
+  "linux-x64",
+  "linux-arm64",
+  "windows-x64",
+  "macos-x64",
+  "macos-arm64",
+];
+const currentTarget = `${targetPlatform}-${targetArch}`;
+
+if (!verifiedTargets.includes(currentTarget)) {
   throw new Error(
-    `Standalone release builds are verified only for linux/x64 and win32/x64, not ${platform}/${architecture}.`,
+    `Standalone release builds are verified only for ${verifiedTargets.join(", ")}, not ${platform}/${architecture}.`,
   );
 }
 
@@ -36,8 +49,7 @@ if (nodeMajor !== 22) {
   );
 }
 
-const targetPlatform = platform === "win32" ? "windows" : "linux";
-const artifactName = `crewlight-v${version}-${targetPlatform}-x64`;
+const artifactName = `crewlight-v${version}-${targetPlatform}-${targetArch}`;
 const releaseDirectory = join(root, "release");
 const stagingDirectory = join(releaseDirectory, artifactName);
 const workDirectory = join(releaseDirectory, ".work");

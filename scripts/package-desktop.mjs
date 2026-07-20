@@ -12,30 +12,37 @@ const packageJson = JSON.parse(
 const version = packageJson.version;
 const mode = process.argv[2];
 
-if (process.platform !== "win32") {
+const allowedModes = ["portable", "installer", "dmg", "linux"];
+if (!allowedModes.includes(mode)) {
   throw new Error(
-    "Desktop packaging is currently supported only on Windows. Use the Windows CI job or a local Windows workstation.",
+    `Usage: node scripts/package-desktop.mjs <${allowedModes.join("|")}>`,
   );
 }
 
-if (mode !== "portable" && mode !== "installer") {
-  throw new Error(
-    "Usage: node scripts/package-desktop.mjs <portable|installer>",
-  );
+const platform = process.platform;
+const arch = process.arch;
+
+// Check compatibility of target mode with host platform
+if (mode === "dmg" && platform !== "darwin") {
+  throw new Error("dmg mode is only supported on macOS.");
+}
+if (mode === "linux" && platform !== "linux") {
+  throw new Error("linux mode is only supported on Linux.");
+}
+if ((mode === "portable" || mode === "installer") && platform !== "win32") {
+  throw new Error("portable/installer modes are only supported on Windows.");
 }
 
-const portableFolderName = `crewlight-v${version}-windows-x64-desktop`;
-const portableFolder = join(releaseRoot, portableFolderName);
-const portableArchive = join(releaseRoot, `${portableFolderName}.zip`);
-const standaloneFolder = join(releaseRoot, `crewlight-v${version}-windows-x64`);
-const standaloneBinary = join(standaloneFolder, "crewlight.exe");
+const targetPlatform =
+  platform === "win32" ? "windows" : platform === "darwin" ? "macos" : "linux";
+const targetArch = arch === "arm64" ? "arm64" : "x64";
+
+const standaloneFolderName = `crewlight-v${version}-${targetPlatform}-${targetArch}`;
+const standaloneFolder = join(releaseRoot, standaloneFolderName);
+const binaryName = platform === "win32" ? "crewlight.exe" : "crewlight";
+const standaloneBinary = join(standaloneFolder, binaryName);
 const builderOutput = join(releaseRoot, "desktop-builder");
-const unpackedDirectory = join(builderOutput, "win-unpacked");
 const desktopResources = join(companionRoot, ".desktop-resources");
-const installerArtifact = join(
-  builderOutput,
-  `Crewlight-Setup-v${version}.exe`,
-);
 
 function run(command, args, cwd = root, env) {
   execFileSync(command, args, {
@@ -50,18 +57,25 @@ function runPnpm(args, cwd = root, env) {
     run("cmd.exe", ["/d", "/s", "/c", "pnpm", ...args], cwd, env);
     return;
   }
-
   run("pnpm", args, cwd, env);
 }
 
+// Clean and recreate resources folder
 await rm(desktopResources, { force: true, recursive: true });
 await mkdir(desktopResources, { recursive: true });
 
+// Build standalone binary first
 runPnpm(["build:standalone"]);
 
-await cp(standaloneBinary, join(desktopResources, "crewlight.exe"));
+// Copy the standalone binary to extra resources
+await cp(standaloneBinary, join(desktopResources, binaryName));
 
 if (mode === "portable") {
+  const portableFolderName = `crewlight-v${version}-windows-x64-desktop`;
+  const portableFolder = join(releaseRoot, portableFolderName);
+  const portableArchive = join(releaseRoot, `${portableFolderName}.zip`);
+  const unpackedDirectory = join(builderOutput, "win-unpacked");
+
   runPnpm(
     [
       "--filter",
@@ -96,7 +110,11 @@ if (mode === "portable") {
     },
   );
   console.log(`Archive: ${portableArchive}`);
-} else {
+} else if (mode === "installer") {
+  const installerArtifact = join(
+    builderOutput,
+    `Crewlight-Setup-v${version}.exe`,
+  );
   runPnpm(
     [
       "--filter",
@@ -112,4 +130,43 @@ if (mode === "portable") {
     companionRoot,
   );
   console.log(`Installer: ${installerArtifact}`);
+} else if (mode === "dmg") {
+  const dmgTargetArch = arch === "arm64" ? "arm64" : "x64";
+  const dmgArtifact = join(
+    builderOutput,
+    `Crewlight-${version}-${dmgTargetArch}.dmg`,
+  );
+  runPnpm(
+    [
+      "--filter",
+      "@crewlight/companion",
+      "exec",
+      "electron-builder",
+      "--config",
+      "electron-builder.json",
+      "--mac",
+      "dmg",
+      `--${dmgTargetArch}`,
+    ],
+    companionRoot,
+  );
+  console.log(`macOS DMG: ${dmgArtifact}`);
+} else if (mode === "linux") {
+  const linuxTargetArch = arch === "arm64" ? "arm64" : "x64";
+  runPnpm(
+    [
+      "--filter",
+      "@crewlight/companion",
+      "exec",
+      "electron-builder",
+      "--config",
+      "electron-builder.json",
+      "--linux",
+      "AppImage",
+      "deb",
+      `--${linuxTargetArch}`,
+    ],
+    companionRoot,
+  );
+  console.log("Linux AppImage and deb packages generated.");
 }

@@ -1,6 +1,6 @@
 {
   "name": "crewlight",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Crewlight is a local-first companion surface for multi-agent coding workflows.",
   "private": true,
   "type": "module",
@@ -19,6 +19,8 @@
     "format:check": "prettier --check .",
     "package:desktop:installer": "node scripts/package-desktop.mjs installer",
     "package:desktop:portable": "node scripts/package-desktop.mjs portable",
+    "package:desktop:dmg": "node scripts/package-desktop.mjs dmg",
+    "package:desktop:linux": "node scripts/package-desktop.mjs linux",
     "smoke:standalone": "bash scripts/smoke-standalone.sh",
     "smoke:standalone:windows": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-standalone.ps1",
     "test": "vitest run --passWithNoTests",

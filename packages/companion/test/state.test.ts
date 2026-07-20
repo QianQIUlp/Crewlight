@@ -21,6 +21,7 @@ function session(
     status,
     lastEventAt: 1_000,
     lastEventAgeMs: 1_000,
+    durationMs: 1_000,
     isStale: false,
     displayName: "Custom",
     displayWorkspace: "Crewlight",

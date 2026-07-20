@@ -22,6 +22,20 @@ export const agentSourceSchema = z.enum([
   "aider",
   "antigravity",
   "generic-cli",
+  "copilot-cli",
+  "codebuddy",
+  "kiro-cli",
+  "kimi-cli",
+  "qwen-code",
+  "codewhale",
+  "mimo-code",
+  "pi-agent",
+  "openclaw",
+  "hermes-agent",
+  "qoder",
+  "qoderwork",
+  "reasonix-cli",
+  "opencode-compat",
   "custom",
 ]);
 
@@ -51,6 +65,7 @@ export const agentEventInputSchema = z
     rawEvent: z.unknown().optional(),
     urgency: urgencySchema.optional(),
     timestamp: z.number().int().nonnegative().optional(),
+    remoteAlias: z.string().min(1).optional(),
   })
   .strict();
 
@@ -69,6 +84,7 @@ export const agentEventSchema = z
     message: z.string().min(1).optional(),
     urgency: urgencySchema,
     timestamp: z.number().int().nonnegative(),
+    remoteAlias: z.string().min(1).optional(),
   })
   .strict();
 
@@ -88,5 +104,6 @@ export const agentSessionSchema = z
     completedAt: z.number().int().nonnegative().optional(),
     lastMessage: z.string().min(1).optional(),
     error: z.string().min(1).optional(),
+    remoteAlias: z.string().min(1).optional(),
   })
   .strict();

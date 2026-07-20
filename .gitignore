@@ -10,3 +10,6 @@ release/
 .claude
 .codex
 packages/companion/.desktop-resources/
+
+# Local research references (not committed)
+.ref/

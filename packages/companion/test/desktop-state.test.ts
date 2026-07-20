@@ -54,6 +54,7 @@ function session(
     status,
     lastEventAt: 1_000,
     lastEventAgeMs: 1_000,
+    durationMs: 1_000,
     isStale: false,
     displayName: "Codex",
     displayWorkspace: "Crewlight",
@@ -86,7 +87,8 @@ describe("desktop view-model derivation", () => {
           kind: "offline",
           diagnostic: "offline",
         },
-        version: "v0.4.0",
+        version: "v0.5.0",
+        remoteHosts: [],
       },
       setup,
     );
@@ -125,7 +127,8 @@ describe("desktop view-model derivation", () => {
             sessions: [session("running", { taskTitle: "Normal work" })],
           },
         },
-        version: "v0.4.0",
+        version: "v0.5.0",
+        remoteHosts: [],
       },
       setup,
     );
@@ -174,7 +177,8 @@ describe("desktop view-model derivation", () => {
             ],
           },
         },
-        version: "v0.4.0",
+        version: "v0.5.0",
+        remoteHosts: [],
       },
       setup,
     );
@@ -184,5 +188,42 @@ describe("desktop view-model derivation", () => {
     expect(
       view.integrations.find((card) => card.id === "cursor")?.highlight,
     ).toBe(true);
+  });
+
+  it("propagates remoteAlias to session cards in desktop viewModel", () => {
+    const view = deriveDesktopViewModel(
+      {
+        companion: {
+          alwaysOnTop: true,
+          expanded: false,
+          visible: false,
+        },
+        doctorReport,
+        preferences: DEFAULT_DESKTOP_PREFERENCES,
+        runtimeSettings: {
+          host: "127.0.0.1",
+          port: 3768,
+          notifier: "none",
+        },
+        serviceState,
+        snapshot: {
+          kind: "online",
+          data: {
+            health: { status: "ok" },
+            sessions: [
+              session("running", {
+                taskTitle: "Remote worker",
+                remoteAlias: "staging-server",
+              }),
+            ],
+          },
+        },
+        version: "v0.5.0",
+        remoteHosts: [],
+      },
+      setup,
+    );
+
+    expect(view.home.previewSessions[0]?.remoteAlias).toBe("staging-server");
   });
 });

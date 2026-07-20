@@ -150,6 +150,58 @@
             </article>
           </section>
 
+          <section id="remote-section" class="section-view" hidden>
+            <div class="panel-grid two-up">
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">SSH Port Forwarding</p>
+                  <h3>Remote connections</h3>
+                  <p class="section-copy">
+                    Connect local-first daemon to remote servers over secure SSH
+                    tunnel. Mark configurations in
+                    <code>~/.ssh/config</code> with comment
+                    <code># CrewlightRemote: yes</code> to scan.
+                  </p>
+                </div>
+                <div class="button-row">
+                  <button
+                    id="remote-rescan-btn"
+                    class="primary-button"
+                    type="button"
+                  >
+                    Rescan ssh config
+                  </button>
+                </div>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-heading">
+                  <p class="section-eyebrow">Status</p>
+                  <h3>Active SSH Tunnels</h3>
+                  <p class="section-copy">
+                    Remote events will be securely received on your local
+                    loopback address.
+                  </p>
+                </div>
+              </article>
+            </div>
+
+            <article class="panel-card">
+              <div class="card-heading">
+                <p class="section-eyebrow">Hosts</p>
+                <h3>Detected Remote Hosts</h3>
+              </div>
+              <div id="remote-hosts-list" class="remote-grid"></div>
+              <section id="remote-hosts-empty" class="empty-state" hidden>
+                <h4>No remote hosts detected</h4>
+                <p>
+                  Add <code># CrewlightRemote: yes</code> comment line above
+                  your Host block in your <code>~/.ssh/config</code> file.
+                </p>
+              </section>
+            </article>
+          </section>
+
           <section id="doctor-section" class="section-view" hidden>
             <div class="panel-grid two-up">
               <article class="panel-card">
@@ -492,6 +544,41 @@
           </section>
         </div>
       </main>
+    </div>
+
+    <!-- Remote Install CLI Modal -->
+    <div id="remote-install-modal" class="modal-overlay" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Install Crewlight CLI on Remote Host</h3>
+        </div>
+        <div class="modal-body">
+          <p class="section-copy">
+            We detected that the Crewlight CLI tool is not installed on the
+            remote host <strong id="remote-install-host-name"></strong>. Please
+            install it using npm to start receiving execution sessions:
+          </p>
+          <div class="code-copy-container">
+            <code id="remote-install-cmd">npm install -g @crewlight/cli</code>
+            <button
+              id="remote-install-copy"
+              class="primary-button"
+              type="button"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            id="remote-install-dismiss"
+            class="secondary-button"
+            type="button"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
     </div>
   </body>
 </html>

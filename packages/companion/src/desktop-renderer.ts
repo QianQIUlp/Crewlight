@@ -41,15 +41,40 @@ function setHidden(id: string, hidden: boolean): void {
   byId(id).hidden = hidden;
 }
 
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 function renderSessionCard(session: DesktopSessionCard): HTMLElement {
   const card = createElement("article", "session-card");
   card.dataset.tone = session.tone;
 
   const topLine = createElement("div", "session-topline");
-  topLine.append(
-    createElement("span", "chip", `${session.source} · ${session.surface}`),
-    createElement("span", "chip", session.statusLabel),
+  const elapsedText =
+    session.elapsedMs > 0 ? ` (${formatDuration(session.elapsedMs)})` : "";
+  const sourceChip = createElement(
+    "span",
+    "chip",
+    `${session.source} · ${session.surface}${elapsedText}`,
   );
+  if (session.remoteAlias) {
+    topLine.append(
+      sourceChip,
+      createElement("span", "chip remote-chip", `🌐 ${session.remoteAlias}`),
+      createElement("span", "chip", session.statusLabel),
+    );
+  } else {
+    topLine.append(
+      sourceChip,
+      createElement("span", "chip", session.statusLabel),
+    );
+  }
 
   const title = createElement("h4", "session-title", session.title);
   const activity = createElement("p", "session-meta", session.activity);
@@ -61,9 +86,47 @@ function renderSessionCard(session: DesktopSessionCard): HTMLElement {
   );
 
   card.append(topLine, title, activity, footer);
-  if (session.diagnosticHint) {
+  if (session.stuckWarning) {
+    card.append(
+      createElement(
+        "p",
+        "session-meta stuck-warning",
+        "⚠️ Possibly stuck (no events for 5m)",
+      ),
+    );
+  } else if (session.diagnosticHint) {
     card.append(createElement("p", "session-meta", session.diagnosticHint));
   }
+
+  // Click-to-expand details
+  card.classList.add("expandable");
+  card.setAttribute("aria-expanded", "false");
+
+  const detail = createElement("div", "session-detail");
+  detail.style.display = "none";
+
+  const addDetailLine = (label: string, val: string) => {
+    const line = createElement("p", "session-detail-text");
+    const strong = createElement("strong", undefined, `${label}: `);
+    line.append(strong, document.createTextNode(val));
+    detail.append(line);
+  };
+
+  addDetailLine("Workspace", session.workspace);
+  addDetailLine("Status", session.statusLabel);
+  addDetailLine("Activity", session.activity);
+  if (session.diagnosticHint) {
+    addDetailLine("Diagnostic", session.diagnosticHint);
+  }
+
+  card.append(detail);
+
+  card.addEventListener("click", () => {
+    const isExpanded = card.getAttribute("aria-expanded") === "true";
+    card.setAttribute("aria-expanded", String(!isExpanded));
+    detail.style.display = isExpanded ? "none" : "block";
+  });
+
   return card;
 }
 
@@ -307,6 +370,110 @@ function renderAccentOptions(state: DesktopViewModel): void {
   );
 }
 
+function renderRemote(state: DesktopViewModel): void {
+  const list = byId("remote-hosts-list");
+  const isEmpty = state.remote.hosts.length === 0;
+  setHidden("remote-hosts-empty", !isEmpty);
+
+  list.replaceChildren(
+    ...state.remote.hosts.map((host) => {
+      const card = createElement("article", "remote-card");
+
+      const header = createElement("div", "remote-header");
+      header.append(createElement("h4", "remote-alias", host.alias));
+
+      const status = createElement(
+        "span",
+        `remote-status ${host.tunnelState}`,
+        host.tunnelState.toUpperCase(),
+      );
+      header.append(status);
+
+      card.append(header);
+
+      if (host.hostname) {
+        card.append(
+          createElement("p", "remote-detail", `HostName: ${host.hostname}`),
+        );
+      }
+      if (host.user) {
+        card.append(createElement("p", "remote-detail", `User: ${host.user}`));
+      }
+      if (host.port) {
+        card.append(createElement("p", "remote-detail", `Port: ${host.port}`));
+      }
+
+      if (host.tunnelMessage) {
+        card.append(
+          createElement("p", "remote-detail stuck-warning", host.tunnelMessage),
+        );
+      }
+
+      if (host.tunnelState === "connected" && host.hasCli !== undefined) {
+        const cliText = host.hasCli
+          ? "✅ Remote Crewlight CLI installed"
+          : "⚠️ Remote Crewlight CLI missing. Run `npm i -g @crewlight/cli` on the remote machine.";
+        card.append(createElement("p", "remote-detail", cliText));
+      }
+
+      const autoConnectRow = createElement("div", "remote-auto-connect-row");
+      autoConnectRow.style.display = "flex";
+      autoConnectRow.style.alignItems = "center";
+      autoConnectRow.style.gap = "8px";
+      autoConnectRow.style.marginTop = "8px";
+      autoConnectRow.style.marginBottom = "8px";
+
+      const autoConnectCheckbox = document.createElement("input");
+      autoConnectCheckbox.type = "checkbox";
+      autoConnectCheckbox.id = `auto-connect-${host.alias}`;
+      autoConnectCheckbox.checked = !!host.autoConnect;
+      autoConnectCheckbox.addEventListener("change", (e) => {
+        const checked = (e.target as HTMLInputElement).checked;
+        window.crewlightDesktop.perform({
+          type: "remote:set-auto-connect",
+          alias: host.alias,
+          enabled: checked,
+        });
+      });
+
+      const autoConnectLabel = document.createElement("label");
+      autoConnectLabel.htmlFor = `auto-connect-${host.alias}`;
+      autoConnectLabel.textContent = "Auto-connect on startup";
+      autoConnectLabel.style.fontSize = "0.85rem";
+      autoConnectLabel.style.cursor = "pointer";
+
+      autoConnectRow.append(autoConnectCheckbox, autoConnectLabel);
+      card.append(autoConnectRow);
+
+      const actions = createElement("div", "remote-actions");
+      if (host.tunnelState === "disconnected" || host.tunnelState === "error") {
+        const btn = createElement("button", "primary-button", "Connect");
+        btn.type = "button";
+        btn.addEventListener("click", () => {
+          window.crewlightDesktop.perform({
+            type: "remote:connect",
+            alias: host.alias,
+          });
+        });
+        actions.append(btn);
+      } else {
+        const btn = createElement("button", "secondary-button", "Disconnect");
+        btn.type = "button";
+        btn.addEventListener("click", () => {
+          window.crewlightDesktop.perform({
+            type: "remote:disconnect",
+            alias: host.alias,
+          });
+        });
+        actions.append(btn);
+      }
+
+      card.append(actions);
+      return card;
+    }),
+  );
+}
+
 function renderAppearance(state: DesktopViewModel): void {
   byId<HTMLSelectElement>("theme-select").value = state.appearance.theme;
   byId<HTMLSelectElement>("density-select").value = state.appearance.density;
@@ -482,6 +649,7 @@ function render(state: DesktopViewModel): void {
   renderSidebar(state);
   renderNotice(state);
   renderHome(state);
+  renderRemote(state);
   renderDoctor(state);
   renderAgents(state);
   renderCompanion(state);
@@ -492,6 +660,21 @@ function render(state: DesktopViewModel): void {
   syncOnboardingProgress(state);
   renderOnboarding(state);
   applySectionVisibility(state);
+
+  const missingCliHost = state.remote.hosts.find(
+    (h) =>
+      h.tunnelState === "connected" &&
+      h.hasCli === false &&
+      !h.installPromptDismissed,
+  );
+  const modal = byId("remote-install-modal");
+  if (missingCliHost) {
+    modal.removeAttribute("hidden");
+    setText("remote-install-host-name", missingCliHost.alias);
+    modal.dataset.alias = missingCliHost.alias;
+  } else {
+    modal.setAttribute("hidden", "true");
+  }
 }
 
 function SECTION_LABEL(section: DesktopViewModel["selectedSection"]): string {
@@ -610,6 +793,11 @@ document.addEventListener("click", async (event) => {
 
   if (target.closest("#home-open-dashboard")) {
     await window.crewlightDesktop.perform({ type: "shell:open-dashboard" });
+    return;
+  }
+
+  if (target.closest("#remote-rescan-btn")) {
+    await window.crewlightDesktop.perform({ type: "remote:rescan" });
     return;
   }
 
@@ -774,3 +962,33 @@ window.crewlightDesktop.onState((state) => {
 void window.crewlightDesktop.getState().then((state) => {
   render(state);
 });
+
+const modalDismissBtn = byId("remote-install-dismiss");
+if (modalDismissBtn) {
+  modalDismissBtn.addEventListener("click", async () => {
+    const modal = byId("remote-install-modal");
+    const alias = modal.dataset.alias;
+    if (alias) {
+      await window.crewlightDesktop.perform({
+        type: "remote:dismiss-install-prompt",
+        alias,
+      });
+    }
+  });
+}
+
+const modalCopyBtn = byId("remote-install-copy");
+if (modalCopyBtn) {
+  modalCopyBtn.addEventListener("click", async () => {
+    const cmdText = byId("remote-install-cmd").textContent || "";
+    await window.crewlightDesktop.perform({
+      type: "copy:text",
+      text: cmdText,
+    });
+    const originalText = modalCopyBtn.textContent;
+    modalCopyBtn.textContent = "Copied!";
+    setTimeout(() => {
+      modalCopyBtn.textContent = originalText;
+    }, 1500);
+  });
+}

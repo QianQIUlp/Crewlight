@@ -6,6 +6,7 @@ export const DESKTOP_ACCENTS = ["teal", "amber", "azure"] as const;
 export const DESKTOP_DENSITIES = ["comfortable", "compact"] as const;
 export const DESKTOP_SECTIONS = [
   "home",
+  "remote",
   "doctor",
   "agents",
   "companion",
@@ -19,6 +20,22 @@ export const INTEGRATION_IDS = [
   "codex",
   "cursor",
   "opencode",
+  "gemini-cli",
+  "copilot-cli",
+  "antigravity",
+  "codebuddy",
+  "kiro-cli",
+  "kimi-cli",
+  "qwen-code",
+  "codewhale",
+  "mimo-code",
+  "pi-agent",
+  "openclaw",
+  "hermes-agent",
+  "qoder",
+  "qoderwork",
+  "reasonix-cli",
+  "opencode-compat",
   "manual",
 ] as const;
 
@@ -27,6 +44,13 @@ export type DesktopAccent = (typeof DESKTOP_ACCENTS)[number];
 export type DesktopDensity = (typeof DESKTOP_DENSITIES)[number];
 export type DesktopSection = (typeof DESKTOP_SECTIONS)[number];
 export type PreferredIntegration = (typeof INTEGRATION_IDS)[number];
+
+export interface RemoteHostPreference {
+  alias: string;
+  autoConnect: boolean;
+  lastConnectedAt?: number;
+  installPromptDismissed?: boolean;
+}
 
 export interface DesktopPreferences {
   version: number;
@@ -38,6 +62,7 @@ export interface DesktopPreferences {
   serviceAutoStart: boolean;
   preferredIntegration?: PreferredIntegration;
   onboardingCompleted: boolean;
+  remoteHosts: RemoteHostPreference[];
 }
 
 export interface DesktopPreferencesStore {
@@ -55,6 +80,7 @@ export const DEFAULT_DESKTOP_PREFERENCES: DesktopPreferences = {
   companionVisibilityPreference: false,
   serviceAutoStart: false,
   onboardingCompleted: false,
+  remoteHosts: [],
 };
 
 function isTheme(value: unknown): value is DesktopTheme {
@@ -101,6 +127,27 @@ export function sanitizeDesktopPreferences(value: unknown): DesktopPreferences {
     return { ...DEFAULT_DESKTOP_PREFERENCES };
   }
 
+  const remoteHosts: RemoteHostPreference[] = [];
+  if (Array.isArray(value.remoteHosts)) {
+    for (const item of value.remoteHosts) {
+      if (isRecord(item) && typeof item.alias === "string") {
+        remoteHosts.push({
+          alias: item.alias,
+          autoConnect:
+            typeof item.autoConnect === "boolean" ? item.autoConnect : false,
+          lastConnectedAt:
+            typeof item.lastConnectedAt === "number"
+              ? item.lastConnectedAt
+              : undefined,
+          installPromptDismissed:
+            typeof item.installPromptDismissed === "boolean"
+              ? item.installPromptDismissed
+              : undefined,
+        });
+      }
+    }
+  }
+
   return {
     version: DESKTOP_PREFERENCES_VERSION,
     theme: isTheme(value.theme)
@@ -130,6 +177,7 @@ export function sanitizeDesktopPreferences(value: unknown): DesktopPreferences {
       typeof value.onboardingCompleted === "boolean"
         ? value.onboardingCompleted
         : DEFAULT_DESKTOP_PREFERENCES.onboardingCompleted,
+    remoteHosts,
   };
 }
 

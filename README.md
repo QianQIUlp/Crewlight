@@ -12,48 +12,40 @@
   <a href="README.zh-CN.md">简体中文</a>
 </p>
 
-> Archived prototype: Crewlight v0.4.0 is a known-bug, no-longer-maintained prototype of a local-first activity radar for AI coding agents. The repository is preserved for reference only.
+> Active release: Crewlight v0.5.0 is a fully functional cross-platform desktop application and CLI tool to monitor local-first activity of AI coding agents.
 
 <p align="center">
-  <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-0f766e" alt="Release v0.4.0"></a>
-  <img src="https://img.shields.io/badge/desktop-Windows_x64-334155" alt="Primary desktop platform: Windows x64">
+  <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-0f766e" alt="Release v0.5.0"></a>
+  <img src="https://img.shields.io/badge/desktop-Win_/_macOS_/_Linux-334155" alt="Desktop platforms: Windows, macOS, Linux">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/QianQIUlp/Crewlight" alt="MIT license"></a>
   <a href="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml"><img src="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
 </p>
 
-Crewlight Desktop is the primary v0.4.0 user experience. It packages the main
-control window, floating companion, local service controls, demo flow, and
-integration setup into one local-first desktop utility.
+Crewlight Desktop is the primary user experience. It packages the main control window, floating companion, local service controls, demo flow, and integration setup into one local-first desktop utility.
 
-The browser dashboard is now a secondary developer surface. The CLI remains the
-advanced and automation surface.
+The browser dashboard is a secondary developer surface. The CLI remains the advanced and automation surface.
 
-## Windows Desktop First
+## Cross-Platform Desktop First
 
-### Primary downloads
+### Primary downloads (v0.5.0)
 
-- Portable desktop zip:
-  [`crewlight-v0.4.0-windows-x64-desktop.zip`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-windows-x64-desktop.zip)
-- Unsigned installer:
-  [`Crewlight-Setup-v0.4.0.exe`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/Crewlight-Setup-v0.4.0.exe)
+- **Windows**:
+  - Installer: [`Crewlight-Setup-v0.5.0.exe`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-Setup-v0.5.0.exe)
+- **macOS**:
+  - dmg (Apple Silicon): [`Crewlight-0.5.0-arm64.dmg`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-0.5.0-arm64.dmg)
+  - dmg (Intel): [`Crewlight-0.5.0-x64.dmg`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-0.5.0-x64.dmg)
+- **Linux**:
+  - AppImage: [`Crewlight-0.5.0-x64.AppImage`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-0.5.0-x64.AppImage)
+  - deb: [`Crewlight-0.5.0-x64.deb`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-0.5.0-x64.deb)
 
 ### First-run flow
 
-1. Download and extract `crewlight-v0.4.0-windows-x64-desktop.zip`.
-2. Double-click `Crewlight.exe`.
-3. Complete onboarding:
-   - Welcome
-   - Start local service
-   - Run demo
-   - Show companion
-   - Choose an integration path
-4. Land in `Home` and keep the local service, demo sessions, and companion in one desktop shell.
+1. Download and open the appropriate installer or package for your OS.
+2. Launch `Crewlight`.
+3. Complete onboarding.
+4. Keep the local service, demo sessions, and companion nearby.
 
-The desktop app does not require the user to start a terminal or open the
-browser dashboard for the first experience.
-
-See [install without Node](docs/install-without-node.md) for the Windows
-desktop and advanced CLI artifacts.
+See [install without Node](docs/install-without-node.md) for the advanced CLI artifacts.
 
 ## Product Surfaces
 

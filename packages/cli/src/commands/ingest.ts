@@ -14,7 +14,27 @@ import {
   ingestOpenCodePluginJson,
   isOpenCodeEventType,
 } from "@crewlight/adapter-opencode";
-import type { AgentEventInput, AgentSurface } from "@crewlight/core";
+import { ingestMultiAgentHookJson } from "@crewlight/adapter-multi-agent";
+import { ingestGeminiHookJson } from "@crewlight/adapter-gemini-cli";
+import { ingestCopilotHookJson } from "@crewlight/adapter-copilot-cli";
+import { ingestAntigravityHookJson } from "@crewlight/adapter-antigravity";
+import { ingestCodebuddyHookJson } from "@crewlight/adapter-codebuddy";
+import { ingestCodewhaleHookJson } from "@crewlight/adapter-codewhale";
+import { ingestHermesAgentHookJson } from "@crewlight/adapter-hermes-agent";
+import { ingestKimiCliHookJson } from "@crewlight/adapter-kimi-cli";
+import { ingestKiroCliHookJson } from "@crewlight/adapter-kiro-cli";
+import { ingestMimoCodeHookJson } from "@crewlight/adapter-mimo-code";
+import { ingestOpenclawHookJson } from "@crewlight/adapter-openclaw";
+import { ingestPiAgentHookJson } from "@crewlight/adapter-pi-agent";
+import { ingestQoderHookJson } from "@crewlight/adapter-qoder";
+import { ingestQoderworkHookJson } from "@crewlight/adapter-qoderwork";
+import { ingestQwenCodeHookJson } from "@crewlight/adapter-qwen-code";
+import { ingestReasonixCliHookJson } from "@crewlight/adapter-reasonix-cli";
+import type {
+  AgentEventInput,
+  AgentSource,
+  AgentSurface,
+} from "@crewlight/core";
 
 import type { CrewlightClient } from "../daemon-client.js";
 import type { CommandIo, StdinReader } from "./types.js";
@@ -27,7 +47,23 @@ type IngestAdapter = (
   | ReturnType<typeof ingestClaudeHookJson>
   | ReturnType<typeof ingestCodexNotifyJson>
   | ReturnType<typeof ingestCodexHookJson>
-  | ReturnType<typeof ingestCursorBridgeJson>;
+  | ReturnType<typeof ingestCursorBridgeJson>
+  | ReturnType<typeof ingestMultiAgentHookJson>
+  | ReturnType<typeof ingestGeminiHookJson>
+  | ReturnType<typeof ingestCopilotHookJson>
+  | ReturnType<typeof ingestAntigravityHookJson>
+  | ReturnType<typeof ingestCodebuddyHookJson>
+  | ReturnType<typeof ingestCodewhaleHookJson>
+  | ReturnType<typeof ingestHermesAgentHookJson>
+  | ReturnType<typeof ingestKimiCliHookJson>
+  | ReturnType<typeof ingestKiroCliHookJson>
+  | ReturnType<typeof ingestMimoCodeHookJson>
+  | ReturnType<typeof ingestOpenclawHookJson>
+  | ReturnType<typeof ingestPiAgentHookJson>
+  | ReturnType<typeof ingestQoderHookJson>
+  | ReturnType<typeof ingestQoderworkHookJson>
+  | ReturnType<typeof ingestQwenCodeHookJson>
+  | ReturnType<typeof ingestReasonixCliHookJson>;
 
 function warn(io: CommandIo, message: string): void {
   io.warn(`${WARNING_PREFIX} ${message}`);
@@ -451,9 +487,96 @@ async function ingest(
     return ingestAntigravityProbe(platformArgs, client, readStdin);
   }
 
+  if (platform === "gemini-cli") {
+    const json = await readStdin();
+    return deliver(json, ingestGeminiHookJson, client, io);
+  }
+
+  if (platform === "copilot-cli") {
+    const json = await readStdin();
+    return deliver(json, ingestCopilotHookJson, client, io);
+  }
+
+  if (platform === "antigravity") {
+    const json = await readStdin();
+    return deliver(json, ingestAntigravityHookJson, client, io);
+  }
+
+  if (platform === "codebuddy") {
+    const json = await readStdin();
+    return deliver(json, ingestCodebuddyHookJson, client, io);
+  }
+
+  if (platform === "kiro-cli") {
+    const json = await readStdin();
+    return deliver(json, ingestKiroCliHookJson, client, io);
+  }
+
+  if (platform === "kimi-cli") {
+    const json = await readStdin();
+    return deliver(json, ingestKimiCliHookJson, client, io);
+  }
+
+  if (platform === "qwen-code") {
+    const json = await readStdin();
+    return deliver(json, ingestQwenCodeHookJson, client, io);
+  }
+
+  if (platform === "codewhale") {
+    const json = await readStdin();
+    return deliver(json, ingestCodewhaleHookJson, client, io);
+  }
+
+  if (platform === "mimo-code") {
+    const json = await readStdin();
+    return deliver(json, ingestMimoCodeHookJson, client, io);
+  }
+
+  if (platform === "pi-agent") {
+    const json = await readStdin();
+    return deliver(json, ingestPiAgentHookJson, client, io);
+  }
+
+  if (platform === "openclaw") {
+    const json = await readStdin();
+    return deliver(json, ingestOpenclawHookJson, client, io);
+  }
+
+  if (platform === "hermes-agent") {
+    const json = await readStdin();
+    return deliver(json, ingestHermesAgentHookJson, client, io);
+  }
+
+  if (platform === "qoder") {
+    const json = await readStdin();
+    return deliver(json, ingestQoderHookJson, client, io);
+  }
+
+  if (platform === "qoderwork") {
+    const json = await readStdin();
+    return deliver(json, ingestQoderworkHookJson, client, io);
+  }
+
+  if (platform === "reasonix-cli") {
+    const json = await readStdin();
+    return deliver(json, ingestReasonixCliHookJson, client, io);
+  }
+
+  const MULTI_AGENT_SOURCES = ["opencode-compat"];
+
+  if (platform && MULTI_AGENT_SOURCES.includes(platform)) {
+    const json = await readStdin();
+    return deliver(
+      json,
+      (input) => ingestMultiAgentHookJson(platform as AgentSource, input),
+      client,
+      io,
+    );
+  }
+
   warn(
     io,
-    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `cursor`, `opencode-plugin`, or `antigravity-probe`, then run `crewlight doctor`.",
+    "unsupported platform. No event was recorded. Use `claude-code`, `codex`, `codex-hook`, `cursor`, `opencode-plugin`, `antigravity-probe`, or one of the new multi-agent sources, then run `crewlight doctor`.",
   );
   return 0;
 }

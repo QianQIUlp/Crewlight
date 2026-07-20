@@ -32,6 +32,7 @@ const STATUS_LABELS: Record<SanitizedSession["status"], string> = {
 
 const SECTION_LABELS: Record<DesktopSection, string> = {
   home: "Home",
+  remote: "Remote",
   doctor: "Doctor",
   agents: "Agents",
   companion: "Companion",
@@ -93,6 +94,9 @@ export interface DesktopSessionCard {
   title: string;
   tone: "active" | "attention" | "error" | "quiet" | "stale";
   workspace: string;
+  elapsedMs: number;
+  stuckWarning: boolean;
+  remoteAlias?: string;
 }
 
 export interface DesktopActionCard {
@@ -195,6 +199,21 @@ export interface DesktopViewModel {
     preferredIntegration?: PreferredIntegration;
     serviceAutoStart: boolean;
   };
+  remote: {
+    hosts: DesktopRemoteHost[];
+  };
+}
+
+export interface DesktopRemoteHost {
+  alias: string;
+  hostname?: string;
+  user?: string;
+  port?: number;
+  tunnelState: "disconnected" | "connecting" | "connected" | "error";
+  tunnelMessage?: string;
+  hasCli?: boolean;
+  autoConnect?: boolean;
+  installPromptDismissed?: boolean;
 }
 
 export interface DesktopViewModelInput {
@@ -206,6 +225,7 @@ export interface DesktopViewModelInput {
   serviceState: ManagedServiceState;
   snapshot: DesktopDashboardResult;
   version: string;
+  remoteHosts: DesktopRemoteHost[];
 }
 
 function formatRelativeAge(milliseconds: number): string {
@@ -321,6 +341,9 @@ function toSessionCard(session: SanitizedSession): DesktopSessionCard {
     title: session.taskTitle ?? session.displayWorkspace,
     tone: sessionTone(session),
     workspace: session.displayWorkspace,
+    elapsedMs: session.durationMs,
+    stuckWarning: isRunning(session) && session.lastEventAgeMs >= 5 * 60 * 1000,
+    ...(session.remoteAlias ? { remoteAlias: session.remoteAlias } : {}),
   };
 }
 
@@ -594,7 +617,7 @@ export function deriveDesktopViewModel(
       license: "MIT",
       migrationSummary: [
         "AgentPulse is now Crewlight.",
-        "The desktop app is the primary user-facing v0.4.0 surface.",
+        "The desktop app is the primary user-facing v0.5.0 surface.",
         "CLI and browser dashboard remain available for advanced local workflows.",
       ],
       repoUrl: "https://github.com/QianQIUlp/Crewlight",
@@ -670,6 +693,9 @@ export function deriveDesktopViewModel(
         ? { preferredIntegration: input.preferences.preferredIntegration }
         : {}),
       serviceAutoStart: input.preferences.serviceAutoStart,
+    },
+    remote: {
+      hosts: input.remoteHosts,
     },
   };
 }

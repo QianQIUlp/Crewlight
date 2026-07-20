@@ -75,6 +75,7 @@ export interface DashboardSession {
   completedAt?: number;
   lastMessage?: string;
   error?: string;
+  remoteAlias?: string;
 }
 
 export interface DashboardApiResponse {
@@ -112,6 +113,20 @@ const DISPLAY_NAMES: Record<AgentSource, string> = {
   aider: "Aider",
   antigravity: "Antigravity",
   "generic-cli": "Generic CLI",
+  "copilot-cli": "Copilot CLI",
+  codebuddy: "CodeBuddy",
+  "kiro-cli": "Kiro CLI",
+  "kimi-cli": "Kimi CLI",
+  "qwen-code": "Qwen Code",
+  codewhale: "CodeWhale",
+  "mimo-code": "MiMo Code",
+  "pi-agent": "Pi",
+  openclaw: "OpenClaw",
+  "hermes-agent": "Hermes Agent",
+  qoder: "Qoder",
+  qoderwork: "QoderWork",
+  "reasonix-cli": "Reasonix CLI",
+  "opencode-compat": "OpenCode",
   custom: "Custom",
 };
 
@@ -1534,6 +1549,7 @@ export function serializeDashboardSession(
       : {}),
     ...(session.lastMessage ? { lastMessage: session.lastMessage } : {}),
     ...(session.error ? { error: session.error } : {}),
+    ...(session.remoteAlias ? { remoteAlias: session.remoteAlias } : {}),
   };
 }
 

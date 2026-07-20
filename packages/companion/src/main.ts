@@ -16,6 +16,7 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import http from "node:http";
 
 import {
   DaemonClient,
@@ -61,6 +62,16 @@ import {
   type ManagedServiceState,
 } from "./service-manager.js";
 import {
+  parseCrewlightRemoteHosts,
+  type SshConfigHost,
+} from "./ssh-config-parser.js";
+import {
+  createSshTunnel,
+  type SshTunnel,
+  type TunnelState,
+} from "./ssh-tunnel.js";
+import type { DesktopRemoteHost } from "./desktop-state.js";
+import {
   deriveCompanionViewModel,
   type CompanionViewModel,
   type CompanionWindowState,
@@ -91,7 +102,7 @@ let quitting = false;
 let companionExpanded = false;
 let pollTimer: NodeJS.Timeout | undefined;
 let polling = false;
-let preferences = { ...DEFAULT_DESKTOP_PREFERENCES };
+let preferences: DesktopPreferences = { ...DEFAULT_DESKTOP_PREFERENCES };
 let desiredRuntimeSettings: DesktopRuntimeSettings = {
   host: DEFAULT_DAEMON_HOST,
   port: DEFAULT_DAEMON_PORT,
@@ -121,6 +132,94 @@ let doctorRefreshPromise: Promise<void> | undefined;
 let preferencesStore:
   | ReturnType<typeof createDesktopPreferencesStore>
   | undefined;
+
+let parsedSshConfigHosts: SshConfigHost[] = [];
+let remoteHostsState: DesktopRemoteHost[] = [];
+const activeTunnels = new Map<string, SshTunnel>();
+const activeProxies = new Map<string, { close: () => void }>();
+
+function createLocalHttpProxy(
+  alias: string,
+): Promise<{ port: number; close: () => void }> {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const targetPort = desiredRuntimeSettings.port;
+      const headers = { ...req.headers };
+      headers["x-crewlight-remote-alias"] = alias;
+      headers["host"] = `127.0.0.1:${targetPort}`;
+
+      const proxyReq = http.request(
+        {
+          host: "127.0.0.1",
+          port: targetPort,
+          path: req.url,
+          method: req.method,
+          headers,
+        },
+        (proxyRes) => {
+          res.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
+          proxyRes.pipe(res);
+        },
+      );
+
+      proxyReq.on("error", (err) => {
+        res.writeHead(502);
+        res.end(`Bad Gateway: ${err.message}`);
+      });
+
+      req.pipe(proxyReq);
+    });
+
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address && typeof address === "object") {
+        resolve({
+          port: address.port,
+          close: () => {
+            server.close();
+          },
+        });
+      } else {
+        reject(new Error("Failed to get proxy port"));
+      }
+    });
+
+    server.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
+
+async function scanRemoteHosts() {
+  parsedSshConfigHosts = await parseCrewlightRemoteHosts();
+  remoteHostsState = parsedSshConfigHosts.map((h) => {
+    const existing = remoteHostsState.find((x) => x.alias === h.alias);
+    const pref = preferences.remoteHosts?.find((p) => p.alias === h.alias);
+    const autoConnect = pref ? pref.autoConnect : false;
+    const installPromptDismissed = pref ? !!pref.installPromptDismissed : false;
+    return {
+      alias: h.alias,
+      hostname: h.hostname,
+      user: h.user,
+      port: h.port,
+      tunnelState: activeTunnels.has(h.alias)
+        ? (existing?.tunnelState ?? "disconnected")
+        : "disconnected",
+      tunnelMessage: existing?.tunnelMessage,
+      hasCli: existing?.hasCli,
+      autoConnect,
+      installPromptDismissed,
+    };
+  });
+
+  for (const host of remoteHostsState) {
+    if (host.autoConnect && host.tunnelState === "disconnected") {
+      void handleDesktopAction({ type: "remote:connect", alias: host.alias });
+    }
+  }
+
+  refreshViewModels();
+}
 
 const setupBase = createSetupSnippets(
   undefined,
@@ -385,6 +484,7 @@ function publishDesktopState(): void {
       serviceState,
       snapshot: latestSnapshot,
       version: `v${app.getVersion()}`,
+      remoteHosts: remoteHostsState,
     },
     setupSnippets,
   );
@@ -948,6 +1048,137 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
   if (action.type === "onboarding:skip-step") {
     return true;
   }
+  if (action.type === "remote:rescan") {
+    await scanRemoteHosts();
+    return true;
+  }
+  if (action.type === "remote:connect") {
+    const host = remoteHostsState.find((h) => h.alias === action.alias);
+    const parsed = parsedSshConfigHosts.find((h) => h.alias === action.alias);
+    if (!host || !parsed) {
+      return false;
+    }
+
+    if (activeTunnels.has(action.alias)) {
+      activeTunnels.get(action.alias)!.disconnect();
+      activeTunnels.delete(action.alias);
+    }
+    if (activeProxies.has(action.alias)) {
+      activeProxies.get(action.alias)!.close();
+      activeProxies.delete(action.alias);
+    }
+
+    host.tunnelState = "connecting";
+    host.tunnelMessage = undefined;
+    publishDesktopState();
+
+    try {
+      const proxy = await createLocalHttpProxy(action.alias);
+      activeProxies.set(action.alias, proxy);
+
+      const tunnel = createSshTunnel({
+        host: parsed,
+        remotePort: 3768,
+        localPort: proxy.port,
+        onStateChange: (state) => {
+          host.tunnelState = state.kind;
+          if (state.kind === "error") {
+            host.tunnelMessage = state.message;
+          } else if (state.kind === "disconnected") {
+            host.tunnelMessage = state.reason;
+          } else {
+            host.tunnelMessage = undefined;
+          }
+
+          if (state.kind === "connected") {
+            tunnel.checkRemoteCli().then((hasCli) => {
+              host.hasCli = hasCli;
+              publishDesktopState();
+            });
+          }
+          publishDesktopState();
+        },
+      });
+
+      activeTunnels.set(action.alias, tunnel);
+      return true;
+    } catch (err: any) {
+      host.tunnelState = "error";
+      host.tunnelMessage = `Proxy creation failed: ${err.message}`;
+      publishDesktopState();
+      return false;
+    }
+  }
+  if (action.type === "remote:disconnect") {
+    const tunnel = activeTunnels.get(action.alias);
+    if (tunnel) {
+      tunnel.disconnect();
+      activeTunnels.delete(action.alias);
+    }
+    const proxy = activeProxies.get(action.alias);
+    if (proxy) {
+      proxy.close();
+      activeProxies.delete(action.alias);
+    }
+    const host = remoteHostsState.find((h) => h.alias === action.alias);
+    if (host) {
+      host.tunnelState = "disconnected";
+      host.tunnelMessage = undefined;
+      host.hasCli = undefined;
+    }
+    publishDesktopState();
+    return true;
+  }
+  if (action.type === "remote:set-auto-connect") {
+    const nextRemoteHosts = [...(preferences.remoteHosts || [])];
+    const index = nextRemoteHosts.findIndex((h) => h.alias === action.alias);
+    if (index >= 0) {
+      const existing = nextRemoteHosts[index]!;
+      nextRemoteHosts[index] = {
+        ...existing,
+        autoConnect: action.enabled,
+      };
+    } else {
+      nextRemoteHosts.push({
+        alias: action.alias,
+        autoConnect: action.enabled,
+      });
+    }
+    await updatePreferences({ remoteHosts: nextRemoteHosts });
+
+    const host = remoteHostsState.find((h) => h.alias === action.alias);
+    if (host) {
+      host.autoConnect = action.enabled;
+    }
+    publishDesktopState();
+    return true;
+  }
+  if (action.type === "remote:dismiss-install-prompt") {
+    const nextRemoteHosts = [...(preferences.remoteHosts || [])];
+    const index = nextRemoteHosts.findIndex((h) => h.alias === action.alias);
+    if (index >= 0) {
+      const existing = nextRemoteHosts[index]!;
+      nextRemoteHosts[index] = {
+        ...existing,
+        installPromptDismissed: true,
+      };
+    } else {
+      nextRemoteHosts.push({
+        alias: action.alias,
+        autoConnect: false,
+        installPromptDismissed: true,
+      });
+    }
+    await updatePreferences({ remoteHosts: nextRemoteHosts });
+
+    const host = remoteHostsState.find((h) => h.alias === action.alias);
+    if (host) {
+      host.installPromptDismissed = true;
+    }
+    publishDesktopState();
+    return true;
+  }
+
   if (action.type === "service:set-host") {
     if (action.host !== "127.0.0.1" && action.host !== "::1") {
       setNotice("error", "Crewlight Desktop accepts loopback hosts only.");
@@ -1036,6 +1267,7 @@ function registerIpc(): void {
         serviceState,
         snapshot: latestSnapshot,
         version: `v${app.getVersion()}`,
+        remoteHosts: remoteHostsState,
       },
       setupSnippets,
     );
@@ -1071,6 +1303,18 @@ app.on("before-quit", () => {
   if (pollTimer) {
     clearInterval(pollTimer);
   }
+  for (const proxy of activeProxies.values()) {
+    try {
+      proxy.close();
+    } catch {}
+  }
+  activeProxies.clear();
+  for (const tunnel of activeTunnels.values()) {
+    try {
+      tunnel.disconnect();
+    } catch {}
+  }
+  activeTunnels.clear();
 });
 
 app.on("window-all-closed", () => {
@@ -1111,6 +1355,7 @@ try {
 }
 startPolling();
 await refreshDoctorReport(true);
+void scanRemoteHosts();
 
 if (preferences.companionVisibilityPreference) {
   await showCompanion(false);
