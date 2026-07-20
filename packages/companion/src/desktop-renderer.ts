@@ -531,6 +531,11 @@ function renderSettings(state: DesktopViewModel): void {
 
 function renderAbout(state: DesktopViewModel): void {
   setText("about-title", `Crewlight ${state.about.version}`);
+  // Also update the sidebar footer version label
+  const sidebarVersion = document.getElementById("sidebar-version");
+  if (sidebarVersion) {
+    sidebarVersion.textContent = state.about.version;
+  }
   setText("about-tagline", state.about.tagline);
   const migration = byId("about-migration");
   migration.replaceChildren(
