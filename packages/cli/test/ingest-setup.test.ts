@@ -987,6 +987,74 @@ describe("platform ingest commands", () => {
         message: "Using tool: bash",
       },
     ]);
+  });
+
+  it("sends a sanitized Copilot CLI hook event", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["copilot-cli"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          hook_event_name: "PreToolUse",
+          session_id: "copilot-session",
+          cwd: "/tmp/copilot",
+          tool_name: "bash",
+          prompt: "secret prompt",
+          transcript: "secret transcript",
+        }),
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([
+      {
+        source: "copilot-cli",
+        surface: "cli",
+        status: "using_tool",
+        sessionId: "copilot-session",
+        projectPath: "/tmp/copilot",
+        title: "PreToolUse",
+        message: "Using tool: bash",
+      },
+    ]);
+    expect(JSON.stringify(target.events)).not.toContain("secret");
+    expectSilentCodexHook(capture);
+  });
+
+  it("sends a sanitized Antigravity hook event", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["antigravity"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          hook_event_name: "PreToolUse",
+          session_id: "antigravity-session",
+          cwd: "/tmp/antigravity",
+          tool_name: "bash",
+          prompt: "secret prompt",
+          transcript: "secret transcript",
+        }),
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([
+      {
+        source: "antigravity",
+        surface: "cli",
+        status: "using_tool",
+        sessionId: "antigravity-session",
+        projectPath: "/tmp/antigravity",
+        title: "PreToolUse",
+        message: "Using tool: bash",
+      },
+    ]);
     expect(JSON.stringify(target.events)).not.toContain("secret");
     expectSilentCodexHook(capture);
   });
@@ -1086,6 +1154,62 @@ describe("setup snippet commands", () => {
     expect(snippets.geminiCli).toContain("PreCompress");
     expect(snippets.geminiCli).toContain(
       "/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest gemini-cli",
+    );
+  });
+
+  it("prints the Copilot CLI snippet", () => {
+    const capture = captureIo();
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+
+    expect(
+      executeSetupCommand(
+        ["copilot-cli", "--print"],
+        capture.io,
+        setupRuntime(),
+      ),
+    ).toBe(0);
+    expect(capture.output).toEqual([snippets.copilotCli]);
+    expect(capture.warnings).toHaveLength(1);
+    expect(capture.warnings[0]).toContain("did not read or modify");
+    expect(capture.warnings[0]).toContain("manually");
+    expect(capture.warnings[0]).toContain("crewlight doctor");
+    expect(snippets.copilotCli).toContain("SessionStart");
+    expect(snippets.copilotCli).toContain("PreToolUse");
+    expect(snippets.copilotCli).toContain("PostToolUse");
+    expect(snippets.copilotCli).toContain("Stop");
+    expect(snippets.copilotCli).toContain("StopFailure");
+    expect(snippets.copilotCli).toContain("Notification");
+    expect(snippets.copilotCli).toContain(
+      "/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest copilot-cli",
+    );
+  });
+
+  it("prints the Antigravity snippet", () => {
+    const capture = captureIo();
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+
+    expect(
+      executeSetupCommand(
+        ["antigravity", "--print"],
+        capture.io,
+        setupRuntime(),
+      ),
+    ).toBe(0);
+    expect(capture.output).toEqual([snippets.antigravity]);
+    expect(capture.warnings).toHaveLength(1);
+    expect(capture.warnings[0]).toContain("did not read or modify");
+    expect(capture.warnings[0]).toContain("manually");
+    expect(capture.warnings[0]).toContain("crewlight doctor");
+    expect(snippets.antigravity).toContain("SessionStart");
+    expect(snippets.antigravity).toContain("BeforeTool");
+    expect(snippets.antigravity).toContain("PreToolUse");
+    expect(snippets.antigravity).toContain("AfterTool");
+    expect(snippets.antigravity).toContain("PostToolUse");
+    expect(snippets.antigravity).toContain("Stop");
+    expect(snippets.antigravity).toContain("StopFailure");
+    expect(snippets.antigravity).toContain("SessionEnd");
+    expect(snippets.antigravity).toContain(
+      "/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest antigravity",
     );
   });
 
@@ -1393,7 +1517,7 @@ describe("setup snippet commands", () => {
     );
   });
 
-  it.each(["antigravity", "antigravity-probe"])(
+  it.each(["antigravity-probe"])(
     "keeps %s unavailable as a setup platform",
     (platform) => {
       expect(() =>

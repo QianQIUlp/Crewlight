@@ -19,8 +19,10 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@crewlight/adapter-antigravity": "workspace:^",
     "@crewlight/adapter-claude-code": "workspace:^",
     "@crewlight/adapter-codex": "workspace:^",
+    "@crewlight/adapter-copilot-cli": "workspace:^",
     "@crewlight/adapter-cursor": "workspace:^",
     "@crewlight/adapter-gemini-cli": "workspace:^",
     "@crewlight/adapter-generic-cli": "workspace:^",

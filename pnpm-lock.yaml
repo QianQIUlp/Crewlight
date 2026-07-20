@@ -26,6 +26,15 @@ importers:
         specifier: ^3.2.1
         version: 3.2.6(@types/debug@4.1.13)(@types/node@22.19.21)(jiti@2.7.0)
 
+  packages/adapters/antigravity:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
   packages/adapters/claude-code:
     dependencies:
       "@crewlight/core":
@@ -36,6 +45,15 @@ importers:
         version: 3.25.76
 
   packages/adapters/codex:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/copilot-cli:
     dependencies:
       "@crewlight/core":
         specifier: workspace:^
@@ -88,12 +106,18 @@ importers:
 
   packages/cli:
     dependencies:
+      "@crewlight/adapter-antigravity":
+        specifier: workspace:^
+        version: link:../adapters/antigravity
       "@crewlight/adapter-claude-code":
         specifier: workspace:^
         version: link:../adapters/claude-code
       "@crewlight/adapter-codex":
         specifier: workspace:^
         version: link:../adapters/codex
+      "@crewlight/adapter-copilot-cli":
+        specifier: workspace:^
+        version: link:../adapters/copilot-cli
       "@crewlight/adapter-cursor":
         specifier: workspace:^
         version: link:../adapters/cursor

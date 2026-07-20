@@ -11,9 +11,11 @@ import {
 import type { CommandIo } from "./types.js";
 
 type SetupPlatform =
+  | "antigravity"
   | "claude-code"
   | "codex"
   | "codex-hooks"
+  | "copilot-cli"
   | "cursor"
   | "gemini-cli"
   | "opencode";
@@ -28,15 +30,19 @@ export interface SetupRuntime {
 }
 
 export interface SetupSnippets {
+  antigravity: string;
   claudeCode: string;
   codex: string;
   codexHooks: CodexHooksSetupResult;
+  copilotCli: string;
   cursor: string;
   geminiCli: string;
   openCode: string;
   verification: {
+    antigravity: string;
     claudeCode: string;
     codex: string;
+    copilotCli: string;
     cursor: string;
     geminiCli: string;
   };
@@ -53,7 +59,7 @@ export type CodexHooksSetupResult =
   | { available: false; reason: SetupUnavailableReason };
 
 const SETUP_USAGE =
-  "Usage: crewlight setup <claude-code|codex|codex-hooks|cursor|gemini-cli|opencode> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]";
+  "Usage: crewlight setup <antigravity|claude-code|codex|codex-hooks|copilot-cli|cursor|gemini-cli|opencode> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]";
 const WINDOWS_CODEX_HOOK_SIMPLE_TOKEN = /^[\p{L}\p{N}:\\/._-]+$/u;
 const WINDOWS_CODEX_HOOKS_UNAVAILABLE: SetupUnavailableReason = {
   code: "windows-codex-hooks-unsafe-command",
@@ -238,6 +244,56 @@ function createGeminiCliSnippet(
         AfterTool: hookGroup(rendered),
         Notification: hookGroup(rendered),
         PreCompress: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createCopilotCliSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "copilot-cli"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        PreToolUse: hookGroup(rendered, "*"),
+        PostToolUse: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+        Notification: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createAntigravitySnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "antigravity"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        BeforeTool: hookGroup(rendered, "*"),
+        PreToolUse: hookGroup(rendered, "*"),
+        AfterTool: hookGroup(rendered, "*"),
+        PostToolUse: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+        SessionEnd: hookGroup(rendered),
       },
     },
     null,
@@ -544,7 +600,40 @@ export function createSetupSnippets(
       ? `echo ${geminiPayload}`
       : renderHookCommand(["printf", "%s\\n", geminiPayload], runtime.platform);
 
+  const ingestCopilot = renderHookCommand(
+    [...command, "ingest", "copilot-cli"],
+    runtime.platform,
+  );
+  const copilotPayload = JSON.stringify({
+    hook_event_name: "SessionStart",
+    session_id: "crewlight-verify-copilot-cli",
+  });
+  const copilotEcho =
+    runtime.platform === "win32"
+      ? `echo ${copilotPayload}`
+      : renderHookCommand(
+          ["printf", "%s\\n", copilotPayload],
+          runtime.platform,
+        );
+
+  const ingestAntigravity = renderHookCommand(
+    [...command, "ingest", "antigravity"],
+    runtime.platform,
+  );
+  const antigravityPayload = JSON.stringify({
+    hook_event_name: "SessionStart",
+    session_id: "crewlight-verify-antigravity",
+  });
+  const antigravityEcho =
+    runtime.platform === "win32"
+      ? `echo ${antigravityPayload}`
+      : renderHookCommand(
+          ["printf", "%s\\n", antigravityPayload],
+          runtime.platform,
+        );
+
   return {
+    antigravity: createAntigravitySnippet(command, runtime.platform),
     claudeCode: createClaudeCodeSnippet(command, runtime.platform),
     codex: createCodexNotifySnippet(command),
     codexHooks: createCodexHooksSnippet(
@@ -552,12 +641,15 @@ export function createSetupSnippets(
       runtime.platform,
       codexHooksSurface,
     ),
+    copilotCli: createCopilotCliSnippet(command, runtime.platform),
     cursor: createCursorCommands(command, runtime.platform),
     geminiCli: createGeminiCliSnippet(command, runtime.platform),
     openCode: createOpenCodePlugin(command),
     verification: {
+      antigravity: `${antigravityEcho} | ${ingestAntigravity}`,
       claudeCode: `${claudeEcho} | ${ingestClaude}`,
       codex: `${codexEcho} | ${ingestCodex}`,
+      copilotCli: `${copilotEcho} | ${ingestCopilot}`,
       cursor: createCursorVerificationCommand(command, runtime.platform),
       geminiCli: `${geminiEcho} | ${ingestGemini}`,
     },
@@ -583,6 +675,17 @@ Merge it manually into ~/.gemini/settings.json (Windows: %USERPROFILE%\\.gemini\
 If a hooks object or any matching event already exists, preserve it and append the Crewlight handler. Do not replace the whole file.
 Use \`--binary crewlight\` only when the hook environment can reliably resolve Crewlight from PATH.
 Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then use Gemini CLI turns to confirm the handlers are loaded.`;
+
+const COPILOT_CLI_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Copilot CLI configuration.
+Merge it manually into ~/.copilot/settings.json (Windows: %USERPROFILE%\\.copilot\\settings.json), .copilot/settings.json, or .copilot/settings.local.json.
+If a hooks object or any matching event already exists, preserve it and append the Crewlight handler. Do not replace the whole file.
+Use \`--binary crewlight\` only when the hook environment can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then use Copilot CLI turns to confirm the handlers are loaded.`;
+
+const ANTIGRAVITY_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Antigravity configuration.
+Merge it manually into ~/.gemini/config/hooks.json or a trusted project .gemini/config/hooks.json while preserving existing hook groups.
+Use \`--binary crewlight\` only when Antigravity can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then execute any agy command to confirm the handlers are loaded.`;
 
 const CODEX_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Codex configuration.
 Merge it manually into ~/.codex/config.toml (Windows: %USERPROFILE%\\.codex\\config.toml, or $CODEX_HOME/config.toml when CODEX_HOME is set).
@@ -634,9 +737,11 @@ export function executeSetupCommand(
   }
 
   if (
+    platform !== "antigravity" &&
     platform !== "claude-code" &&
     platform !== "codex" &&
     platform !== "codex-hooks" &&
+    platform !== "copilot-cli" &&
     platform !== "cursor" &&
     platform !== "gemini-cli" &&
     platform !== "opencode"
@@ -680,6 +785,16 @@ export function executeSetupCommand(
     io.write(snippets.geminiCli);
     io.warn(
       `${GEMINI_CLI_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.geminiCli}`,
+    );
+  } else if (selected === "copilot-cli") {
+    io.write(snippets.copilotCli);
+    io.warn(
+      `${COPILOT_CLI_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.copilotCli}`,
+    );
+  } else if (selected === "antigravity") {
+    io.write(snippets.antigravity);
+    io.warn(
+      `${ANTIGRAVITY_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.antigravity}`,
     );
   } else {
     io.write(snippets.openCode);

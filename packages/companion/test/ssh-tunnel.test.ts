@@ -146,4 +146,73 @@ describe("ssh tunnel", () => {
 
     tunnel.disconnect();
   });
+
+  it("emits error when forwardIn is rejected", async () => {
+    const states: any[] = [];
+    const tunnel = createSshTunnel({
+      host: {
+        alias: "my-host",
+        hostname: "my-host.com",
+        user: "my-user",
+        port: 2222,
+      },
+      remotePort: 9999, // triggers forwardIn rejection
+      localPort: 12345,
+      onStateChange: (state) => states.push(state),
+    });
+
+    await vi.runAllTimersAsync();
+
+    expect(states).toContainEqual(
+      expect.objectContaining({
+        kind: "error",
+        message: expect.stringContaining("ForwardIn failed"),
+      }),
+    );
+    tunnel.disconnect();
+  });
+
+  it("emits error immediately when identityFile cannot be read", async () => {
+    const states: any[] = [];
+    const tunnel = createSshTunnel({
+      host: {
+        alias: "my-host",
+        hostname: "my-host.com",
+        user: "my-user",
+        port: 2222,
+        identityFile: "/no/such/file/exists/at/all",
+      },
+      remotePort: 3768,
+      localPort: 12345,
+      onStateChange: (state) => states.push(state),
+    });
+
+    await vi.runAllTimersAsync();
+
+    expect(states).toContainEqual(
+      expect.objectContaining({
+        kind: "error",
+        message: expect.stringContaining("Failed to read private key"),
+      }),
+    );
+    tunnel.disconnect();
+  });
+
+  it("checkRemoteCli returns false when not connected", async () => {
+    const tunnel = createSshTunnel({
+      host: {
+        alias: "fail-host",
+        hostname: "fail-host",
+        user: "user",
+      },
+      remotePort: 3768,
+      localPort: 12345,
+      onStateChange: () => {},
+    });
+
+    // Don't wait for connection to complete
+    const hasCli = await tunnel.checkRemoteCli();
+    expect(hasCli).toBe(false);
+    tunnel.disconnect();
+  });
 });

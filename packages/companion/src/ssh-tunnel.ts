@@ -25,6 +25,7 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
   const { host, remotePort, localPort, onStateChange } = options;
   let conn: Client | null = null;
   let retryCount = 0;
+  let isConnected = false;
   const maxRetries = 3;
   let shouldReconnect = true;
 
@@ -60,7 +61,6 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
 
     conn
       .on("ready", () => {
-        retryCount = 0;
         conn!.forwardIn("127.0.0.1", remotePort, (err) => {
           if (err) {
             onStateChange({
@@ -70,6 +70,8 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
             conn!.end();
             return;
           }
+          retryCount = 0;
+          isConnected = true;
           onStateChange({ kind: "connected", localPort });
         });
       })
@@ -86,6 +88,7 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
         onStateChange({ kind: "error", message: err.message });
       })
       .on("close", () => {
+        isConnected = false;
         if (shouldReconnect && retryCount < maxRetries) {
           retryCount++;
           setTimeout(connect, 3000);
@@ -106,6 +109,7 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
   return {
     disconnect() {
       shouldReconnect = false;
+      isConnected = false;
       if (conn) {
         conn.end();
         conn = null;
@@ -113,7 +117,7 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
     },
     checkRemoteCli(): Promise<boolean> {
       return new Promise((resolve) => {
-        if (!conn) {
+        if (!conn || !isConnected) {
           resolve(false);
           return;
         }

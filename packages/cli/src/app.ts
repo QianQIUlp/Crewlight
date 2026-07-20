@@ -27,6 +27,7 @@ Usage:
   crewlight setup codex --print [--binary PATH]
   crewlight setup codex-hooks --print [--binary PATH] [--surface unknown|cli|desktop]
   crewlight setup cursor --print [--binary PATH]
+  crewlight setup gemini-cli --print [--binary PATH]
   crewlight setup opencode --print [--binary PATH]
   crewlight status [--json]
   crewlight run [--source generic-cli] [--cwd PATH] -- <command> [args...]
