@@ -44,6 +44,24 @@ importers:
         specifier: ^3.25.56
         version: 3.25.76
 
+  packages/adapters/codebuddy:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/codewhale:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
   packages/adapters/codex:
     dependencies:
       "@crewlight/core":
@@ -86,7 +104,52 @@ importers:
         specifier: workspace:^
         version: link:../../core
 
+  packages/adapters/hermes-agent:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/kimi-cli:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/kiro-cli:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/mimo-code:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
   packages/adapters/multi-agent:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/openclaw:
     dependencies:
       "@crewlight/core":
         specifier: workspace:^
@@ -104,6 +167,51 @@ importers:
         specifier: ^3.25.56
         version: 3.25.76
 
+  packages/adapters/pi-agent:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/qoder:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/qoderwork:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/qwen-code:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
+  packages/adapters/reasonix-cli:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
   packages/cli:
     dependencies:
       "@crewlight/adapter-antigravity":
@@ -112,6 +220,12 @@ importers:
       "@crewlight/adapter-claude-code":
         specifier: workspace:^
         version: link:../adapters/claude-code
+      "@crewlight/adapter-codebuddy":
+        specifier: workspace:^
+        version: link:../adapters/codebuddy
+      "@crewlight/adapter-codewhale":
+        specifier: workspace:^
+        version: link:../adapters/codewhale
       "@crewlight/adapter-codex":
         specifier: workspace:^
         version: link:../adapters/codex
@@ -127,12 +241,42 @@ importers:
       "@crewlight/adapter-generic-cli":
         specifier: workspace:^
         version: link:../adapters/generic-cli
+      "@crewlight/adapter-hermes-agent":
+        specifier: workspace:^
+        version: link:../adapters/hermes-agent
+      "@crewlight/adapter-kimi-cli":
+        specifier: workspace:^
+        version: link:../adapters/kimi-cli
+      "@crewlight/adapter-kiro-cli":
+        specifier: workspace:^
+        version: link:../adapters/kiro-cli
+      "@crewlight/adapter-mimo-code":
+        specifier: workspace:^
+        version: link:../adapters/mimo-code
       "@crewlight/adapter-multi-agent":
         specifier: workspace:^
         version: link:../adapters/multi-agent
+      "@crewlight/adapter-openclaw":
+        specifier: workspace:^
+        version: link:../adapters/openclaw
       "@crewlight/adapter-opencode":
         specifier: workspace:^
         version: link:../adapters/opencode
+      "@crewlight/adapter-pi-agent":
+        specifier: workspace:^
+        version: link:../adapters/pi-agent
+      "@crewlight/adapter-qoder":
+        specifier: workspace:^
+        version: link:../adapters/qoder
+      "@crewlight/adapter-qoderwork":
+        specifier: workspace:^
+        version: link:../adapters/qoderwork
+      "@crewlight/adapter-qwen-code":
+        specifier: workspace:^
+        version: link:../adapters/qwen-code
+      "@crewlight/adapter-reasonix-cli":
+        specifier: workspace:^
+        version: link:../adapters/reasonix-cli
       "@crewlight/core":
         specifier: workspace:^
         version: link:../core

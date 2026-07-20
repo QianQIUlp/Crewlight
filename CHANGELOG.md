@@ -2,6 +2,20 @@
 
 Notable Crewlight changes are recorded here.
 
+## v0.5.0 — 2026-07-20
+
+### Added
+- Cross-platform desktop packaging support for Windows (NSIS .exe), macOS (DMG universal/Intel), and Linux (AppImage & deb).
+- 14 new dedicated agent adapters: Gemini CLI, Copilot CLI, Antigravity (agy), CodeBuddy, Kiro CLI, Kimi CLI, Qwen Code, CodeWhale, MiMo Code, Pi, OpenClaw, Hermes Agent, Qoder, Qoderwork, and Reasonix CLI.
+- SSH remote tunneling: reverse-port forward events from remote devservers over secure SSH tunnels using an annotate-only config marker `# CrewlightRemote: yes`.
+- UI: Show elapsed time metrics and idle stuck warnings on cards, waiting permission amber pulse-border effects, and detail card expansions.
+- Remote CLI installation guide modal triggered automatically on missing remote binaries.
+
+### Fixed
+- SSH tunnel: resolved infinite reconnect loops caused by failed port forwarding.
+- SSH tunnel: corrected checkRemoteCli check executing commands on unestablished tunnels.
+- CLI: Added gemini-cli, copilot-cli, and antigravity to setup list help text.
+
 ## v0.4.0 - Archived prototype release
 
 - Breaking rename from AgentPulse to Crewlight.
