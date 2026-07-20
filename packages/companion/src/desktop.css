@@ -252,17 +252,59 @@ input:focus-visible {
   gap: var(--space-4);
   padding: var(--space-5) var(--space-4);
   border-inline-end: 1px solid var(--line);
-  background: linear-gradient(
-    180deg,
-    rgba(8, 16, 22, 0.62),
-    rgba(8, 16, 22, 0.48)
-  );
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  /* Background is transparent — the ::before liquid glass layer handles it */
+  background: transparent;
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  /* Create stacking context so ::before z-index works */
+  isolation: isolate;
+}
+
+/* ── Liquid glass background layer ──────────────────────────── */
+.sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Sits below sidebar content in the stacking context */
+  z-index: -1;
+  pointer-events: none;
+  /* Base: dark-tinted glass backing */
+  background: linear-gradient(
+    160deg,
+    rgba(8, 14, 22, 0.56) 0%,
+    rgba(8, 12, 18, 0.48) 100%
+  );
+  /* Frosted glass blur — this is the surface we distort */
+  backdrop-filter: blur(26px) saturate(1.55) brightness(0.88);
+  -webkit-backdrop-filter: blur(26px) saturate(1.55) brightness(0.88);
+  /* Liquid glass: SVG displacement map warps the blurred background
+     simulating light refraction through curved glass */
+  filter: url(#lg-sidebar);
+}
+
+/* ── Specular glass-rim highlight (the "glass edge" look) ────── */
+.sidebar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Diagonal specular highlight — mimics how real glass catches light */
+  background: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.13) 0%,
+    rgba(255, 255, 255, 0.05) 28%,
+    transparent 58%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+}
+
+/* Ensure all sidebar children render above the glass layers */
+.sidebar > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Brand lockup ────────────────────────────────────────────── */
@@ -1326,16 +1368,64 @@ input:focus-visible {
 }
 
 .modal-dialog {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   width: min(100%, 480px);
   padding: var(--space-5);
-  border: 1px solid var(--line-strong);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius-lg);
-  background: var(--panel-strong);
-  box-shadow: var(--shadow-lg);
+  /* Transparent — liquid glass ::before handles background */
+  background: transparent;
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
   animation: scaleUp 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  isolation: isolate;
+}
+
+/* ── Modal liquid glass layer ─────────────────────────────────── */
+.modal-dialog::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    155deg,
+    rgba(12, 20, 30, 0.62) 0%,
+    rgba(8, 14, 22, 0.54) 100%
+  );
+  backdrop-filter: blur(32px) saturate(1.7) brightness(0.86);
+  -webkit-backdrop-filter: blur(32px) saturate(1.7) brightness(0.86);
+  /* Stronger liquid glass distortion for the focal modal surface */
+  filter: url(#lg-modal);
+}
+
+/* ── Modal specular highlight ─────────────────────────────────── */
+.modal-dialog::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.06) 25%,
+    transparent 55%,
+    rgba(80, 210, 190, 0.06) 100%
+  );
+}
+
+/* All modal content sits above the glass layer */
+.modal-dialog > * {
+  position: relative;
+  z-index: 1;
 }
 
 .modal-header h3 {
@@ -1425,6 +1515,16 @@ input:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* For reduced-motion: remove the flowing liquid animation.
+     The glass still has the static displaced shape — just no movement. */
+  .sidebar::before,
+  .modal-dialog::before {
+    filter: none;
+    /* Fall back to pure frosted glass (glassmorphism) */
+    backdrop-filter: blur(26px) saturate(1.4);
+    -webkit-backdrop-filter: blur(26px) saturate(1.4);
   }
 }
 
