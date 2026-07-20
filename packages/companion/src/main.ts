@@ -12,7 +12,7 @@ import {
   type IpcMainInvokeEvent,
   type Rectangle,
 } from "electron";
-import { existsSync } from "node:fs";
+import fs, { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -310,28 +310,78 @@ function currentDesktopCompanionState(): DesktopCompanionState {
   };
 }
 
+function logIpcWarning(reason: string, details: any): void {
+  try {
+    const logPath = join(app.getPath("home"), "crewlight-ipc.log");
+    const msg = `[${new Date().toISOString()}] IPC Validation Failed: ${reason}\nDetails: ${JSON.stringify(details, null, 2)}\n\n`;
+    fs.appendFileSync(logPath, msg, "utf8");
+  } catch {}
+}
+
 function trustedSender(
   event: IpcMainEvent | IpcMainInvokeEvent,
   window: BrowserWindow | undefined,
   pageUrl: string,
 ): boolean {
-  if (!window || window.isDestroyed() || event.sender !== window.webContents) {
+  if (!window) {
+    logIpcWarning("No window provided", { pageUrl });
+    return false;
+  }
+  if (window.isDestroyed()) {
+    logIpcWarning("Window is destroyed", { pageUrl });
+    return false;
+  }
+  if (event.sender !== window.webContents) {
+    logIpcWarning("Sender webContents mismatch", {
+      eventSenderId: event.sender?.id,
+      windowWebContentsId: window.webContents?.id,
+    });
     return false;
   }
   const senderFrame = event.senderFrame;
-  if (!senderFrame || senderFrame !== window.webContents.mainFrame) {
+  if (!senderFrame) {
+    logIpcWarning("No senderFrame in event", { pageUrl });
+    return false;
+  }
+
+  // Check if it is the main frame by checking parent, reference or routingId.
+  // In some Electron versions, same frame wrappers are different JS object instances.
+  const isMainFrame =
+    senderFrame.parent === null ||
+    senderFrame === window.webContents.mainFrame ||
+    (typeof senderFrame.routingId === "number" &&
+      senderFrame.routingId === window.webContents.mainFrame.routingId);
+
+  if (!isMainFrame) {
+    logIpcWarning("Sender frame is not main frame", {
+      frameUrl: senderFrame.url,
+      parentUrl: senderFrame.parent?.url,
+    });
     return false;
   }
 
   try {
     const senderPath = fileURLToPath(senderFrame.url);
     const targetPath = fileURLToPath(pageUrl);
-    if (process.platform === "win32") {
-      return senderPath.toLowerCase() === targetPath.toLowerCase();
+    const match =
+      process.platform === "win32"
+        ? senderPath.toLowerCase() === targetPath.toLowerCase()
+        : senderPath === targetPath;
+
+    if (!match) {
+      logIpcWarning("Path mismatch", { senderPath, targetPath });
     }
-    return senderPath === targetPath;
-  } catch {
-    return senderFrame.url === pageUrl;
+    return match;
+  } catch (err: any) {
+    const match = senderFrame.url === pageUrl;
+    if (!match) {
+      logIpcWarning("Url mismatch (fallback)", {
+        senderUrl: senderFrame.url,
+        pageUrl,
+        error: err.message,
+      });
+    }
+    return match;
   }
 }
 
