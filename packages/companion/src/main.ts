@@ -670,17 +670,27 @@ function refreshTray(): void {
 }
 
 async function createTray(): Promise<void> {
-  const svg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">',
-    '<circle cx="16" cy="16" r="11" fill="none" stroke="#d7e3f4" stroke-width="4"/>',
-    '<circle cx="16" cy="16" r="4" fill="#65d6ad"/>',
-    "</svg>",
-  ].join("");
-  const icon = nativeImage
-    .createFromDataURL(
-      `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
-    )
-    .resize({ width: 16, height: 16 });
+  const iconPath = join(outputDirectory, "crewlight-icon.png");
+  let icon: Electron.NativeImage;
+  if (process.platform === "win32" && existsSync(iconPath)) {
+    icon = nativeImage
+      .createFromPath(iconPath)
+      .resize({ width: 16, height: 16 });
+  } else {
+    // Fallback: inline SVG for non-Windows platforms
+    const svg = [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">',
+      '<circle cx="16" cy="16" r="11" fill="none" stroke="#d7e3f4" stroke-width="4"/>',
+      '<circle cx="16" cy="16" r="4" fill="#65d6ad"/>',
+      "</svg>",
+    ].join("");
+    icon = nativeImage
+      .createFromDataURL(
+        `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
+      )
+      .resize({ width: 16, height: 16 });
+  }
+  void iconPath; // suppress unused warning
 
   tray = new Tray(icon);
   tray.setToolTip("Crewlight Desktop");
@@ -738,7 +748,11 @@ function createDesktopWindow(): BrowserWindow {
   window.on("show", refreshTray);
   window.on("hide", refreshTray);
   window.on("close", (event) => {
-    if (!quitting && tray && !tray.isDestroyed()) {
+    if (!quitting) {
+      // Always hide instead of close so the app stays alive in the background.
+      // On platforms where the tray icon was successfully created the user can
+      // re-open via the tray; on Windows without a tray they can re-open via
+      // the taskbar or by launching the executable again.
       event.preventDefault();
       window.hide();
       refreshTray();
@@ -1318,9 +1332,12 @@ app.on("before-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  if (!tray || tray.isDestroyed()) {
-    app.quit();
-  }
+  // Do not quit when all windows are closed. The app lives in the system tray
+  // (or silently in the background on platforms where the tray could not be
+  // created). The user must choose Quit from the tray menu to exit.
+  // On macOS this is the expected behaviour. On Windows it keeps the process
+  // alive so the window can be re-shown by clicking the taskbar icon or by
+  // running the executable again.
 });
 
 app.on("activate", () => {
