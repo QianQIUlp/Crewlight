@@ -6,7 +6,7 @@
   "homepage": "https://github.com/QianQIUlp/Crewlight",
   "private": true,
   "type": "module",
-  "main": "./dist/main.js",
+  "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -b && pnpm copy:assets",
     "copy:assets": "node scripts/copy-assets.mjs",
