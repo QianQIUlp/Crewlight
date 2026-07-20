@@ -968,6 +968,8 @@ if (modalDismissBtn) {
   modalDismissBtn.addEventListener("click", async () => {
     const modal = byId("remote-install-modal");
     const alias = modal.dataset.alias;
+    // Optimistically hide the modal instantly
+    modal.setAttribute("hidden", "true");
     if (alias) {
       await window.crewlightDesktop.perform({
         type: "remote:dismiss-install-prompt",

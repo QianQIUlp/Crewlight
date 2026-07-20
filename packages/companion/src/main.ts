@@ -315,14 +315,24 @@ function trustedSender(
   window: BrowserWindow | undefined,
   pageUrl: string,
 ): boolean {
-  return Boolean(
-    window &&
-    !window.isDestroyed() &&
-    event.sender === window.webContents &&
-    event.senderFrame &&
-    event.senderFrame === window.webContents.mainFrame &&
-    event.senderFrame.url === pageUrl,
-  );
+  if (!window || window.isDestroyed() || event.sender !== window.webContents) {
+    return false;
+  }
+  const senderFrame = event.senderFrame;
+  if (!senderFrame || senderFrame !== window.webContents.mainFrame) {
+    return false;
+  }
+
+  try {
+    const senderPath = fileURLToPath(senderFrame.url);
+    const targetPath = fileURLToPath(pageUrl);
+    if (process.platform === "win32") {
+      return senderPath.toLowerCase() === targetPath.toLowerCase();
+    }
+    return senderPath === targetPath;
+  } catch {
+    return senderFrame.url === pageUrl;
+  }
 }
 
 function setNotice(tone: DesktopNotice["tone"], message: string): void {
