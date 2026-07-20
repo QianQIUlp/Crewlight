@@ -8,13 +8,17 @@ Crewlight provides an integration adapter for Reasonix CLI to monitor session ex
 ## Setup Instructions
 
 ### 1. Print configuration snippet
+
 Generate your hook configuration block by running:
+
 ```bash
 crewlight setup reasonix-cli --print
 ```
 
 ### 2. Output Snippet
+
 The command will produce a mergeable JSON hook block similar to the following:
+
 ```json
 {
   "hooks": {
@@ -66,4 +70,5 @@ The command will produce a mergeable JSON hook block similar to the following:
 Merge this block into your global or workspace-specific Reasonix CLI configuration.
 
 ### 3. Verify
+
 Run `crewlight daemon --notifier console` and start a session using Reasonix CLI. Verified statuses will route automatically to your local companion dashboard.

@@ -8,13 +8,17 @@ Crewlight provides an integration adapter for MiMo Code to monitor session execu
 ## Setup Instructions
 
 ### 1. Print configuration snippet
+
 Generate your hook configuration block by running:
+
 ```bash
 crewlight setup mimo-code --print
 ```
 
 ### 2. Output Snippet
+
 The command will produce a mergeable JSON hook block similar to the following:
+
 ```json
 {
   "hooks": {
@@ -77,4 +81,5 @@ The command will produce a mergeable JSON hook block similar to the following:
 Merge this block into your global or workspace-specific MiMo Code configuration.
 
 ### 3. Verify
+
 Run `crewlight daemon --notifier console` and start a session using MiMo Code. Verified statuses will route automatically to your local companion dashboard.
