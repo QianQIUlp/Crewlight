@@ -974,6 +974,10 @@ input:focus-visible {
   animation: fadeIn 200ms ease-out;
 }
 
+.modal-overlay[hidden] {
+  display: none !important;
+}
+
 .modal-dialog {
   display: flex;
   flex-direction: column;
