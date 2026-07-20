@@ -13,12 +13,24 @@ import type { CommandIo } from "./types.js";
 type SetupPlatform =
   | "antigravity"
   | "claude-code"
+  | "codebuddy"
   | "codex"
   | "codex-hooks"
+  | "codewhale"
   | "copilot-cli"
   | "cursor"
   | "gemini-cli"
-  | "opencode";
+  | "hermes-agent"
+  | "kimi-cli"
+  | "kiro-cli"
+  | "mimo-code"
+  | "openclaw"
+  | "opencode"
+  | "pi-agent"
+  | "qoder"
+  | "qoderwork"
+  | "qwen-code"
+  | "reasonix-cli";
 type RuntimePlatform = NodeJS.Platform;
 type CodexHookSurface = "unknown" | "cli" | "desktop";
 
@@ -32,19 +44,43 @@ export interface SetupRuntime {
 export interface SetupSnippets {
   antigravity: string;
   claudeCode: string;
+  codebuddy: string;
   codex: string;
   codexHooks: CodexHooksSetupResult;
+  codewhale: string;
   copilotCli: string;
   cursor: string;
   geminiCli: string;
+  hermesAgent: string;
+  kimiCli: string;
+  kiroCli: string;
+  mimoCode: string;
+  openclaw: string;
   openCode: string;
+  piAgent: string;
+  qoder: string;
+  qoderwork: string;
+  qwenCode: string;
+  reasonixCli: string;
   verification: {
     antigravity: string;
     claudeCode: string;
+    codebuddy: string;
     codex: string;
+    codewhale: string;
     copilotCli: string;
     cursor: string;
     geminiCli: string;
+    hermesAgent: string;
+    kimiCli: string;
+    kiroCli: string;
+    mimoCode: string;
+    openclaw: string;
+    piAgent: string;
+    qoder: string;
+    qoderwork: string;
+    qwenCode: string;
+    reasonixCli: string;
   };
 }
 
@@ -59,7 +95,7 @@ export type CodexHooksSetupResult =
   | { available: false; reason: SetupUnavailableReason };
 
 const SETUP_USAGE =
-  "Usage: crewlight setup <antigravity|claude-code|codex|codex-hooks|copilot-cli|cursor|gemini-cli|opencode> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]";
+  "Usage: crewlight setup <antigravity|claude-code|codebuddy|codex|codex-hooks|codewhale|copilot-cli|cursor|gemini-cli|hermes-agent|kimi-cli|kiro-cli|mimo-code|openclaw|opencode|pi-agent|qoder|qoderwork|qwen-code|reasonix-cli> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]";
 const WINDOWS_CODEX_HOOK_SIMPLE_TOKEN = /^[\p{L}\p{N}:\\/._-]+$/u;
 const WINDOWS_CODEX_HOOKS_UNAVAILABLE: SetupUnavailableReason = {
   code: "windows-codex-hooks-unsafe-command",
@@ -294,6 +330,272 @@ function createAntigravitySnippet(
         Stop: hookGroup(rendered),
         StopFailure: hookGroup(rendered),
         SessionEnd: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createCodebuddySnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "codebuddy"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        PreToolUse: hookGroup(rendered, "*"),
+        PermissionNeeded: hookGroup(rendered),
+        TaskEnd: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createKiroCliSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "kiro-cli"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        onSessionStart: hookGroup(rendered),
+        onToolCall: hookGroup(rendered, "*"),
+        onComplete: hookGroup(rendered),
+        onError: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createKimiCliSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "kimi-cli"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        BeforeTool: hookGroup(rendered, "*"),
+        AfterTool: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createQwenCodeSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "qwen-code"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        start: hookGroup(rendered),
+        tool_use: hookGroup(rendered, "*"),
+        finish: hookGroup(rendered),
+        error: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createCodewhaleSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "codewhale"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        PreToolUse: hookGroup(rendered, "*"),
+        PostToolUse: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createMimoCodeSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "mimo-code"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        PreToolUse: hookGroup(rendered, "*"),
+        PostToolUse: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createPiAgentSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "pi-agent"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        start: hookGroup(rendered),
+        tool_use: hookGroup(rendered, "*"),
+        finish: hookGroup(rendered),
+        error: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createOpenclawSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "openclaw"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        PreToolUse: hookGroup(rendered, "*"),
+        PostToolUse: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createHermesAgentSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "hermes-agent"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        start: hookGroup(rendered),
+        tool_use: hookGroup(rendered, "*"),
+        finish: hookGroup(rendered),
+        error: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createQoderSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand([...command, "ingest", "qoder"], platform);
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        PreToolUse: hookGroup(rendered, "*"),
+        PostToolUse: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createQoderworkSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "qoderwork"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        PreToolUse: hookGroup(rendered, "*"),
+        PostToolUse: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createReasonixCliSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "reasonix-cli"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        start: hookGroup(rendered),
+        tool_use: hookGroup(rendered, "*"),
+        finish: hookGroup(rendered),
+        error: hookGroup(rendered),
       },
     },
     null,
@@ -632,26 +934,82 @@ export function createSetupSnippets(
           runtime.platform,
         );
 
+  const newPlatforms = [
+    { name: "codebuddy", verifyEvent: "SessionStart", prop: "codebuddy" },
+    { name: "kiro-cli", verifyEvent: "onSessionStart", prop: "kiroCli" },
+    { name: "kimi-cli", verifyEvent: "SessionStart", prop: "kimiCli" },
+    { name: "qwen-code", verifyEvent: "start", prop: "qwenCode" },
+    { name: "codewhale", verifyEvent: "SessionStart", prop: "codewhale" },
+    { name: "mimo-code", verifyEvent: "SessionStart", prop: "mimoCode" },
+    { name: "pi-agent", verifyEvent: "start", prop: "piAgent" },
+    { name: "openclaw", verifyEvent: "SessionStart", prop: "openclaw" },
+    { name: "hermes-agent", verifyEvent: "start", prop: "hermesAgent" },
+    { name: "qoder", verifyEvent: "SessionStart", prop: "qoder" },
+    { name: "qoderwork", verifyEvent: "SessionStart", prop: "qoderwork" },
+    { name: "reasonix-cli", verifyEvent: "start", prop: "reasonixCli" },
+  ];
+
+  const extraVerifications: Record<string, string> = {};
+  for (const np of newPlatforms) {
+    const ingestCmd = renderHookCommand(
+      [...command, "ingest", np.name],
+      runtime.platform,
+    );
+    const payload = JSON.stringify({
+      hook_event_name: np.verifyEvent,
+      session_id: `crewlight-verify-${np.name}`,
+    });
+    const echoCmd =
+      runtime.platform === "win32"
+        ? `echo ${payload}`
+        : renderHookCommand(["printf", "%s\\n", payload], runtime.platform);
+    extraVerifications[np.prop] = `${echoCmd} | ${ingestCmd}`;
+  }
+
   return {
     antigravity: createAntigravitySnippet(command, runtime.platform),
     claudeCode: createClaudeCodeSnippet(command, runtime.platform),
+    codebuddy: createCodebuddySnippet(command, runtime.platform),
     codex: createCodexNotifySnippet(command),
     codexHooks: createCodexHooksSnippet(
       command,
       runtime.platform,
       codexHooksSurface,
     ),
+    codewhale: createCodewhaleSnippet(command, runtime.platform),
     copilotCli: createCopilotCliSnippet(command, runtime.platform),
     cursor: createCursorCommands(command, runtime.platform),
     geminiCli: createGeminiCliSnippet(command, runtime.platform),
+    hermesAgent: createHermesAgentSnippet(command, runtime.platform),
+    kimiCli: createKimiCliSnippet(command, runtime.platform),
+    kiroCli: createKiroCliSnippet(command, runtime.platform),
+    mimoCode: createMimoCodeSnippet(command, runtime.platform),
+    openclaw: createOpenclawSnippet(command, runtime.platform),
     openCode: createOpenCodePlugin(command),
+    piAgent: createPiAgentSnippet(command, runtime.platform),
+    qoder: createQoderSnippet(command, runtime.platform),
+    qoderwork: createQoderworkSnippet(command, runtime.platform),
+    qwenCode: createQwenCodeSnippet(command, runtime.platform),
+    reasonixCli: createReasonixCliSnippet(command, runtime.platform),
     verification: {
       antigravity: `${antigravityEcho} | ${ingestAntigravity}`,
       claudeCode: `${claudeEcho} | ${ingestClaude}`,
+      codebuddy: extraVerifications.codebuddy!,
       codex: `${codexEcho} | ${ingestCodex}`,
+      codewhale: extraVerifications.codewhale!,
       copilotCli: `${copilotEcho} | ${ingestCopilot}`,
       cursor: createCursorVerificationCommand(command, runtime.platform),
       geminiCli: `${geminiEcho} | ${ingestGemini}`,
+      hermesAgent: extraVerifications.hermesAgent!,
+      kimiCli: extraVerifications.kimiCli!,
+      kiroCli: extraVerifications.kiroCli!,
+      mimoCode: extraVerifications.mimoCode!,
+      openclaw: extraVerifications.openclaw!,
+      piAgent: extraVerifications.piAgent!,
+      qoder: extraVerifications.qoder!,
+      qoderwork: extraVerifications.qoderwork!,
+      qwenCode: extraVerifications.qwenCode!,
+      reasonixCli: extraVerifications.reasonixCli!,
     },
   };
 }
@@ -736,16 +1094,29 @@ export function executeSetupCommand(
     throw new Error(SETUP_USAGE);
   }
 
-  if (
-    platform !== "antigravity" &&
-    platform !== "claude-code" &&
-    platform !== "codex" &&
-    platform !== "codex-hooks" &&
-    platform !== "copilot-cli" &&
-    platform !== "cursor" &&
-    platform !== "gemini-cli" &&
-    platform !== "opencode"
-  ) {
+  const VALID_PLATFORMS: SetupPlatform[] = [
+    "antigravity",
+    "claude-code",
+    "codebuddy",
+    "codex",
+    "codex-hooks",
+    "codewhale",
+    "copilot-cli",
+    "cursor",
+    "gemini-cli",
+    "hermes-agent",
+    "kimi-cli",
+    "kiro-cli",
+    "mimo-code",
+    "openclaw",
+    "opencode",
+    "pi-agent",
+    "qoder",
+    "qoderwork",
+    "qwen-code",
+    "reasonix-cli",
+  ];
+  if (!VALID_PLATFORMS.includes(platform as SetupPlatform)) {
     throw new Error(`Unsupported setup platform: ${platform}`);
   }
 
@@ -795,6 +1166,66 @@ export function executeSetupCommand(
     io.write(snippets.antigravity);
     io.warn(
       `${ANTIGRAVITY_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.antigravity}`,
+    );
+  } else if (selected === "codebuddy") {
+    io.write(snippets.codebuddy);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for CodeBuddy.\nVerification command: ${snippets.verification.codebuddy}`,
+    );
+  } else if (selected === "codewhale") {
+    io.write(snippets.codewhale);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for CodeWhale.\nVerification command: ${snippets.verification.codewhale}`,
+    );
+  } else if (selected === "hermes-agent") {
+    io.write(snippets.hermesAgent);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for Hermes Agent.\nVerification command: ${snippets.verification.hermesAgent}`,
+    );
+  } else if (selected === "kimi-cli") {
+    io.write(snippets.kimiCli);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for Kimi CLI.\nVerification command: ${snippets.verification.kimiCli}`,
+    );
+  } else if (selected === "kiro-cli") {
+    io.write(snippets.kiroCli);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for Kiro CLI.\nVerification command: ${snippets.verification.kiroCli}`,
+    );
+  } else if (selected === "mimo-code") {
+    io.write(snippets.mimoCode);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for MiMo Code.\nVerification command: ${snippets.verification.mimoCode}`,
+    );
+  } else if (selected === "openclaw") {
+    io.write(snippets.openclaw);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for OpenClaw.\nVerification command: ${snippets.verification.openclaw}`,
+    );
+  } else if (selected === "pi-agent") {
+    io.write(snippets.piAgent);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for Pi Agent.\nVerification command: ${snippets.verification.piAgent}`,
+    );
+  } else if (selected === "qoder") {
+    io.write(snippets.qoder);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for Qoder.\nVerification command: ${snippets.verification.qoder}`,
+    );
+  } else if (selected === "qoderwork") {
+    io.write(snippets.qoderwork);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for Qoderwork.\nVerification command: ${snippets.verification.qoderwork}`,
+    );
+  } else if (selected === "qwen-code") {
+    io.write(snippets.qwenCode);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for Qwen Code.\nVerification command: ${snippets.verification.qwenCode}`,
+    );
+  } else if (selected === "reasonix-cli") {
+    io.write(snippets.reasonixCli);
+    io.warn(
+      `Crewlight only printed a mergeable snippet for Reasonix CLI.\nVerification command: ${snippets.verification.reasonixCli}`,
     );
   } else {
     io.write(snippets.openCode);

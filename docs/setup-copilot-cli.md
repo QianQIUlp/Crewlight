@@ -5,16 +5,21 @@ Crewlight provides a dedicated adapter for the Copilot CLI. It listens to lifecy
 ## Setup Instructions
 
 ### 1. Print configuration snippet
+
 Generate your hook configuration block by running:
+
 ```bash
 crewlight setup copilot-cli --print
 ```
 
 ### 2. Configure Copilot hooks
+
 Open your Copilot CLI configuration file at `~/.copilot/settings.json` (Windows: `%USERPROFILE%\.copilot\settings.json`) or a project-specific `.copilot/settings.json`, and insert/merge the printed JSON hook commands.
 
 ### 3. Verify connection
+
 Start the Crewlight service:
+
 ```bash
 crewlight daemon --notifier console
 ```

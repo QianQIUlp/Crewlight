@@ -1213,6 +1213,41 @@ describe("setup snippet commands", () => {
     );
   });
 
+  it.each([
+    ["codebuddy", "codebuddy", "SessionStart"],
+    ["kiro-cli", "kiroCli", "onSessionStart"],
+    ["kimi-cli", "kimiCli", "SessionStart"],
+    ["qwen-code", "qwenCode", "start"],
+    ["codewhale", "codewhale", "SessionStart"],
+    ["mimo-code", "mimoCode", "SessionStart"],
+    ["pi-agent", "piAgent", "start"],
+    ["openclaw", "openclaw", "SessionStart"],
+    ["hermes-agent", "hermesAgent", "start"],
+    ["qoder", "qoder", "SessionStart"],
+    ["qoderwork", "qoderwork", "SessionStart"],
+    ["reasonix-cli", "reasonixCli", "start"],
+  ] as const)(
+    "prints the %s snippet and verification command",
+    (platform, prop, verifyEvent) => {
+      const capture = captureIo();
+      const snippets = createSetupSnippets(undefined, setupRuntime());
+
+      expect(
+        executeSetupCommand([platform, "--print"], capture.io, setupRuntime()),
+      ).toBe(0);
+      expect(capture.output).toEqual([snippets[prop]]);
+      expect(capture.warnings).toHaveLength(1);
+      expect(capture.warnings[0]).toContain("only printed a mergeable snippet");
+      expect(capture.warnings[0]).toContain(
+        `Verification command: ${snippets.verification[prop]}`,
+      );
+      expect(snippets[prop]).toContain(verifyEvent);
+      expect(snippets[prop]).toContain(
+        `/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest ${platform}`,
+      );
+    },
+  );
+
   it("prints the Codex notify snippet", () => {
     const capture = captureIo();
     const snippets = createSetupSnippets(undefined, setupRuntime());

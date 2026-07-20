@@ -5,18 +5,23 @@ Crewlight supports precise integration with Gemini CLI through command hooks. It
 ## Setup Instructions
 
 ### 1. Print configuration snippet
+
 Run the following command to generate a mergeable JSON snippet for your hook configurations:
+
 ```bash
 crewlight setup gemini-cli --print
 ```
 
 ### 2. Merge hooks configuration
+
 Manually copy the output and merge it into your global Gemini CLI settings file at `~/.gemini/settings.json` (Windows: `%USERPROFILE%\.gemini\settings.json`) or a trusted project-level `.gemini/settings.json`.
 
 If a `hooks` object already exists, merge the events individually to preserve existing commands.
 
 ### 3. Verify connection
+
 Start the Crewlight daemon in console mode:
+
 ```bash
 crewlight daemon --notifier console
 ```

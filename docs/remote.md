@@ -11,6 +11,7 @@ Crewlight enables zero-config monitoring of agents running on remote development
 ## Setup Instructions
 
 ### 1. Tag your SSH host
+
 Add a `# CrewlightRemote: yes` comment inline to your designated host block in `~/.ssh/config`:
 
 ```text
@@ -21,13 +22,15 @@ Host devserver
   # CrewlightRemote: yes
 ```
 
-*Note: Only public-key authentication is supported. Make sure your identity file is loaded or config path is correct.*
+_Note: Only public-key authentication is supported. Make sure your identity file is loaded or config path is correct._
 
 ### 2. Connect in the Desktop App
+
 - Launch Crewlight Desktop and navigate to `Settings -> Remote`.
 - Click **Scan** (or restart the app) to discover your tagged hosts.
 - Click **Connect**.
 - If `crewlight` is not installed on the remote machine, a dialog will appear showing the remote CLI installation snippet. Paste it into your remote terminal to install `crewlight` on the server.
 
 ### 3. Observe remote events
+
 Run any compatible agent CLI (e.g. Claude Code or Gemini CLI) on your remote server. The events will flow over the tunnel and appear on your local machine tagged with the host's glob icon and name chip.
