@@ -545,5 +545,40 @@
         </div>
       </main>
     </div>
+
+    <!-- Remote Install CLI Modal -->
+    <div id="remote-install-modal" class="modal-overlay" hidden>
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Install Crewlight CLI on Remote Host</h3>
+        </div>
+        <div class="modal-body">
+          <p class="section-copy">
+            We detected that the Crewlight CLI tool is not installed on the
+            remote host <strong id="remote-install-host-name"></strong>. Please
+            install it using npm to start receiving execution sessions:
+          </p>
+          <div class="code-copy-container">
+            <code id="remote-install-cmd">npm install -g @crewlight/cli</code>
+            <button
+              id="remote-install-copy"
+              class="primary-button"
+              type="button"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            id="remote-install-dismiss"
+            class="secondary-button"
+            type="button"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

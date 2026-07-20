@@ -53,6 +53,15 @@ importers:
         specifier: ^3.25.56
         version: 3.25.76
 
+  packages/adapters/gemini-cli:
+    dependencies:
+      "@crewlight/core":
+        specifier: workspace:^
+        version: link:../../core
+      zod:
+        specifier: ^3.25.56
+        version: 3.25.76
+
   packages/adapters/generic-cli:
     dependencies:
       "@crewlight/core":
@@ -88,6 +97,9 @@ importers:
       "@crewlight/adapter-cursor":
         specifier: workspace:^
         version: link:../adapters/cursor
+      "@crewlight/adapter-gemini-cli":
+        specifier: workspace:^
+        version: link:../adapters/gemini-cli
       "@crewlight/adapter-generic-cli":
         specifier: workspace:^
         version: link:../adapters/generic-cli

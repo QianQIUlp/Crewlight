@@ -15,6 +15,7 @@ type SetupPlatform =
   | "codex"
   | "codex-hooks"
   | "cursor"
+  | "gemini-cli"
   | "opencode";
 type RuntimePlatform = NodeJS.Platform;
 type CodexHookSurface = "unknown" | "cli" | "desktop";
@@ -31,11 +32,13 @@ export interface SetupSnippets {
   codex: string;
   codexHooks: CodexHooksSetupResult;
   cursor: string;
+  geminiCli: string;
   openCode: string;
   verification: {
     claudeCode: string;
     codex: string;
     cursor: string;
+    geminiCli: string;
   };
 }
 
@@ -50,7 +53,7 @@ export type CodexHooksSetupResult =
   | { available: false; reason: SetupUnavailableReason };
 
 const SETUP_USAGE =
-  "Usage: crewlight setup <claude-code|codex|codex-hooks|cursor|opencode> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]";
+  "Usage: crewlight setup <claude-code|codex|codex-hooks|cursor|gemini-cli|opencode> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]";
 const WINDOWS_CODEX_HOOK_SIMPLE_TOKEN = /^[\p{L}\p{N}:\\/._-]+$/u;
 const WINDOWS_CODEX_HOOKS_UNAVAILABLE: SetupUnavailableReason = {
   code: "windows-codex-hooks-unsafe-command",
@@ -209,6 +212,32 @@ function createClaudeCodeSnippet(
         PostToolUse: hookGroup(rendered, "*"),
         Stop: hookGroup(rendered),
         StopFailure: hookGroup(rendered),
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function createGeminiCliSnippet(
+  command: readonly string[],
+  platform: RuntimePlatform,
+): string {
+  const rendered = renderHookCommand(
+    [...command, "ingest", "gemini-cli"],
+    platform,
+  );
+  return JSON.stringify(
+    {
+      hooks: {
+        SessionStart: hookGroup(rendered),
+        SessionEnd: hookGroup(rendered),
+        BeforeAgent: hookGroup(rendered),
+        AfterAgent: hookGroup(rendered),
+        BeforeTool: hookGroup(rendered),
+        AfterTool: hookGroup(rendered),
+        Notification: hookGroup(rendered),
+        PreCompress: hookGroup(rendered),
       },
     },
     null,
@@ -502,6 +531,19 @@ export function createSetupSnippets(
       ? `echo ${codexPayload}`
       : renderHookCommand(["printf", "%s\\n", codexPayload], runtime.platform);
 
+  const ingestGemini = renderHookCommand(
+    [...command, "ingest", "gemini-cli"],
+    runtime.platform,
+  );
+  const geminiPayload = JSON.stringify({
+    hook_event_name: "SessionStart",
+    session_id: "crewlight-verify-gemini-cli",
+  });
+  const geminiEcho =
+    runtime.platform === "win32"
+      ? `echo ${geminiPayload}`
+      : renderHookCommand(["printf", "%s\\n", geminiPayload], runtime.platform);
+
   return {
     claudeCode: createClaudeCodeSnippet(command, runtime.platform),
     codex: createCodexNotifySnippet(command),
@@ -511,11 +553,13 @@ export function createSetupSnippets(
       codexHooksSurface,
     ),
     cursor: createCursorCommands(command, runtime.platform),
+    geminiCli: createGeminiCliSnippet(command, runtime.platform),
     openCode: createOpenCodePlugin(command),
     verification: {
       claudeCode: `${claudeEcho} | ${ingestClaude}`,
       codex: `${codexEcho} | ${ingestCodex}`,
       cursor: createCursorVerificationCommand(command, runtime.platform),
+      geminiCli: `${geminiEcho} | ${ingestGemini}`,
     },
   };
 }
@@ -533,6 +577,12 @@ Merge it manually into ~/.claude/settings.json (Windows: %USERPROFILE%\\.claude\
 If a hooks object or any matching event already exists, preserve it and append the Crewlight handler. Do not replace the whole file.
 Use \`--binary crewlight\` only when the hook environment can reliably resolve Crewlight from PATH.
 Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then use Claude Code \`/hooks\` to confirm the handlers are loaded.`;
+
+const GEMINI_CLI_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Gemini CLI configuration.
+Merge it manually into ~/.gemini/settings.json (Windows: %USERPROFILE%\\.gemini\\settings.json), .gemini/settings.json, or .gemini/settings.local.json.
+If a hooks object or any matching event already exists, preserve it and append the Crewlight handler. Do not replace the whole file.
+Use \`--binary crewlight\` only when the hook environment can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then use Gemini CLI turns to confirm the handlers are loaded.`;
 
 const CODEX_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Codex configuration.
 Merge it manually into ~/.codex/config.toml (Windows: %USERPROFILE%\\.codex\\config.toml, or $CODEX_HOME/config.toml when CODEX_HOME is set).
@@ -588,6 +638,7 @@ export function executeSetupCommand(
     platform !== "codex" &&
     platform !== "codex-hooks" &&
     platform !== "cursor" &&
+    platform !== "gemini-cli" &&
     platform !== "opencode"
   ) {
     throw new Error(`Unsupported setup platform: ${platform}`);
@@ -624,6 +675,11 @@ export function executeSetupCommand(
     io.write(snippets.cursor);
     io.warn(
       `${CURSOR_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.cursor}`,
+    );
+  } else if (selected === "gemini-cli") {
+    io.write(snippets.geminiCli);
+    io.warn(
+      `${GEMINI_CLI_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.geminiCli}`,
     );
   } else {
     io.write(snippets.openCode);

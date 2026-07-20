@@ -49,6 +49,7 @@ export interface RemoteHostPreference {
   alias: string;
   autoConnect: boolean;
   lastConnectedAt?: number;
+  installPromptDismissed?: boolean;
 }
 
 export interface DesktopPreferences {
@@ -137,6 +138,10 @@ export function sanitizeDesktopPreferences(value: unknown): DesktopPreferences {
           lastConnectedAt:
             typeof item.lastConnectedAt === "number"
               ? item.lastConnectedAt
+              : undefined,
+          installPromptDismissed:
+            typeof item.installPromptDismissed === "boolean"
+              ? item.installPromptDismissed
               : undefined,
         });
       }

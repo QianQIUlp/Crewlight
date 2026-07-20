@@ -15,6 +15,7 @@ import {
   isOpenCodeEventType,
 } from "@crewlight/adapter-opencode";
 import { ingestMultiAgentHookJson } from "@crewlight/adapter-multi-agent";
+import { ingestGeminiHookJson } from "@crewlight/adapter-gemini-cli";
 import type {
   AgentEventInput,
   AgentSource,
@@ -33,7 +34,8 @@ type IngestAdapter = (
   | ReturnType<typeof ingestCodexNotifyJson>
   | ReturnType<typeof ingestCodexHookJson>
   | ReturnType<typeof ingestCursorBridgeJson>
-  | ReturnType<typeof ingestMultiAgentHookJson>;
+  | ReturnType<typeof ingestMultiAgentHookJson>
+  | ReturnType<typeof ingestGeminiHookJson>;
 
 function warn(io: CommandIo, message: string): void {
   io.warn(`${WARNING_PREFIX} ${message}`);
@@ -457,8 +459,12 @@ async function ingest(
     return ingestAntigravityProbe(platformArgs, client, readStdin);
   }
 
+  if (platform === "gemini-cli") {
+    const json = await readStdin();
+    return deliver(json, ingestGeminiHookJson, client, io);
+  }
+
   const MULTI_AGENT_SOURCES = [
-    "gemini-cli",
     "copilot-cli",
     "antigravity",
     "codebuddy",

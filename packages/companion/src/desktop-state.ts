@@ -213,6 +213,7 @@ export interface DesktopRemoteHost {
   tunnelMessage?: string;
   hasCli?: boolean;
   autoConnect?: boolean;
+  installPromptDismissed?: boolean;
 }
 
 export interface DesktopViewModelInput {

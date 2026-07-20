@@ -22,6 +22,7 @@
     "@crewlight/adapter-claude-code": "workspace:^",
     "@crewlight/adapter-codex": "workspace:^",
     "@crewlight/adapter-cursor": "workspace:^",
+    "@crewlight/adapter-gemini-cli": "workspace:^",
     "@crewlight/adapter-generic-cli": "workspace:^",
     "@crewlight/adapter-multi-agent": "workspace:^",
     "@crewlight/adapter-opencode": "workspace:^",

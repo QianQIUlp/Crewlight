@@ -41,7 +41,8 @@ export type DesktopAction =
   | { type: "remote:connect"; alias: string }
   | { type: "remote:disconnect"; alias: string }
   | { type: "remote:rescan" }
-  | { type: "remote:set-auto-connect"; alias: string; enabled: boolean };
+  | { type: "remote:set-auto-connect"; alias: string; enabled: boolean }
+  | { type: "remote:dismiss-install-prompt"; alias: string };
 
 export interface CrewlightDesktopBridge {
   getState(): Promise<DesktopViewModel>;

@@ -660,6 +660,21 @@ function render(state: DesktopViewModel): void {
   syncOnboardingProgress(state);
   renderOnboarding(state);
   applySectionVisibility(state);
+
+  const missingCliHost = state.remote.hosts.find(
+    (h) =>
+      h.tunnelState === "connected" &&
+      h.hasCli === false &&
+      !h.installPromptDismissed,
+  );
+  const modal = byId("remote-install-modal");
+  if (missingCliHost) {
+    modal.removeAttribute("hidden");
+    setText("remote-install-host-name", missingCliHost.alias);
+    modal.dataset.alias = missingCliHost.alias;
+  } else {
+    modal.setAttribute("hidden", "true");
+  }
 }
 
 function SECTION_LABEL(section: DesktopViewModel["selectedSection"]): string {
@@ -947,3 +962,33 @@ window.crewlightDesktop.onState((state) => {
 void window.crewlightDesktop.getState().then((state) => {
   render(state);
 });
+
+const modalDismissBtn = byId("remote-install-dismiss");
+if (modalDismissBtn) {
+  modalDismissBtn.addEventListener("click", async () => {
+    const modal = byId("remote-install-modal");
+    const alias = modal.dataset.alias;
+    if (alias) {
+      await window.crewlightDesktop.perform({
+        type: "remote:dismiss-install-prompt",
+        alias,
+      });
+    }
+  });
+}
+
+const modalCopyBtn = byId("remote-install-copy");
+if (modalCopyBtn) {
+  modalCopyBtn.addEventListener("click", async () => {
+    const cmdText = byId("remote-install-cmd").textContent || "";
+    await window.crewlightDesktop.perform({
+      type: "copy:text",
+      text: cmdText,
+    });
+    const originalText = modalCopyBtn.textContent;
+    modalCopyBtn.textContent = "Copied!";
+    setTimeout(() => {
+      modalCopyBtn.textContent = originalText;
+    }, 1500);
+  });
+}

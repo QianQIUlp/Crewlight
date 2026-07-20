@@ -39,4 +39,33 @@ describe("desktop preferences", () => {
     expect(serialized).not.toContain("transcript");
     expect(serialized).not.toContain("toolInput");
   });
+
+  it("sanitizes remoteHosts preferences with installPromptDismissed", () => {
+    const sanitized = sanitizeDesktopPreferences({
+      remoteHosts: [
+        {
+          alias: "host-one",
+          autoConnect: true,
+          installPromptDismissed: true,
+        },
+        {
+          alias: "host-two",
+          autoConnect: false,
+          installPromptDismissed: "dismissed-string", // invalid
+        },
+      ],
+    });
+
+    expect(sanitized.remoteHosts).toHaveLength(2);
+    expect(sanitized.remoteHosts[0]).toEqual({
+      alias: "host-one",
+      autoConnect: true,
+      installPromptDismissed: true,
+    });
+    expect(sanitized.remoteHosts[1]).toEqual({
+      alias: "host-two",
+      autoConnect: false,
+      installPromptDismissed: undefined,
+    });
+  });
 });

@@ -954,6 +954,39 @@ describe("platform ingest commands", () => {
         projectPath: "/tmp/antigravity",
       },
     ]);
+  });
+
+  it("sends a sanitized Gemini CLI hook event", async () => {
+    const capture = captureIo();
+    const target = captureClient();
+
+    const code = await executeIngestCommand(
+      ["gemini-cli"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          hook_event_name: "BeforeTool",
+          session_id: "gemini-session",
+          cwd: "/tmp/gemini",
+          tool_name: "bash",
+          prompt: "secret prompt",
+          transcript: "secret transcript",
+        }),
+    );
+
+    expect(code).toBe(0);
+    expect(target.events).toEqual([
+      {
+        source: "gemini-cli",
+        surface: "cli",
+        status: "using_tool",
+        sessionId: "gemini-session",
+        projectPath: "/tmp/gemini",
+        title: "BeforeTool",
+        message: "Using tool: bash",
+      },
+    ]);
     expect(JSON.stringify(target.events)).not.toContain("secret");
     expectSilentCodexHook(capture);
   });
@@ -1024,6 +1057,35 @@ describe("setup snippet commands", () => {
     expect(snippets.claudeCode).not.toContain("SessionEnd");
     expect(snippets.claudeCode).toContain(
       "/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest claude-code",
+    );
+  });
+
+  it("prints the Gemini CLI snippet", () => {
+    const capture = captureIo();
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+
+    expect(
+      executeSetupCommand(
+        ["gemini-cli", "--print"],
+        capture.io,
+        setupRuntime(),
+      ),
+    ).toBe(0);
+    expect(capture.output).toEqual([snippets.geminiCli]);
+    expect(capture.warnings).toHaveLength(1);
+    expect(capture.warnings[0]).toContain("did not read or modify");
+    expect(capture.warnings[0]).toContain("manually");
+    expect(capture.warnings[0]).toContain("crewlight doctor");
+    expect(snippets.geminiCli).toContain("SessionStart");
+    expect(snippets.geminiCli).toContain("SessionEnd");
+    expect(snippets.geminiCli).toContain("BeforeAgent");
+    expect(snippets.geminiCli).toContain("AfterAgent");
+    expect(snippets.geminiCli).toContain("BeforeTool");
+    expect(snippets.geminiCli).toContain("AfterTool");
+    expect(snippets.geminiCli).toContain("Notification");
+    expect(snippets.geminiCli).toContain("PreCompress");
+    expect(snippets.geminiCli).toContain(
+      "/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest gemini-cli",
     );
   });
 

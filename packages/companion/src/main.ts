@@ -196,6 +196,7 @@ async function scanRemoteHosts() {
     const existing = remoteHostsState.find((x) => x.alias === h.alias);
     const pref = preferences.remoteHosts?.find((p) => p.alias === h.alias);
     const autoConnect = pref ? pref.autoConnect : false;
+    const installPromptDismissed = pref ? !!pref.installPromptDismissed : false;
     return {
       alias: h.alias,
       hostname: h.hostname,
@@ -207,6 +208,7 @@ async function scanRemoteHosts() {
       tunnelMessage: existing?.tunnelMessage,
       hasCli: existing?.hasCli,
       autoConnect,
+      installPromptDismissed,
     };
   });
 
@@ -1147,6 +1149,31 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
     const host = remoteHostsState.find((h) => h.alias === action.alias);
     if (host) {
       host.autoConnect = action.enabled;
+    }
+    publishDesktopState();
+    return true;
+  }
+  if (action.type === "remote:dismiss-install-prompt") {
+    const nextRemoteHosts = [...(preferences.remoteHosts || [])];
+    const index = nextRemoteHosts.findIndex((h) => h.alias === action.alias);
+    if (index >= 0) {
+      const existing = nextRemoteHosts[index]!;
+      nextRemoteHosts[index] = {
+        ...existing,
+        installPromptDismissed: true,
+      };
+    } else {
+      nextRemoteHosts.push({
+        alias: action.alias,
+        autoConnect: false,
+        installPromptDismissed: true,
+      });
+    }
+    await updatePreferences({ remoteHosts: nextRemoteHosts });
+
+    const host = remoteHostsState.find((h) => h.alias === action.alias);
+    if (host) {
+      host.installPromptDismissed = true;
     }
     publishDesktopState();
     return true;
