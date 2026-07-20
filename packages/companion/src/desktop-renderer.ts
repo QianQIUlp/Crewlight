@@ -410,10 +410,49 @@ function renderRemote(state: DesktopViewModel): void {
       }
 
       if (host.tunnelState === "connected" && host.hasCli !== undefined) {
-        const cliText = host.hasCli
-          ? "✅ Remote Crewlight CLI installed"
-          : "⚠️ Remote Crewlight CLI missing. Run `npm i -g @crewlight/cli` on the remote machine.";
-        card.append(createElement("p", "remote-detail", cliText));
+        if (host.hasCli) {
+          card.append(
+            createElement(
+              "p",
+              "remote-detail",
+              "✅ Remote Crewlight CLI installed",
+            ),
+          );
+        } else {
+          const container = createElement("div", "remote-detail-warning-row");
+          container.style.display = "flex";
+          container.style.alignItems = "center";
+          container.style.gap = "8px";
+          container.style.marginTop = "4px";
+
+          const warningText = createElement(
+            "span",
+            "remote-detail stuck-warning",
+            "⚠️ Remote Crewlight CLI missing.",
+          );
+          const guideBtn = createElement(
+            "button",
+            "text-link-button",
+            "Setup Guide",
+          );
+          guideBtn.style.background = "none";
+          guideBtn.style.border = "none";
+          guideBtn.style.color = "var(--accent)";
+          guideBtn.style.cursor = "pointer";
+          guideBtn.style.textDecoration = "underline";
+          guideBtn.style.padding = "0";
+          guideBtn.style.fontSize = "inherit";
+
+          guideBtn.addEventListener("click", () => {
+            const modal = byId("remote-install-modal");
+            modal.removeAttribute("hidden");
+            setText("remote-install-host-name", host.alias);
+            modal.dataset.alias = host.alias;
+          });
+
+          container.append(warningText, guideBtn);
+          card.append(container);
+        }
       }
 
       const autoConnectRow = createElement("div", "remote-auto-connect-row");
@@ -660,21 +699,6 @@ function render(state: DesktopViewModel): void {
   syncOnboardingProgress(state);
   renderOnboarding(state);
   applySectionVisibility(state);
-
-  const missingCliHost = state.remote.hosts.find(
-    (h) =>
-      h.tunnelState === "connected" &&
-      h.hasCli === false &&
-      !h.installPromptDismissed,
-  );
-  const modal = byId("remote-install-modal");
-  if (missingCliHost) {
-    modal.removeAttribute("hidden");
-    setText("remote-install-host-name", missingCliHost.alias);
-    modal.dataset.alias = missingCliHost.alias;
-  } else {
-    modal.setAttribute("hidden", "true");
-  }
 }
 
 function SECTION_LABEL(section: DesktopViewModel["selectedSection"]): string {
@@ -968,6 +992,8 @@ if (modalDismissBtn) {
   modalDismissBtn.addEventListener("click", async () => {
     const modal = byId("remote-install-modal");
     const alias = modal.dataset.alias;
+    // Optimistically hide the modal instantly
+    modal.setAttribute("hidden", "true");
     if (alias) {
       await window.crewlightDesktop.perform({
         type: "remote:dismiss-install-prompt",

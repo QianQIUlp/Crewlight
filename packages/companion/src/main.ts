@@ -313,15 +313,20 @@ function currentDesktopCompanionState(): DesktopCompanionState {
 function trustedSender(
   event: IpcMainEvent | IpcMainInvokeEvent,
   window: BrowserWindow | undefined,
-  pageUrl: string,
+  _pageUrl: string,
 ): boolean {
-  return Boolean(
+  // With sandbox: true, contextIsolation: true, and webSecurity: true, the
+  // Electron sandbox already enforces that IPC can only come from our preload
+  // script inside the designated BrowserWindow.  Checking webContents identity
+  // is therefore sufficient.  Checking senderFrame identity or URL has proven
+  // brittle across Windows Electron builds: JS wrapper object references for
+  // the same underlying frame are not always the same object, and file:// URL
+  // drive-letter casing on Windows is inconsistent, both of which produced
+  // false rejections that silently broke all button interactions.
+  return !!(
     window &&
     !window.isDestroyed() &&
-    event.sender === window.webContents &&
-    event.senderFrame &&
-    event.senderFrame === window.webContents.mainFrame &&
-    event.senderFrame.url === pageUrl,
+    event.sender === window.webContents
   );
 }
 
