@@ -4,18 +4,18 @@ This report separates evidence by verification method. Do not promote an item to
 
 ## Verification status
 
-| Workflow                    | Status                                            | Evidence                                                                                                   |
-| --------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Claude Code hook ingest     | Verified manually, automatically, and by fixture  | A real Claude Code `Stop` hook reached the daemon; sanitized fixture and adapter/CLI tests cover mapping.  |
-| Codex CLI notify ingest     | Verified manually, automatically, and by fixture  | A real Codex `agent-turn-complete` notify reached the daemon; fixture and adapter/CLI tests cover mapping. |
-| Gemini / Copilot / agy      | Verified manually and by automated tests          | Gemini CLI, Copilot CLI, and Antigravity (agy) hooks translate to local dashboard status.                  |
-| 12 Longtail Adapters        | Verified automatically by test suite              | Codebuddy, Kiro, Kimi, Qwen, Codewhale, Mimo, Pi, Openclaw, Hermes, Qoder, Qoderwork, Reasonix tests pass. |
-| SSH Remote Tunneling        | Verified manually and by automated tests          | Config parsing, port-forward mapping, connection heartbeats, retry limits, and CLI check verification.     |
-| Daemon startup              | Verified manually and by automated tests          | Console and OS modes started on loopback; server/configuration tests cover startup behavior.               |
-| Console notifier            | Verified manually and by automated tests          | Real and synthetic terminal events appeared in daemon output; unit tests cover policy.                     |
-| OS notifier                 | Not verified / requires local desktop environment | The module loaded, but the headless environments report delivery failure.                                  |
-| Setup snippet generation    | Verified manually and by automated tests          | Setup prints valid config JSONs and verification scripts for all 20 active adapters.                       |
-| Theme/Accent customization  | Verified manually and by automated tests          | Settings panel persists theme, accent color, and density tokens to local preference store.                  |
+| Workflow                   | Status                                            | Evidence                                                                                                   |
+| -------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Claude Code hook ingest    | Verified manually, automatically, and by fixture  | A real Claude Code `Stop` hook reached the daemon; sanitized fixture and adapter/CLI tests cover mapping.  |
+| Codex CLI notify ingest    | Verified manually, automatically, and by fixture  | A real Codex `agent-turn-complete` notify reached the daemon; fixture and adapter/CLI tests cover mapping. |
+| Gemini / Copilot / agy     | Verified manually and by automated tests          | Gemini CLI, Copilot CLI, and Antigravity (agy) hooks translate to local dashboard status.                  |
+| 12 Longtail Adapters       | Verified automatically by test suite              | Codebuddy, Kiro, Kimi, Qwen, Codewhale, Mimo, Pi, Openclaw, Hermes, Qoder, Qoderwork, Reasonix tests pass. |
+| SSH Remote Tunneling       | Verified manually and by automated tests          | Config parsing, port-forward mapping, connection heartbeats, retry limits, and CLI check verification.     |
+| Daemon startup             | Verified manually and by automated tests          | Console and OS modes started on loopback; server/configuration tests cover startup behavior.               |
+| Console notifier           | Verified manually and by automated tests          | Real and synthetic terminal events appeared in daemon output; unit tests cover policy.                     |
+| OS notifier                | Not verified / requires local desktop environment | The module loaded, but the headless environments report delivery failure.                                  |
+| Setup snippet generation   | Verified manually and by automated tests          | Setup prints valid config JSONs and verification scripts for all 20 active adapters.                       |
+| Theme/Accent customization | Verified manually and by automated tests          | Settings panel persists theme, accent color, and density tokens to local preference store.                 |
 
 ## Verified manually
 
@@ -37,12 +37,14 @@ Record the exact environment, command, observed output, and date.
 ## Verified by fixture tests
 
 Sanitized representative fixtures are checked for:
+
 - `packages/adapters/claude-code/test/fixtures/stop.sanitized.json`
 - `packages/adapters/codex/test/fixtures/agent-turn-complete.sanitized.json`
 
 ## Manual verification procedure
 
 ### 1. Diagnose and Verify Local Subcommands
+
 ```bash
 crewlight doctor
 crewlight setup gemini-cli --print
@@ -51,11 +53,14 @@ crewlight setup codebuddy --print
 ```
 
 ### 2. Verify Remote Config Scanning
+
 Annotate a host in `~/.ssh/config`:
+
 ```text
 Host my-remote-box
   HostName 192.168.1.100
   User root
   # CrewlightRemote: yes
 ```
+
 Launch Crewlight Desktop and verify `my-remote-box` is scanned and listed under the Remote settings tab.
