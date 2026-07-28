@@ -1,85 +1,28 @@
-# OpenClaw Integration Guide (Experimental)
+# OpenClaw parser status (setup unavailable)
 
-Crewlight provides an integration adapter for OpenClaw to monitor session execution states, tool invocations, and exit statuses.
+Crewlight contains an experimental OpenClaw payload parser, but it does not yet provide a verified OpenClaw hook or plugin bridge.
 
-> [!NOTE]
-> This adapter is currently labeled as **Experimental** and relies on allowlisted event payloads.
+> [!WARNING]
+> `crewlight setup openclaw --print` is intentionally disabled and returns a non-zero exit code. Crewlight does not emit the legacy draft because it does not implement OpenClaw's `HOOK.md` plus handler or plugin contract.
 
-## Setup Instructions
+## Current scope
 
-### 1. Print configuration snippet
+The current implementation can parse allowlisted synthetic hook payloads sent directly to:
 
-Generate your hook configuration block by running:
+```bash
+crewlight ingest openclaw
+```
+
+The setup command reports the missing bridge and does not print a configuration or synthetic smoke command:
 
 ```bash
 crewlight setup openclaw --print
 ```
 
-### 2. Output Snippet
+The ingest parser remains available only for development of a future OpenClaw-specific bridge. Direct synthetic ingest does not create a `HOOK.md`, install a handler or plugin, or verify end-to-end host behavior.
 
-The command will produce a mergeable JSON hook block similar to the following:
+## Production use
 
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest openclaw"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest openclaw"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest openclaw"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest openclaw"
-          }
-        ]
-      }
-    ],
-    "StopFailure": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest openclaw"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+OpenClaw integrations require the platform's hook package or plugin structure rather than the external nested JSON command-hook shape currently emitted by Crewlight. A dedicated bridge and a verified lifecycle contract are required before this adapter can be installed safely.
 
-Merge this block into your global or workspace-specific OpenClaw configuration.
-
-### 3. Verify
-
-Run `crewlight daemon --notifier console` and start a session using OpenClaw. Verified statuses will route automatically to your local companion dashboard.
+Until that bridge exists, keep this adapter limited to parser and bridge development. Crewlight does not provide an installable OpenClaw setup snippet.

@@ -6,6 +6,7 @@ export {
 } from "./config.js";
 export {
   createDaemonServer,
+  EVENT_BODY_TIMEOUT_MS,
   formatDaemonUrl,
   isLoopbackHost,
   startDaemon,

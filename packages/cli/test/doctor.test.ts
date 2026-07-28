@@ -60,13 +60,58 @@ describe("doctor command", () => {
     const code = await executeDoctorCommand(
       [],
       capture.io,
-      runtime({ daemonReachable: async () => false }),
+      runtime({
+        daemonReachable: async () => false,
+        dashboardCapabilities: async () => {
+          throw new Error("capabilities must not be probed while offline");
+        },
+      }),
     );
 
     expect(code).toBe(1);
     expect(capture.warnings.join("\n")).toContain("[error] daemon");
     expect(capture.warnings.join("\n")).toContain(
       "crewlight daemon --notifier console",
+    );
+    expect(capture.output.join("\n")).toContain(
+      "[skipped] capabilities-endpoint",
+    );
+    expect(capture.output.join("\n")).not.toContain(
+      "capabilities endpoint is reachable",
+    );
+  });
+
+  it("warns without failing when the optional dashboard capabilities endpoint is unavailable", async () => {
+    const capture = captureIo();
+
+    const code = await executeDoctorCommand(
+      [],
+      capture.io,
+      runtime({ dashboardCapabilities: async () => undefined }),
+    );
+
+    expect(code).toBe(0);
+    expect(capture.output.join("\n")).toContain("[ok] daemon");
+    expect(capture.warnings.join("\n")).toContain(
+      "[warning] capabilities-endpoint",
+    );
+    expect(capture.output.join("\n")).not.toContain(
+      "capabilities endpoint is reachable",
+    );
+  });
+
+  it("fails when an expected task-title mode cannot be checked", async () => {
+    const capture = captureIo();
+
+    const code = await executeDoctorCommand(
+      ["--expect-task-titles", "off"],
+      capture.io,
+      runtime({ dashboardCapabilities: async () => undefined }),
+    );
+
+    expect(code).toBe(1);
+    expect(capture.warnings.join("\n")).toContain(
+      "[error] capabilities-endpoint",
     );
   });
 

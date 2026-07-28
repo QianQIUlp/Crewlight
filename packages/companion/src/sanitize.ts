@@ -15,6 +15,7 @@ export type CompanionAttention = "passive" | "done" | "action" | "error";
 export type CompanionActionKind = "input" | "permission";
 
 export interface SanitizedSession {
+  viewId: string;
   sessionKey: string;
   source: string;
   surface: string;
@@ -31,6 +32,29 @@ export interface SanitizedSession {
   staleReason?: string;
   actionKind?: CompanionActionKind;
   remoteAlias?: string;
+}
+
+type SanitizedSessionWithoutViewId = Omit<SanitizedSession, "viewId">;
+
+const viewIdBySessionKey = new Map<string, string>();
+let nextSessionViewId = 0;
+
+function sessionViewId(sessionKey: string): string {
+  const existing = viewIdBySessionKey.get(sessionKey);
+  if (existing) {
+    return existing;
+  }
+  const created = `session-${++nextSessionViewId}`;
+  viewIdBySessionKey.set(sessionKey, created);
+  return created;
+}
+
+function retainSessionViewIds(sessionKeys: ReadonlySet<string>): void {
+  for (const sessionKey of viewIdBySessionKey.keys()) {
+    if (!sessionKeys.has(sessionKey)) {
+      viewIdBySessionKey.delete(sessionKey);
+    }
+  }
 }
 
 export interface SanitizedDashboardData {
@@ -100,7 +124,9 @@ function hasValidPresentationState(
   return attention === "passive" && actionKind === undefined;
 }
 
-function sanitizeSession(value: unknown): SanitizedSession | undefined {
+function sanitizeSession(
+  value: unknown,
+): SanitizedSessionWithoutViewId | undefined {
   if (!isRecord(value)) {
     return undefined;
   }
@@ -142,7 +168,7 @@ function sanitizeSession(value: unknown): SanitizedSession | undefined {
     ? value.actionKind
     : undefined;
   let remoteAlias = safeString(value.remoteAlias, 64);
-  if (remoteAlias && !/^[a-zA-Z0-9_-]+$/.test(remoteAlias)) {
+  if (remoteAlias && !/^[a-zA-Z0-9._-]+$/u.test(remoteAlias)) {
     remoteAlias = undefined;
   }
 
@@ -185,15 +211,23 @@ export function sanitizeDashboardSnapshot(
     return undefined;
   }
 
-  const sessions = value.sessions.map(sanitizeSession);
-  if (sessions.some((session) => session === undefined)) {
+  const sanitizedSessions = value.sessions.map(sanitizeSession);
+  if (sanitizedSessions.some((session) => session === undefined)) {
     return undefined;
   }
+  const completeSessions = sanitizedSessions as SanitizedSessionWithoutViewId[];
+  retainSessionViewIds(
+    new Set(completeSessions.map((session) => session.sessionKey)),
+  );
+  const sessions = completeSessions.map((session) => ({
+    ...session,
+    viewId: sessionViewId(session.sessionKey),
+  }));
 
   const notifier = safeString(value.notifier, 24);
   return {
     health: { status: "ok" },
     ...(notifier ? { notifier } : {}),
-    sessions: sessions as SanitizedSession[],
+    sessions,
   };
 }

@@ -33,7 +33,7 @@ const STATUS_MAP = new Map<string, AgentStatus>([
   ["PermissionRequest", "waiting_permission"],
   ["Notification", "waiting_input"],
   ["Stop", "completed"],
-  ["SessionEnd", "completed"],
+  ["SessionEnd", "idle"],
   ["StopFailure", "failed"],
 
   // lowercase/dashed/dotted events (Reasonix/Pi/Hermes/CodeWhale-like)
@@ -62,14 +62,18 @@ export function mapMultiAgentEvent(
   }
 
   const payload = parsed.data;
-  const status = STATUS_MAP.get(payload.hook_event_name) ?? "running";
+  const status = STATUS_MAP.get(payload.hook_event_name);
+  if (!status) {
+    return {
+      kind: "ignored",
+      reason: `Unsupported ${source} hook event`,
+    };
+  }
 
-  // Data Safety Check: Ensure no raw prompts/transcripts leak.
-  // We only map title, message, status, projectPath, sessionId.
-  const title = payload.title ?? payload.hook_event_name;
-  const message =
-    payload.message ??
-    (payload.tool_name ? `Using tool: ${payload.tool_name}` : undefined);
+  const title = payload.hook_event_name;
+  const message = payload.tool_name
+    ? `Using tool: ${payload.tool_name}`
+    : undefined;
   const projectPath = payload.projectPath ?? payload.cwd;
 
   return {
@@ -80,7 +84,7 @@ export function mapMultiAgentEvent(
       status,
       ...(payload.session_id ? { sessionId: payload.session_id } : {}),
       ...(projectPath ? { projectPath } : {}),
-      ...(title ? { title } : {}),
+      title,
       ...(message ? { message } : {}),
     },
   };
@@ -92,10 +96,10 @@ export function ingestMultiAgentHookJson(
 ): MultiAgentAdapterResult {
   try {
     return mapMultiAgentEvent(source, JSON.parse(json));
-  } catch (error) {
+  } catch {
     return {
       kind: "invalid",
-      reason: error instanceof Error ? error.message : "Invalid JSON input",
+      reason: `Invalid ${source} hook JSON`,
     };
   }
 }

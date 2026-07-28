@@ -36,19 +36,6 @@ function eventMessage(
   input: ClaudeHookInput,
   status: AgentStatus,
 ): string | undefined {
-  if (input.hook_event_name === "UserPromptSubmit") {
-    return undefined;
-  }
-
-  const explicit =
-    optionalText(input.message) ??
-    optionalText(input.last_assistant_message) ??
-    optionalText(input.error_details);
-
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return `Using tool: ${input.tool_name}`;
   }
@@ -61,8 +48,7 @@ function toEvent(
   status: AgentStatus,
   options: ClaudeAdapterOptions,
 ): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
+  const title = optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
   const taskTitle =
     options.promptPreview && input.hook_event_name === "UserPromptSubmit"

@@ -15,6 +15,7 @@ function session(
   overrides: Partial<SanitizedSession> = {},
 ): SanitizedSession {
   return {
+    viewId: `view-${status}`,
     sessionKey: `custom:manual:${status}`,
     source: "custom",
     surface: "manual",

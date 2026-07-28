@@ -92,7 +92,7 @@ export function createDoctorRuntime(
     },
     dashboardCapabilities: async () => {
       try {
-        return await client.dashboardCapabilities?.();
+        return await client.probeDashboardCapabilities();
       } catch {
         return undefined;
       }
@@ -348,9 +348,13 @@ async function capabilitiesChecks(
   if (!caps) {
     checks.push({
       id: "capabilities-endpoint",
-      status: "error",
-      message: "Crewlight capabilities endpoint is unreachable.",
-      action: "Start `crewlight daemon` and ensure the dashboard is enabled.",
+      status: expectTaskTitles === undefined ? "warning" : "error",
+      message:
+        expectTaskTitles === undefined
+          ? "Dashboard capabilities are unavailable; task-title mode was not checked."
+          : "Crewlight dashboard capabilities are unavailable, so the expected task-title mode cannot be verified.",
+      action:
+        "Start `crewlight daemon` with the dashboard enabled if you need dashboard task-title checks.",
     });
     return checks;
   }
@@ -392,6 +396,17 @@ export async function runDoctor(
   runtime: DoctorRuntime = createDoctorRuntime(),
 ): Promise<DoctorReport> {
   const standalone = runtime.standalone();
+  const daemonReachable = await runtime.daemonReachable();
+  const capabilityChecks = daemonReachable
+    ? await capabilitiesChecks(runtime, expectTaskTitles)
+    : [
+        {
+          id: "capabilities-endpoint",
+          status: "skipped" as const,
+          message:
+            "Capabilities were not checked because the Crewlight daemon is unreachable.",
+        },
+      ];
   const checks: DoctorCheck[] = [
     nodeCheck(runtime.nodeVersion()),
     standalone
@@ -421,7 +436,7 @@ export async function runDoctor(
               "Run `pnpm build`, then invoke `node packages/cli/dist/index.js doctor`.",
           },
     ...runtimeChecks(runtime),
-    (await runtime.daemonReachable())
+    daemonReachable
       ? {
           id: "daemon",
           status: "ok",
@@ -435,7 +450,7 @@ export async function runDoctor(
           action:
             "Start `crewlight daemon --notifier console`, verify CREWLIGHT_HOST/PORT, then rerun doctor.",
         },
-    ...(await capabilitiesChecks(runtime, expectTaskTitles)),
+    ...capabilityChecks,
     await notifierCheck(notifier, runtime),
     ...setupChecks(runtime),
   ];

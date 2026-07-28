@@ -6,9 +6,14 @@ import type {
   DesktopViewModel,
 } from "./desktop-state.js";
 import type { PreferredIntegration } from "./desktop-preferences.js";
+import { DisclosureState } from "./interaction.js";
 
 let latestState: DesktopViewModel | undefined;
 let onboardingStepIndex = 0;
+let sessionDetailId = 0;
+let dialogReturnFocus: HTMLElement | undefined;
+const homeSessionDisclosures = new DisclosureState();
+const demoSessionDisclosures = new DisclosureState();
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -51,7 +56,10 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-function renderSessionCard(session: DesktopSessionCard): HTMLElement {
+function renderSessionCard(
+  session: DesktopSessionCard,
+  disclosures: DisclosureState,
+): HTMLElement {
   const card = createElement("article", "session-card");
   card.dataset.tone = session.tone;
 
@@ -98,12 +106,8 @@ function renderSessionCard(session: DesktopSessionCard): HTMLElement {
     card.append(createElement("p", "session-meta", session.diagnosticHint));
   }
 
-  // Click-to-expand details
-  card.classList.add("expandable");
-  card.setAttribute("aria-expanded", "false");
-
   const detail = createElement("div", "session-detail");
-  detail.style.display = "none";
+  detail.id = `desktop-session-detail-${++sessionDetailId}`;
 
   const addDetailLine = (label: string, val: string) => {
     const line = createElement("p", "session-detail-text");
@@ -119,15 +123,83 @@ function renderSessionCard(session: DesktopSessionCard): HTMLElement {
     addDetailLine("Diagnostic", session.diagnosticHint);
   }
 
-  card.append(detail);
-
-  card.addEventListener("click", () => {
-    const isExpanded = card.getAttribute("aria-expanded") === "true";
-    card.setAttribute("aria-expanded", String(!isExpanded));
-    detail.style.display = isExpanded ? "none" : "block";
+  const toggle = createElement(
+    "button",
+    "text-button session-detail-toggle",
+  ) as HTMLButtonElement;
+  toggle.type = "button";
+  toggle.dataset.disclosureId = session.id;
+  toggle.setAttribute("aria-controls", detail.id);
+  const applyExpanded = (isExpanded: boolean) => {
+    toggle.setAttribute("aria-expanded", String(isExpanded));
+    toggle.textContent = isExpanded ? "Hide details" : "Show details";
+    toggle.setAttribute(
+      "aria-label",
+      `${isExpanded ? "Hide" : "Show"} details for ${session.title}`,
+    );
+    detail.hidden = !isExpanded;
+  };
+  applyExpanded(disclosures.isExpanded(session.id));
+  toggle.addEventListener("click", () => {
+    applyExpanded(disclosures.toggle(session.id));
   });
+  card.append(toggle, detail);
 
   return card;
+}
+
+function replaceSessionCards(
+  container: HTMLElement,
+  sessions: readonly DesktopSessionCard[],
+  disclosures: DisclosureState,
+): void {
+  disclosures.retain(sessions.map((session) => session.id));
+  const activeElement = document.activeElement;
+  const focusedDisclosureId =
+    activeElement instanceof HTMLButtonElement &&
+    container.contains(activeElement)
+      ? activeElement.dataset.disclosureId
+      : undefined;
+  container.replaceChildren(
+    ...sessions.map((session) => renderSessionCard(session, disclosures)),
+  );
+  if (focusedDisclosureId) {
+    const replacement = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(
+        "button[data-disclosure-id]",
+      ),
+    ).find((button) => button.dataset.disclosureId === focusedDisclosureId);
+    replacement?.focus();
+  }
+}
+
+function closeRemoteInstallDialog(): void {
+  const modal = byId("remote-install-modal");
+  if (modal.hidden) {
+    return;
+  }
+  modal.hidden = true;
+  byId("app-shell").inert = false;
+  const focusTarget =
+    dialogReturnFocus?.isConnected === true
+      ? dialogReturnFocus
+      : byId<HTMLButtonElement>("remote-rescan-btn");
+  dialogReturnFocus = undefined;
+  focusTarget.focus();
+}
+
+function openRemoteInstallDialog(alias: string, trigger: HTMLElement): void {
+  const modal = byId("remote-install-modal");
+  dialogReturnFocus = trigger;
+  modal.dataset.alias = alias;
+  setText("remote-install-host-name", alias);
+  setText(
+    "remote-install-version",
+    latestState?.about.version ?? "the matching Crewlight version",
+  );
+  byId("app-shell").inert = true;
+  modal.hidden = false;
+  byId<HTMLButtonElement>("remote-install-dismiss").focus();
 }
 
 function renderSidebar(state: DesktopViewModel): void {
@@ -189,7 +261,11 @@ function renderHome(state: DesktopViewModel): void {
   primary.dataset.primaryAction = state.home.primaryAction.action;
 
   const preview = byId("home-preview-sessions");
-  preview.replaceChildren(...state.home.previewSessions.map(renderSessionCard));
+  replaceSessionCards(
+    preview,
+    state.home.previewSessions,
+    homeSessionDisclosures,
+  );
   setHidden("home-preview-empty", state.home.previewSessions.length > 0);
 }
 
@@ -341,7 +417,7 @@ function renderCompanion(state: DesktopViewModel): void {
 function renderDemo(state: DesktopViewModel): void {
   setText("demo-summary", state.demo.summary);
   const sessions = byId("demo-sessions");
-  sessions.replaceChildren(...state.demo.sessions.map(renderSessionCard));
+  replaceSessionCards(sessions, state.demo.sessions, demoSessionDisclosures);
   setHidden("demo-empty", state.demo.sessions.length > 0);
 }
 
@@ -444,10 +520,7 @@ function renderRemote(state: DesktopViewModel): void {
           guideBtn.style.fontSize = "inherit";
 
           guideBtn.addEventListener("click", () => {
-            const modal = byId("remote-install-modal");
-            modal.removeAttribute("hidden");
-            setText("remote-install-host-name", host.alias);
-            modal.dataset.alias = host.alias;
+            openRemoteInstallDialog(host.alias, guideBtn);
           });
 
           container.append(warningText, guideBtn);
@@ -997,8 +1070,7 @@ if (modalDismissBtn) {
   modalDismissBtn.addEventListener("click", async () => {
     const modal = byId("remote-install-modal");
     const alias = modal.dataset.alias;
-    // Optimistically hide the modal instantly
-    modal.setAttribute("hidden", "true");
+    closeRemoteInstallDialog();
     if (alias) {
       await window.crewlightDesktop.perform({
         type: "remote:dismiss-install-prompt",
@@ -1008,18 +1080,34 @@ if (modalDismissBtn) {
   });
 }
 
-const modalCopyBtn = byId("remote-install-copy");
-if (modalCopyBtn) {
-  modalCopyBtn.addEventListener("click", async () => {
-    const cmdText = byId("remote-install-cmd").textContent || "";
-    await window.crewlightDesktop.perform({
-      type: "copy:text",
-      text: cmdText,
-    });
-    const originalText = modalCopyBtn.textContent;
-    modalCopyBtn.textContent = "Copied!";
-    setTimeout(() => {
-      modalCopyBtn.textContent = originalText;
-    }, 1500);
-  });
-}
+document.addEventListener("keydown", (event) => {
+  const modal = byId("remote-install-modal");
+  if (modal.hidden) {
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeRemoteInstallDialog();
+    return;
+  }
+  if (event.key !== "Tab") {
+    return;
+  }
+  const focusable = Array.from(
+    modal.querySelectorAll<HTMLElement>("button:not([disabled])"),
+  );
+  if (focusable.length === 0) {
+    event.preventDefault();
+    modal.focus();
+    return;
+  }
+  const first = focusable[0]!;
+  const last = focusable.at(-1)!;
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+});

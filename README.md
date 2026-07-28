@@ -12,11 +12,14 @@
   <a href="README.zh-CN.md">简体中文</a>
 </p>
 
-> Active release: Crewlight v0.5.0 is a fully functional cross-platform desktop application and CLI tool to monitor local-first activity of AI coding agents.
+> Development status: v0.5.0 is a stabilization candidate. Linux x64 has
+> passed local build and smoke verification; Windows and macOS still require
+> platform-specific fixes and verification. The latest published release
+> remains v0.4.0.
 
 <p align="center">
-  <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-0f766e" alt="Release v0.5.0"></a>
-  <img src="https://img.shields.io/badge/desktop-Win_/_macOS_/_Linux-334155" alt="Desktop platforms: Windows, macOS, Linux">
+  <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/latest_release-v0.4.0-0f766e" alt="Latest release v0.4.0"></a>
+  <img src="https://img.shields.io/badge/v0.5.0-Linux_verified%3B_Windows_/_macOS_pending-334155" alt="v0.5.0 status: Linux verified; Windows and macOS pending">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/QianQIUlp/Crewlight" alt="MIT license"></a>
   <a href="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml"><img src="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
 </p>
@@ -25,20 +28,20 @@ Crewlight Desktop is the primary user experience. It packages the main control w
 
 The browser dashboard is a secondary developer surface. The CLI remains the advanced and automation surface.
 
-## Cross-Platform Desktop First
+## v0.5.0 Stabilization Status
 
-### Primary downloads (v0.5.0)
+There is no published v0.5.0 release yet. The current branch has been verified
+locally on Linux x64, including the standalone archive, checksum, restricted
+`PATH` startup, daemon, dashboard, ingest, status, and doctor smoke flow.
 
-- **Windows**:
-  - Installer: [`Crewlight-Setup-v0.5.0.exe`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-Setup-v0.5.0.exe)
-- **macOS**:
-  - dmg (Apple Silicon): [`Crewlight-0.5.0-arm64.dmg`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-0.5.0-arm64.dmg)
-  - dmg (Intel): [`Crewlight-0.5.0-x64.dmg`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-0.5.0-x64.dmg)
-- **Linux**:
-  - AppImage: [`Crewlight-0.5.0-x64.AppImage`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-0.5.0-x64.AppImage)
-  - deb: [`Crewlight-0.5.0-x64.deb`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.5.0/Crewlight-0.5.0-x64.deb)
+Windows x64 and macOS x64/arm64 packaging, native notification, SSH, and full
+desktop runtime flows remain release gates. Do not treat generated package names
+or unverified platform code as published downloads.
 
-### First-run flow
+The [v0.4.0 release](https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0)
+remains available as a historical reference build.
+
+### Intended first-run flow
 
 1. Download and open the appropriate installer or package for your OS.
 2. Launch `Crewlight`.
@@ -49,7 +52,7 @@ See [install without Node](docs/install-without-node.md) for the advanced CLI ar
 
 ## Product Surfaces
 
-| Surface            | Role in v0.4.0                                                        |
+| Surface            | Role in the v0.5.0 candidate                                          |
 | ------------------ | --------------------------------------------------------------------- |
 | Crewlight Desktop  | Primary user-facing release surface                                   |
 | Floating companion | Secondary persistent surface controlled from the desktop app          |
@@ -104,10 +107,11 @@ See [dashboard guide](docs/dashboard.md).
 
 ## Advanced CLI Usage
 
-The standalone CLI artifacts remain available:
+The Linux standalone build currently verified from source is:
 
-- `crewlight-v0.4.0-linux-x64.tar.gz`
-- `crewlight-v0.4.0-windows-x64.zip`
+- `crewlight-v0.5.0-linux-x64.tar.gz`
+
+Windows and macOS artifacts are not yet verified or published for v0.5.0.
 
 Use the CLI when you need:
 
@@ -148,7 +152,8 @@ git remote set-url origin https://github.com/QianQIUlp/Crewlight.git
 - No private API scraping
 - No automatic permission approval
 - No prompt, transcript, or tool I/O retention
-- No persisted session history in v0.4.0
+- No persisted session history; the daemon keeps only the latest 1,000 sessions
+  in memory
 
 ## Development
 

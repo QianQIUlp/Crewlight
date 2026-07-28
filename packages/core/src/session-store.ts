@@ -8,15 +8,63 @@ const ACTIVE_STATUSES = new Set<AgentStatus>([
 ]);
 
 const TERMINAL_STATUSES = new Set<AgentStatus>(["completed", "failed"]);
+const TERMINAL_HIDING_STATUSES = new Set<AgentStatus>(["idle", "unknown"]);
+const RECENT_EVENT_ID_LIMIT = 32;
+const DEFAULT_SESSION_LIMIT = 1_000;
+const DEFAULT_STABLE_EVENT_ID_LIMIT = 100_000;
+const STABLE_EVENT_ID_PREFIX = "stable:";
+
+export interface SessionApplyResult {
+  applied: boolean;
+  session: AgentSession;
+}
+
+export interface SessionStoreOptions {
+  sessionLimit?: number;
+  stableEventIdLimit?: number;
+}
 
 export class SessionStore {
+  readonly #recentEventIds = new Map<string, string[]>();
   readonly #sessions = new Map<string, AgentSession>();
+  readonly #sessionLimit: number;
+  readonly #stableEventIdLimit: number;
+  readonly #stableEventIds = new Map<string, Set<string>>();
+  #stableEventIdCount = 0;
+
+  constructor(options: SessionStoreOptions = {}) {
+    this.#sessionLimit = positiveIntegerOption(
+      options.sessionLimit,
+      DEFAULT_SESSION_LIMIT,
+      "sessionLimit",
+    );
+    this.#stableEventIdLimit = positiveIntegerOption(
+      options.stableEventIdLimit,
+      DEFAULT_STABLE_EVENT_ID_LIMIT,
+      "stableEventIdLimit",
+    );
+  }
 
   apply(event: AgentEvent): AgentSession {
-    const current = this.#sessions.get(event.sessionKey);
+    return this.applyWithResult(event).session;
+  }
 
-    if (current && event.timestamp < current.lastEventAt) {
-      return current;
+  applyWithResult(event: AgentEvent): SessionApplyResult {
+    const current = this.#sessions.get(event.sessionKey);
+    const recentEventIds = this.#recentEventIds.get(event.sessionKey);
+    const stableEventIds = this.#stableEventIds.get(event.sessionKey);
+    const stableEventId = isStableEventId(event.id);
+
+    if (
+      current &&
+      ((stableEventId
+        ? stableEventIds?.has(event.id) === true
+        : recentEventIds?.includes(event.id) === true) ||
+        event.timestamp < current.lastEventAt ||
+        (TERMINAL_STATUSES.has(current.status) &&
+          TERMINAL_HIDING_STATUSES.has(event.status)))
+    ) {
+      return { applied: false, session: current };
     }
 
     const active = ACTIVE_STATUSES.has(event.status);
@@ -72,7 +120,73 @@ export class SessionStore {
     };
 
     this.#sessions.set(event.sessionKey, session);
-    return session;
+    if (stableEventId) {
+      const nextStableEventIds = stableEventIds ?? new Set<string>();
+      if (!nextStableEventIds.has(event.id)) {
+        nextStableEventIds.add(event.id);
+        this.#stableEventIdCount += 1;
+      }
+      this.#stableEventIds.set(event.sessionKey, nextStableEventIds);
+    } else {
+      const nextEventIds = [...(recentEventIds ?? []), event.id];
+      if (nextEventIds.length > RECENT_EVENT_ID_LIMIT) {
+        nextEventIds.splice(0, nextEventIds.length - RECENT_EVENT_ID_LIMIT);
+      }
+      this.#recentEventIds.set(event.sessionKey, nextEventIds);
+    }
+    this.#evictToLimits(event.sessionKey);
+    return { applied: true, session };
+  }
+
+  #evictToLimits(justWrittenSessionKey: string): void {
+    while (this.#sessions.size > this.#sessionLimit) {
+      const oldestSessionKey = this.#oldestSessionKey(justWrittenSessionKey);
+      if (oldestSessionKey === undefined) {
+        break;
+      }
+      this.#deleteSession(oldestSessionKey);
+    }
+
+    while (this.#stableEventIdCount > this.#stableEventIdLimit) {
+      const oldestSessionKey = this.#oldestSessionKey(
+        justWrittenSessionKey,
+        (sessionKey) => (this.#stableEventIds.get(sessionKey)?.size ?? 0) > 0,
+      );
+      if (oldestSessionKey === undefined) {
+        break;
+      }
+      this.#deleteSession(oldestSessionKey);
+    }
+  }
+
+  #oldestSessionKey(
+    justWrittenSessionKey: string,
+    include: (sessionKey: string) => boolean = () => true,
+  ): string | undefined {
+    let oldestEntry: [string, AgentSession] | undefined;
+    for (const entry of this.#sessions.entries()) {
+      if (!include(entry[0])) {
+        continue;
+      }
+      if (
+        oldestEntry === undefined ||
+        isOlderForEviction(entry, oldestEntry, justWrittenSessionKey)
+      ) {
+        oldestEntry = entry;
+      }
+    }
+
+    return oldestEntry?.[0];
+  }
+
+  #deleteSession(sessionKey: string): void {
+    this.#sessions.delete(sessionKey);
+    this.#recentEventIds.delete(sessionKey);
+    const stableEventIds = this.#stableEventIds.get(sessionKey);
+    if (stableEventIds !== undefined) {
+      this.#stableEventIdCount -= stableEventIds.size;
+      this.#stableEventIds.delete(sessionKey);
+    }
   }
 
   get(sessionKey: string): AgentSession | undefined {
@@ -80,8 +194,58 @@ export class SessionStore {
   }
 
   list(): AgentSession[] {
-    return [...this.#sessions.values()].sort(
-      (left, right) => right.lastEventAt - left.lastEventAt,
-    );
+    return [...this.#sessions.values()].sort((left, right) => {
+      if (left.lastEventAt !== right.lastEventAt) {
+        return right.lastEventAt - left.lastEventAt;
+      }
+      return compareSessionKeys(left.sessionKey, right.sessionKey);
+    });
   }
+}
+
+function positiveIntegerOption(
+  value: number | undefined,
+  defaultValue: number,
+  name: string,
+): number {
+  const resolved = value ?? defaultValue;
+  if (!Number.isSafeInteger(resolved) || resolved <= 0) {
+    throw new RangeError(`${name} must be a positive safe integer`);
+  }
+  return resolved;
+}
+
+function isStableEventId(eventId: string): boolean {
+  return eventId.startsWith(STABLE_EVENT_ID_PREFIX);
+}
+
+function isOlderForEviction(
+  candidate: [string, AgentSession],
+  currentOldest: [string, AgentSession],
+  justWrittenSessionKey: string,
+): boolean {
+  const [candidateKey, candidateSession] = candidate;
+  const [currentKey, currentSession] = currentOldest;
+
+  if (candidateSession.lastEventAt !== currentSession.lastEventAt) {
+    return candidateSession.lastEventAt < currentSession.lastEventAt;
+  }
+
+  const candidateWasJustWritten = candidateKey === justWrittenSessionKey;
+  const currentWasJustWritten = currentKey === justWrittenSessionKey;
+  if (candidateWasJustWritten !== currentWasJustWritten) {
+    return !candidateWasJustWritten;
+  }
+
+  return compareSessionKeys(candidateKey, currentKey) < 0;
+}
+
+function compareSessionKeys(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
 }

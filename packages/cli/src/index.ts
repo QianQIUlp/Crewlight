@@ -45,6 +45,7 @@ export {
   type DoctorRuntimeOptions,
 } from "./commands/doctor.js";
 export {
+  DAEMON_REQUEST_TIMEOUT_MS,
   DASHBOARD_CAPABILITIES_TIMEOUT_MS,
   DaemonClient,
 } from "./daemon-client.js";

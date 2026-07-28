@@ -35,7 +35,12 @@ if ((mode === "portable" || mode === "installer") && platform !== "win32") {
 
 const targetPlatform =
   platform === "win32" ? "windows" : platform === "darwin" ? "macos" : "linux";
-const targetArch = arch === "arm64" ? "arm64" : "x64";
+if (arch !== "x64" && arch !== "arm64") {
+  throw new Error(
+    `Desktop packages require an x64 or arm64 Node runtime; received ${arch}.`,
+  );
+}
+const targetArch = arch;
 
 const standaloneFolderName = `crewlight-v${version}-${targetPlatform}-${targetArch}`;
 const standaloneFolder = join(releaseRoot, standaloneFolderName);
@@ -131,7 +136,7 @@ if (mode === "portable") {
   );
   console.log(`Installer: ${installerArtifact}`);
 } else if (mode === "dmg") {
-  const dmgTargetArch = arch === "arm64" ? "arm64" : "x64";
+  const dmgTargetArch = targetArch;
   const dmgArtifact = join(
     builderOutput,
     `Crewlight-${version}-${dmgTargetArch}.dmg`,
@@ -152,7 +157,7 @@ if (mode === "portable") {
   );
   console.log(`macOS DMG: ${dmgArtifact}`);
 } else if (mode === "linux") {
-  const linuxTargetArch = arch === "arm64" ? "arm64" : "x64";
+  const linuxTargetArch = targetArch;
   runPnpm(
     [
       "--filter",

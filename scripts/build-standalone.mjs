@@ -26,7 +26,12 @@ const nodeMajor = Number(process.versions.node.split(".")[0]);
 
 const targetPlatform =
   platform === "win32" ? "windows" : platform === "darwin" ? "macos" : "linux";
-const targetArch = architecture === "arm64" ? "arm64" : "x64";
+if (architecture !== "x64" && architecture !== "arm64") {
+  throw new Error(
+    `Standalone release builds require an x64 or arm64 Node runtime; received ${architecture}.`,
+  );
+}
+const targetArch = architecture;
 
 const verifiedTargets = [
   "linux-x64",
@@ -75,7 +80,13 @@ console.log(`Building Crewlight ${version} standalone binary`);
 console.log(`Node runtime: ${process.version}`);
 console.log(`Target: ${platform}/${architecture}`);
 
-await rm(releaseDirectory, { force: true, recursive: true });
+await mkdir(releaseDirectory, { recursive: true });
+await Promise.all([
+  rm(stagingDirectory, { force: true, recursive: true }),
+  rm(workDirectory, { force: true, recursive: true }),
+  rm(archivePath, { force: true }),
+  rm(checksumPath, { force: true }),
+]);
 await mkdir(stagingDirectory, { recursive: true });
 await mkdir(workDirectory, { recursive: true });
 

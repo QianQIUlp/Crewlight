@@ -84,6 +84,7 @@ export interface DesktopStatusBadge {
 }
 
 export interface DesktopSessionCard {
+  id: string;
   activity: string;
   ageLabel: string;
   diagnosticHint?: string;
@@ -329,6 +330,7 @@ function diagnosticHint(session: SanitizedSession): string | undefined {
 
 function toSessionCard(session: SanitizedSession): DesktopSessionCard {
   return {
+    id: session.viewId,
     activity: session.activityLabel ?? STATUS_LABELS[session.status],
     ageLabel: formatRelativeAge(session.lastEventAgeMs),
     ...(diagnosticHint(session)

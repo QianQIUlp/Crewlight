@@ -95,7 +95,13 @@ export type CodexHooksSetupResult =
   | { available: false; reason: SetupUnavailableReason };
 
 const SETUP_USAGE =
-  "Usage: crewlight setup <antigravity|claude-code|codebuddy|codex|codex-hooks|codewhale|copilot-cli|cursor|gemini-cli|hermes-agent|kimi-cli|kiro-cli|mimo-code|openclaw|opencode|pi-agent|qoder|qoderwork|qwen-code|reasonix-cli> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]";
+  "Usage: crewlight setup <antigravity|claude-code|codebuddy|codex|codex-hooks|codewhale|copilot-cli|cursor|gemini-cli|hermes-agent|kimi-cli|kiro-cli|mimo-code|openclaw|opencode|pi-agent|qoder|qoderwork|qwen-code|reasonix-cli> --print [--binary <absolute-path|crewlight>] [--surface <unknown|cli|desktop>]\nSetup unavailable (parser-only): mimo-code, openclaw, pi-agent, reasonix-cli";
+const PARSER_ONLY_SETUP_PLATFORMS = {
+  "mimo-code": "MiMo Code",
+  openclaw: "OpenClaw",
+  "pi-agent": "Pi Agent",
+  "reasonix-cli": "Reasonix CLI",
+} as const satisfies Partial<Record<SetupPlatform, string>>;
 const WINDOWS_CODEX_HOOK_SIMPLE_TOKEN = /^[\p{L}\p{N}:\\/._-]+$/u;
 const WINDOWS_CODEX_HOOKS_UNAVAILABLE: SetupUnavailableReason = {
   code: "windows-codex-hooks-unsafe-command",
@@ -235,6 +241,18 @@ function hookGroup(
   ];
 }
 
+function copilotHook(
+  command: string,
+  matcher?: string,
+): Record<string, unknown>[] {
+  return [
+    {
+      ...(matcher ? { matcher } : {}),
+      ...hookHandler(command),
+    },
+  ];
+}
+
 function createClaudeCodeSnippet(
   command: readonly string[],
   platform: RuntimePlatform,
@@ -298,12 +316,11 @@ function createCopilotCliSnippet(
   return JSON.stringify(
     {
       hooks: {
-        SessionStart: hookGroup(rendered),
-        PreToolUse: hookGroup(rendered, "*"),
-        PostToolUse: hookGroup(rendered, "*"),
-        Stop: hookGroup(rendered),
-        StopFailure: hookGroup(rendered),
-        Notification: hookGroup(rendered),
+        SessionStart: copilotHook(rendered),
+        PostToolUse: copilotHook(rendered, "*"),
+        Stop: copilotHook(rendered),
+        ErrorOccurred: copilotHook(rendered),
+        Notification: copilotHook(rendered),
       },
     },
     null,
@@ -349,9 +366,15 @@ function createCodebuddySnippet(
     {
       hooks: {
         SessionStart: hookGroup(rendered),
+        UserPromptSubmit: hookGroup(rendered),
         PreToolUse: hookGroup(rendered, "*"),
-        PermissionNeeded: hookGroup(rendered),
-        TaskEnd: hookGroup(rendered),
+        PostToolUse: hookGroup(rendered, "*"),
+        PostToolUseFailure: hookGroup(rendered, "*"),
+        Notification: hookGroup(rendered),
+        PermissionRequest: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+        SessionEnd: hookGroup(rendered),
       },
     },
     null,
@@ -370,10 +393,11 @@ function createKiroCliSnippet(
   return JSON.stringify(
     {
       hooks: {
-        onSessionStart: hookGroup(rendered),
-        onToolCall: hookGroup(rendered, "*"),
-        onComplete: hookGroup(rendered),
-        onError: hookGroup(rendered),
+        agentSpawn: [{ command: rendered }],
+        userPromptSubmit: [{ command: rendered }],
+        preToolUse: [{ matcher: "*", command: rendered }],
+        postToolUse: [{ matcher: "*", command: rendered }],
+        stop: [{ command: rendered }],
       },
     },
     null,
@@ -389,18 +413,27 @@ function createKimiCliSnippet(
     [...command, "ingest", "kimi-cli"],
     platform,
   );
-  return JSON.stringify(
-    {
-      hooks: {
-        SessionStart: hookGroup(rendered),
-        BeforeTool: hookGroup(rendered, "*"),
-        AfterTool: hookGroup(rendered, "*"),
-        Stop: hookGroup(rendered),
-      },
-    },
-    null,
-    2,
-  );
+  const events = [
+    "SessionStart",
+    "UserPromptSubmit",
+    "PreToolUse",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "PermissionRequest",
+    "PermissionResult",
+    "SubagentStart",
+    "SubagentStop",
+    "Stop",
+    "SessionEnd",
+    "StopFailure",
+    "Interrupt",
+  ];
+  return events
+    .map(
+      (event) =>
+        `[[hooks]]\nevent = ${JSON.stringify(event)}\ncommand = ${JSON.stringify(rendered)}\ntimeout = 5`,
+    )
+    .join("\n\n");
 }
 
 function createQwenCodeSnippet(
@@ -414,10 +447,18 @@ function createQwenCodeSnippet(
   return JSON.stringify(
     {
       hooks: {
-        start: hookGroup(rendered),
-        tool_use: hookGroup(rendered, "*"),
-        finish: hookGroup(rendered),
-        error: hookGroup(rendered),
+        SessionStart: hookGroup(rendered),
+        UserPromptSubmit: hookGroup(rendered),
+        PreToolUse: hookGroup(rendered, "*"),
+        PostToolUse: hookGroup(rendered, "*"),
+        PostToolUseFailure: hookGroup(rendered, "*"),
+        PermissionRequest: hookGroup(rendered, "*"),
+        SubagentStart: hookGroup(rendered, "*"),
+        SubagentStop: hookGroup(rendered, "*"),
+        Stop: hookGroup(rendered),
+        SessionEnd: hookGroup(rendered),
+        StopFailure: hookGroup(rendered),
+        Notification: hookGroup(rendered),
       },
     },
     null,
@@ -433,19 +474,18 @@ function createCodewhaleSnippet(
     [...command, "ingest", "codewhale"],
     platform,
   );
-  return JSON.stringify(
-    {
-      hooks: {
-        SessionStart: hookGroup(rendered),
-        PreToolUse: hookGroup(rendered, "*"),
-        PostToolUse: hookGroup(rendered, "*"),
-        Stop: hookGroup(rendered),
-        StopFailure: hookGroup(rendered),
-      },
-    },
-    null,
-    2,
-  );
+  const events = [
+    "message_submit",
+    "turn_end",
+    "subagent_spawn",
+    "subagent_complete",
+  ];
+  return events
+    .map(
+      (event) =>
+        `[[hooks.hooks]]\nevent = ${JSON.stringify(event)}\ncommand = ${JSON.stringify(rendered)}\ntimeout_secs = 5\ncontinue_on_error = true`,
+    )
+    .join("\n\n");
 }
 
 function createMimoCodeSnippet(
@@ -524,18 +564,26 @@ function createHermesAgentSnippet(
     [...command, "ingest", "hermes-agent"],
     platform,
   );
-  return JSON.stringify(
-    {
-      hooks: {
-        start: hookGroup(rendered),
-        tool_use: hookGroup(rendered, "*"),
-        finish: hookGroup(rendered),
-        error: hookGroup(rendered),
-      },
-    },
-    null,
-    2,
-  );
+  const events = [
+    "on_session_start",
+    "pre_llm_call",
+    "pre_tool_call",
+    "post_tool_call",
+    "post_llm_call",
+    "pre_approval_request",
+    "post_approval_response",
+    "subagent_start",
+    "subagent_stop",
+    "on_session_end",
+  ];
+  return [
+    "hooks:",
+    ...events.flatMap((event) => [
+      `  ${event}:`,
+      `    - command: ${JSON.stringify(rendered)}`,
+      "      timeout: 5",
+    ]),
+  ].join("\n");
 }
 
 function createQoderSnippet(
@@ -546,11 +594,11 @@ function createQoderSnippet(
   return JSON.stringify(
     {
       hooks: {
-        SessionStart: hookGroup(rendered),
+        UserPromptSubmit: hookGroup(rendered),
         PreToolUse: hookGroup(rendered, "*"),
         PostToolUse: hookGroup(rendered, "*"),
+        PostToolUseFailure: hookGroup(rendered, "*"),
         Stop: hookGroup(rendered),
-        StopFailure: hookGroup(rendered),
       },
     },
     null,
@@ -570,10 +618,17 @@ function createQoderworkSnippet(
     {
       hooks: {
         SessionStart: hookGroup(rendered),
+        UserPromptSubmit: hookGroup(rendered),
         PreToolUse: hookGroup(rendered, "*"),
         PostToolUse: hookGroup(rendered, "*"),
+        PostToolUseFailure: hookGroup(rendered, "*"),
+        PermissionRequest: hookGroup(rendered, "*"),
+        Notification: hookGroup(rendered),
+        SubagentStart: hookGroup(rendered, "*"),
+        SubagentStop: hookGroup(rendered, "*"),
+        PreCompact: hookGroup(rendered),
         Stop: hookGroup(rendered),
-        StopFailure: hookGroup(rendered),
+        SessionEnd: hookGroup(rendered),
       },
     },
     null,
@@ -874,10 +929,9 @@ export function createSetupSnippets(
   });
 
   const codexPayload = JSON.stringify({
-    notify: "activity",
-    message: "Crewlight verification test",
-    source: "codex",
-    session_id: "crewlight-verify-codex",
+    type: "agent-turn-complete",
+    "thread-id": "crewlight-verify-codex",
+    "turn-id": "crewlight-verify-turn",
   });
 
   const claudeEcho =
@@ -934,17 +988,31 @@ export function createSetupSnippets(
           runtime.platform,
         );
 
-  const newPlatforms = [
+  const newPlatforms: Array<{
+    eventField?: "event" | "hook_event_name";
+    name: string;
+    prop: keyof SetupSnippets["verification"];
+    verifyEvent: string;
+  }> = [
     { name: "codebuddy", verifyEvent: "SessionStart", prop: "codebuddy" },
-    { name: "kiro-cli", verifyEvent: "onSessionStart", prop: "kiroCli" },
+    { name: "kiro-cli", verifyEvent: "agentSpawn", prop: "kiroCli" },
     { name: "kimi-cli", verifyEvent: "SessionStart", prop: "kimiCli" },
-    { name: "qwen-code", verifyEvent: "start", prop: "qwenCode" },
-    { name: "codewhale", verifyEvent: "SessionStart", prop: "codewhale" },
+    { name: "qwen-code", verifyEvent: "SessionStart", prop: "qwenCode" },
+    {
+      name: "codewhale",
+      verifyEvent: "message_submit",
+      prop: "codewhale",
+      eventField: "event",
+    },
     { name: "mimo-code", verifyEvent: "SessionStart", prop: "mimoCode" },
     { name: "pi-agent", verifyEvent: "start", prop: "piAgent" },
     { name: "openclaw", verifyEvent: "SessionStart", prop: "openclaw" },
-    { name: "hermes-agent", verifyEvent: "start", prop: "hermesAgent" },
-    { name: "qoder", verifyEvent: "SessionStart", prop: "qoder" },
+    {
+      name: "hermes-agent",
+      verifyEvent: "on_session_start",
+      prop: "hermesAgent",
+    },
+    { name: "qoder", verifyEvent: "UserPromptSubmit", prop: "qoder" },
     { name: "qoderwork", verifyEvent: "SessionStart", prop: "qoderwork" },
     { name: "reasonix-cli", verifyEvent: "start", prop: "reasonixCli" },
   ];
@@ -956,7 +1024,7 @@ export function createSetupSnippets(
       runtime.platform,
     );
     const payload = JSON.stringify({
-      hook_event_name: np.verifyEvent,
+      [np.eventField ?? "hook_event_name"]: np.verifyEvent,
       session_id: `crewlight-verify-${np.name}`,
     });
     const echoCmd =
@@ -1037,8 +1105,34 @@ Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, t
 const COPILOT_CLI_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Copilot CLI configuration.
 Merge it manually into ~/.copilot/settings.json (Windows: %USERPROFILE%\\.copilot\\settings.json), .copilot/settings.json, or .copilot/settings.local.json.
 If a hooks object or any matching event already exists, preserve it and append the Crewlight handler. Do not replace the whole file.
+PreToolUse is intentionally omitted because Copilot command hooks fail closed when their executable cannot start; Crewlight observability must never block a tool call.
 Use \`--binary crewlight\` only when the hook environment can reliably resolve Crewlight from PATH.
 Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then use Copilot CLI turns to confirm the handlers are loaded.`;
+
+const KIMI_CLI_SETUP_GUIDANCE = `Crewlight only printed mergeable TOML hook entries; it did not read or modify Kimi Code configuration.
+Append the generated [[hooks]] entries to ~/.kimi-code/config.toml while preserving existing entries.
+Use \`--binary crewlight\` only when Kimi Code can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then use a real Kimi Code turn to confirm the hooks are loaded.`;
+
+const KIRO_CLI_SETUP_GUIDANCE = `Crewlight only printed a mergeable hooks object; it did not read or modify Kiro CLI custom agents.
+Merge it into the agent JSON you use under .kiro/agents/ or ~/.kiro/agents/, preserving the rest of that agent definition.
+Use \`--binary crewlight\` only when Kiro CLI can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, activate that agent, inspect \`/hooks\`, and complete a real turn.`;
+
+const QWEN_CODE_SETUP_GUIDANCE = `Crewlight only printed a mergeable hooks object; it did not read or modify Qwen Code configuration.
+Merge it into the relevant .qwen/settings.json or user settings file while preserving existing hook groups.
+Use \`--binary crewlight\` only when Qwen Code can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, run \`crewlight doctor\`, then use a real Qwen Code turn to confirm the hooks are loaded.`;
+
+const CODEWHALE_SETUP_GUIDANCE = `Crewlight only printed mergeable user-level TOML hook entries; it did not read or modify CodeWhale configuration.
+Append the generated [[hooks.hooks]] entries to ~/.codewhale/config.toml while preserving existing entries. The snippet intentionally registers only events that CodeWhale sends as JSON on stdin; environment-only events cannot be passed directly to Crewlight ingest. CodeWhale hooks fire in the interactive TUI only.
+Use \`--binary crewlight\` only when CodeWhale can reliably resolve Crewlight from PATH.
+Next: start \`crewlight daemon --notifier console\`, open CodeWhale TUI, inspect \`/hooks\`, and complete a real turn.`;
+
+const HERMES_AGENT_SETUP_GUIDANCE = `Crewlight only printed a mergeable YAML hooks block; it did not read or modify Hermes Agent configuration.
+Merge the generated event entries into the hooks block in ~/.hermes/config.yaml while preserving existing hooks.
+Hermes requires first-use consent for each (event, command) pair. Review the commands interactively and verify them with \`hermes hooks list\` or \`hermes hooks doctor\`; do not bypass consent blindly.
+Use \`--binary crewlight\` only when Hermes can reliably resolve Crewlight from PATH.`;
 
 const ANTIGRAVITY_SETUP_GUIDANCE = `Crewlight only printed a mergeable snippet; it did not read or modify Antigravity configuration.
 Merge it manually into ~/.gemini/config/hooks.json or a trusted project .gemini/config/hooks.json while preserving existing hook groups.
@@ -1072,6 +1166,10 @@ This integration is manual and experimental. It does not observe Cursor internal
 Start \`crewlight daemon --dashboard\`, then run the commands from Cursor's integrated terminal or user-defined tasks.
 Use one stable \`--session\` value per Cursor work stream so later commands update the same Crewlight session.
 Use \`--binary crewlight\` only when Cursor's integrated terminal can reliably resolve Crewlight from PATH.`;
+
+function formatAdapterSmokeTest(command: string): string {
+  return `Adapter smoke test: ${command}\nThis only checks Crewlight's adapter path; it does not verify that the platform loaded this hook or integration.`;
+}
 
 export function executeSetupCommand(
   args: readonly string[],
@@ -1120,6 +1218,17 @@ export function executeSetupCommand(
     throw new Error(`Unsupported setup platform: ${platform}`);
   }
 
+  const parserOnlyPlatform =
+    PARSER_ONLY_SETUP_PLATFORMS[
+      platform as keyof typeof PARSER_ONLY_SETUP_PLATFORMS
+    ];
+  if (parserOnlyPlatform !== undefined) {
+    io.warn(
+      `${parserOnlyPlatform} setup is unavailable: Crewlight has no verified external command-hook contract for this platform. The ingest parser is retained only for bridge development. Implement and validate a dedicated ${parserOnlyPlatform} bridge before using this integration.`,
+    );
+    return 1;
+  }
+
   const surface = values.surface ?? "cli";
   if (
     (values.surface !== undefined && platform !== "codex-hooks") ||
@@ -1150,86 +1259,70 @@ export function executeSetupCommand(
   } else if (selected === "cursor") {
     io.write(snippets.cursor);
     io.warn(
-      `${CURSOR_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.cursor}`,
+      `${CURSOR_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.cursor)}`,
     );
   } else if (selected === "gemini-cli") {
     io.write(snippets.geminiCli);
     io.warn(
-      `${GEMINI_CLI_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.geminiCli}`,
+      `${GEMINI_CLI_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.geminiCli)}`,
     );
   } else if (selected === "copilot-cli") {
     io.write(snippets.copilotCli);
     io.warn(
-      `${COPILOT_CLI_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.copilotCli}`,
+      `${COPILOT_CLI_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.copilotCli)}`,
     );
   } else if (selected === "antigravity") {
     io.write(snippets.antigravity);
     io.warn(
-      `${ANTIGRAVITY_SETUP_GUIDANCE}\nVerification command: ${snippets.verification.antigravity}`,
+      `${ANTIGRAVITY_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.antigravity)}`,
     );
   } else if (selected === "codebuddy") {
     io.write(snippets.codebuddy);
     io.warn(
-      `Crewlight only printed a mergeable snippet for CodeBuddy.\nVerification command: ${snippets.verification.codebuddy}`,
+      `Crewlight only printed a mergeable snippet for CodeBuddy.\n${formatAdapterSmokeTest(snippets.verification.codebuddy)}`,
     );
   } else if (selected === "codewhale") {
     io.write(snippets.codewhale);
     io.warn(
-      `Crewlight only printed a mergeable snippet for CodeWhale.\nVerification command: ${snippets.verification.codewhale}`,
+      `${CODEWHALE_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.codewhale)}`,
     );
   } else if (selected === "hermes-agent") {
     io.write(snippets.hermesAgent);
     io.warn(
-      `Crewlight only printed a mergeable snippet for Hermes Agent.\nVerification command: ${snippets.verification.hermesAgent}`,
+      `${HERMES_AGENT_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.hermesAgent)}`,
     );
   } else if (selected === "kimi-cli") {
     io.write(snippets.kimiCli);
     io.warn(
-      `Crewlight only printed a mergeable snippet for Kimi CLI.\nVerification command: ${snippets.verification.kimiCli}`,
+      `${KIMI_CLI_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.kimiCli)}`,
     );
   } else if (selected === "kiro-cli") {
     io.write(snippets.kiroCli);
     io.warn(
-      `Crewlight only printed a mergeable snippet for Kiro CLI.\nVerification command: ${snippets.verification.kiroCli}`,
-    );
-  } else if (selected === "mimo-code") {
-    io.write(snippets.mimoCode);
-    io.warn(
-      `Crewlight only printed a mergeable snippet for MiMo Code.\nVerification command: ${snippets.verification.mimoCode}`,
-    );
-  } else if (selected === "openclaw") {
-    io.write(snippets.openclaw);
-    io.warn(
-      `Crewlight only printed a mergeable snippet for OpenClaw.\nVerification command: ${snippets.verification.openclaw}`,
-    );
-  } else if (selected === "pi-agent") {
-    io.write(snippets.piAgent);
-    io.warn(
-      `Crewlight only printed a mergeable snippet for Pi Agent.\nVerification command: ${snippets.verification.piAgent}`,
+      `${KIRO_CLI_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.kiroCli)}`,
     );
   } else if (selected === "qoder") {
     io.write(snippets.qoder);
     io.warn(
-      `Crewlight only printed a mergeable snippet for Qoder.\nVerification command: ${snippets.verification.qoder}`,
+      `Crewlight only printed a mergeable snippet for Qoder.\n${formatAdapterSmokeTest(snippets.verification.qoder)}`,
     );
   } else if (selected === "qoderwork") {
     io.write(snippets.qoderwork);
     io.warn(
-      `Crewlight only printed a mergeable snippet for Qoderwork.\nVerification command: ${snippets.verification.qoderwork}`,
+      `Crewlight only printed a mergeable snippet for Qoderwork.\n${formatAdapterSmokeTest(snippets.verification.qoderwork)}`,
     );
   } else if (selected === "qwen-code") {
     io.write(snippets.qwenCode);
     io.warn(
-      `Crewlight only printed a mergeable snippet for Qwen Code.\nVerification command: ${snippets.verification.qwenCode}`,
+      `${QWEN_CODE_SETUP_GUIDANCE}\n${formatAdapterSmokeTest(snippets.verification.qwenCode)}`,
     );
-  } else if (selected === "reasonix-cli") {
-    io.write(snippets.reasonixCli);
-    io.warn(
-      `Crewlight only printed a mergeable snippet for Reasonix CLI.\nVerification command: ${snippets.verification.reasonixCli}`,
-    );
-  } else {
+  } else if (selected === "opencode") {
     io.write(snippets.openCode);
     io.warn(OPENCODE_SETUP_GUIDANCE);
+  } else {
+    throw new Error(
+      `Setup is unavailable for parser-only platform: ${selected}`,
+    );
   }
 
   return 0;

@@ -18,9 +18,8 @@
   <body data-theme="system" data-accent="teal" data-density="comfortable">
     <!--
       Liquid Glass SVG filter definitions.
-      Uses SVG feTurbulence + feDisplacementMap to simulate refractive distortion.
-      The <animate> elements slowly shift baseFrequency so the glass "flows"
-      over time. No external libraries required.
+      Uses a static SVG feTurbulence + feDisplacementMap for restrained
+      refractive texture without continuous decorative motion.
     -->
     <svg
       id="lg-svg-defs"
@@ -50,16 +49,7 @@
             numOctaves="4"
             seed="7"
             result="noise"
-          >
-            <animate
-              attributeName="baseFrequency"
-              values="0.020 0.016;0.027 0.021;0.018 0.025;0.024 0.013;0.020 0.016"
-              dur="22s"
-              repeatCount="indefinite"
-              calcMode="spline"
-              keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"
-            />
-          </feTurbulence>
+          />
           <feDisplacementMap
             in="SourceGraphic"
             in2="noise"
@@ -84,16 +74,7 @@
             numOctaves="3"
             seed="13"
             result="noise"
-          >
-            <animate
-              attributeName="baseFrequency"
-              values="0.024 0.018;0.031 0.023;0.019 0.029;0.026 0.015;0.024 0.018"
-              dur="18s"
-              repeatCount="indefinite"
-              calcMode="spline"
-              keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"
-            />
-          </feTurbulence>
+          />
           <feDisplacementMap
             in="SourceGraphic"
             in2="noise"
@@ -105,7 +86,7 @@
       </defs>
     </svg>
 
-    <div class="app-shell">
+    <div id="app-shell" class="app-shell">
       <aside class="sidebar">
         <div class="brand-lockup">
           <span class="product-mark" aria-hidden="true">
@@ -125,7 +106,7 @@
         ></nav>
 
         <section class="sidebar-footer">
-          <p>v<span id="sidebar-version">—</span></p>
+          <p><span id="sidebar-version">—</span></p>
           <p>Loopback only · privacy first</p>
         </section>
       </aside>
@@ -640,27 +621,33 @@
     </div>
 
     <!-- Remote Install CLI Modal -->
-    <div id="remote-install-modal" class="modal-overlay" hidden>
+    <div
+      id="remote-install-modal"
+      class="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="remote-install-title"
+      aria-describedby="remote-install-description"
+      tabindex="-1"
+      hidden
+    >
       <div class="modal-dialog">
         <div class="modal-header">
-          <h3>Install Crewlight CLI on Remote Host</h3>
+          <h3 id="remote-install-title">
+            Install Crewlight CLI on Remote Host
+          </h3>
         </div>
         <div class="modal-body">
-          <p class="section-copy">
+          <p id="remote-install-description" class="section-copy">
             We detected that the Crewlight CLI tool is not installed on the
-            remote host <strong id="remote-install-host-name"></strong>. Please
-            install it using npm to start receiving execution sessions:
+            remote host <strong id="remote-install-host-name"></strong>. Use the
+            same-version Crewlight release artifact for
+            <strong id="remote-install-version"></strong> and the remote
+            operating system. Verify the published checksum, place the extracted
+            <code>crewlight</code> executable on that host's <code>PATH</code>,
+            then reconnect. Crewlight does not publish an npm-installable CLI
+            package.
           </p>
-          <div class="code-copy-container">
-            <code id="remote-install-cmd">npm install -g @crewlight/cli</code>
-            <button
-              id="remote-install-copy"
-              class="primary-button"
-              type="button"
-            >
-              Copy
-            </button>
-          </div>
         </div>
         <div class="modal-footer">
           <button

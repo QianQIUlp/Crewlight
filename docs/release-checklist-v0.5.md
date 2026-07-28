@@ -1,12 +1,13 @@
 # v0.5.0 Release Checklist
 
-Status: **Ready for verification**
+Status: **Linux x64 verified locally; Windows and macOS release verification pending**
 
 ## Packaging & Cross-Platform
 
-- [ ] All workspaces package versions are `0.5.0`
-- [ ] Root package version is `0.5.0`
-- [ ] CLI help displays `Crewlight v0.5.0`
+- [x] All workspaces package versions are `0.5.0`
+- [x] Root package version is `0.5.0`
+- [x] CLI help displays `Crewlight v0.5.0`
+- [x] Linux x64 standalone archive, checksum, restricted-PATH startup, daemon, dashboard, ingest, status, and doctor smoke checks pass
 - [ ] Release packages compile and package successfully on all three platforms:
   - `Crewlight-0.5.0-x64.AppImage` (Linux x64)
   - `Crewlight-0.5.0-x64.deb` (Linux deb)
@@ -16,39 +17,40 @@ Status: **Ready for verification**
 
 ## Adapters
 
-- [ ] `packages/adapters/` contains 17 active adapters
-- [ ] Precision adapters have dedicated packages:
-  - [ ] `@crewlight/adapter-claude-code`
-  - [ ] `@crewlight/adapter-codex`
-  - [ ] `@crewlight/adapter-cursor`
-  - [ ] `@crewlight/adapter-opencode`
-  - [ ] `@crewlight/adapter-generic-cli`
-  - [ ] `@crewlight/adapter-gemini-cli`
-  - [ ] `@crewlight/adapter-copilot-cli`
-  - [ ] `@crewlight/adapter-antigravity`
-  - [ ] `@crewlight/adapter-codebuddy`
-  - [ ] `@crewlight/adapter-codewhale`
-  - [ ] `@crewlight/adapter-hermes-agent`
-  - [ ] `@crewlight/adapter-kimi-cli`
-  - [ ] `@crewlight/adapter-kiro-cli`
-  - [ ] `@crewlight/adapter-mimo-code`
-  - [ ] `@crewlight/adapter-openclaw`
-  - [ ] `@crewlight/adapter-pi-agent`
-  - [ ] `@crewlight/adapter-qoder`
-  - [ ] `@crewlight/adapter-qoderwork`
-  - [ ] `@crewlight/adapter-qwen-code`
-  - [ ] `@crewlight/adapter-reasonix-cli`
-- [ ] All setup command generation outputs match schemas
+- [x] `packages/adapters/` contains 21 adapter packages
+- [x] Precision and parser-only adapters have dedicated packages:
+  - [x] `@crewlight/adapter-claude-code`
+  - [x] `@crewlight/adapter-codex`
+  - [x] `@crewlight/adapter-cursor`
+  - [x] `@crewlight/adapter-opencode`
+  - [x] `@crewlight/adapter-generic-cli`
+  - [x] `@crewlight/adapter-multi-agent`
+  - [x] `@crewlight/adapter-gemini-cli`
+  - [x] `@crewlight/adapter-copilot-cli`
+  - [x] `@crewlight/adapter-antigravity`
+  - [x] `@crewlight/adapter-codebuddy`
+  - [x] `@crewlight/adapter-codewhale`
+  - [x] `@crewlight/adapter-hermes-agent`
+  - [x] `@crewlight/adapter-kimi-cli`
+  - [x] `@crewlight/adapter-kiro-cli`
+  - [x] `@crewlight/adapter-mimo-code`
+  - [x] `@crewlight/adapter-openclaw`
+  - [x] `@crewlight/adapter-pi-agent`
+  - [x] `@crewlight/adapter-qoder`
+  - [x] `@crewlight/adapter-qoderwork`
+  - [x] `@crewlight/adapter-qwen-code`
+  - [x] `@crewlight/adapter-reasonix-cli`
+- [x] Supported setup output matches verified host schemas; MiMo, Pi Agent, OpenClaw, and Reasonix setup is disabled until dedicated bridges exist
 
 ## Verification
 
-- [ ] `pnpm format:check` runs successfully
-- [ ] `pnpm typecheck` compiles clean
-- [ ] `pnpm test` executes and passes all 523 tests successfully
-- [ ] `pnpm build` creates release bundles in `packages/*/dist`
+- [x] `pnpm format:check` runs successfully
+- [x] `pnpm typecheck` compiles clean
+- [x] `pnpm test` executes and passes all 690 tests successfully
+- [x] `pnpm build` creates release bundles in `packages/*/dist`
 
 ## Security Boundaries
 
-- [ ] No raw transcripts, parameters, prompts, or inputs leak in the normalized events
-- [ ] Service operates strictly loopback-only
-- [ ] SSH private keys are never transmitted over network or log structures
+- [x] No raw transcripts, parameters, prompts, or inputs leak in normalized events
+- [x] Daemon defaults to loopback and the dashboard refuses non-loopback binding
+- [x] SSH private keys are never transmitted over network or log structures

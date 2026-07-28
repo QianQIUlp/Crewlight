@@ -24,21 +24,58 @@ describe("Copilot CLI adapter", () => {
     ["PreToolUse", "using_tool"],
     ["PostToolUse", "running"],
     ["Stop", "completed"],
-    ["StopFailure", "failed"],
+    ["ErrorOccurred", "failed"],
   ] as const)("maps %s to %s", (hookEventName, status) => {
     expect(eventFor({ hook_event_name: hookEventName }).status).toBe(status);
   });
 
+  it("keeps the session running after a recoverable error", () => {
+    expect(
+      eventFor({ hook_event_name: "ErrorOccurred", recoverable: true }).status,
+    ).toBe("running");
+    expect(
+      eventFor({ hook_event_name: "ErrorOccurred", recoverable: false }).status,
+    ).toBe("failed");
+  });
+
   it.each([
     ["permission_prompt", "waiting_permission"],
-    ["other_prompt", "waiting_input"],
-  ] as const)("refines Notification(%s) to %s", (notificationType, status) => {
+    ["elicitation_dialog", "waiting_input"],
+  ] as const)("maps Notification(%s) to %s", (notificationType, status) => {
     expect(
       eventFor({
         hook_event_name: "Notification",
         notification_type: notificationType,
       }).status,
     ).toBe(status);
+  });
+
+  it.each([
+    "shell_completed",
+    "shell_detached_completed",
+    "agent_completed",
+    "agent_idle",
+    "unknown",
+  ])("ignores non-attention Notification(%s)", (notificationType) => {
+    expect(
+      mapCopilotEvent({
+        hook_event_name: "Notification",
+        notification_type: notificationType,
+      }).kind,
+    ).toBe("ignored");
+  });
+
+  it("uses the documented camelCase notification session identity", () => {
+    const result = mapCopilotEvent({
+      hook_event_name: "Notification",
+      sessionId: "copilot-notification-session",
+      notification_type: "permission_prompt",
+    });
+
+    expect(result.kind).toBe("event");
+    if (result.kind === "event") {
+      expect(result.event.sessionId).toBe("copilot-notification-session");
+    }
   });
 
   it("maps session identity, project path, and safe descriptive fields", () => {
@@ -66,6 +103,8 @@ describe("Copilot CLI adapter", () => {
       prompt: "find secret credentials",
       transcript: "some private dialog",
       raw_output: "keys keys keys",
+      message: "secret platform message",
+      title: "secret platform title",
     });
 
     expect(result.kind).toBe("event");

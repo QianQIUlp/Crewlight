@@ -40,6 +40,7 @@ export interface CompanionCounts {
 }
 
 export interface CompanionSessionView {
+  id: string;
   source: string;
   surface: string;
   title: string;
@@ -211,6 +212,7 @@ function getDiagnosticHint(session: SanitizedSession): string | undefined {
 function toSessionView(session: SanitizedSession): CompanionSessionView {
   const diagnosticHint = getDiagnosticHint(session);
   return {
+    id: session.viewId,
     source: session.displayName,
     surface: getCompanionSurfaceLabel(session.surface),
     title: session.taskTitle ?? session.displayWorkspace,

@@ -4,11 +4,14 @@ import {
   type CompanionSessionView,
   type CompanionViewModel,
 } from "./state.js";
+import { DisclosureState } from "./interaction.js";
 
 let expanded = false;
 let selectedFilter: CompanionSessionFilter = "all";
 let latestViewModel: CompanionViewModel | undefined;
+let sessionDetailId = 0;
 let copyFeedbackTimer: number | undefined;
+const sessionDisclosures = new DisclosureState();
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -122,12 +125,8 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
     );
   }
 
-  // Click-to-expand details
-  card.classList.add("expandable");
-  card.setAttribute("aria-expanded", "false");
-
   const detail = createElement("div", "session-detail");
-  detail.style.display = "none";
+  detail.id = `companion-session-detail-${++sessionDetailId}`;
 
   const addDetailLine = (label: string, val: string) => {
     const line = createElement("p", "session-detail-text");
@@ -143,13 +142,27 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
     addDetailLine("Diagnostic", session.diagnosticHint);
   }
 
-  card.append(detail);
-
-  card.addEventListener("click", () => {
-    const isExpanded = card.getAttribute("aria-expanded") === "true";
-    card.setAttribute("aria-expanded", String(!isExpanded));
-    detail.style.display = isExpanded ? "none" : "block";
+  const toggle = createElement(
+    "button",
+    "text-button session-detail-toggle",
+  ) as HTMLButtonElement;
+  toggle.type = "button";
+  toggle.dataset.disclosureId = session.id;
+  toggle.setAttribute("aria-controls", detail.id);
+  const applyExpanded = (isExpanded: boolean) => {
+    toggle.setAttribute("aria-expanded", String(isExpanded));
+    toggle.textContent = isExpanded ? "Hide details" : "Show details";
+    toggle.setAttribute(
+      "aria-label",
+      `${isExpanded ? "Hide" : "Show"} details for ${session.title}`,
+    );
+    detail.hidden = !isExpanded;
+  };
+  applyExpanded(sessionDisclosures.isExpanded(session.id));
+  toggle.addEventListener("click", () => {
+    applyExpanded(sessionDisclosures.toggle(session.id));
   });
+  card.append(toggle, detail);
 
   return card;
 }
@@ -179,10 +192,25 @@ function renderSessions(viewModel: CompanionViewModel): void {
     selectedFilter,
   );
   const sessionList = byId("session-list");
+  sessionDisclosures.retain(viewModel.sessions.map((session) => session.id));
+  const activeElement = document.activeElement;
+  const focusedDisclosureId =
+    activeElement instanceof HTMLButtonElement &&
+    sessionList.contains(activeElement)
+      ? activeElement.dataset.disclosureId
+      : undefined;
   sessionList.hidden = connectionUnavailable;
   sessionList.replaceChildren(
     ...filteredSessions.map((session) => createSessionCard(session)),
   );
+  if (focusedDisclosureId) {
+    const replacement = Array.from(
+      sessionList.querySelectorAll<HTMLButtonElement>(
+        "button[data-disclosure-id]",
+      ),
+    ).find((button) => button.dataset.disclosureId === focusedDisclosureId);
+    replacement?.focus();
+  }
 
   const emptyState = byId("empty-sessions");
   const showEmpty = !connectionUnavailable && filteredSessions.length === 0;

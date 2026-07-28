@@ -1,74 +1,28 @@
-# Reasonix CLI Integration Guide (Experimental)
+# Reasonix CLI parser status (setup unavailable)
 
-Crewlight provides an integration adapter for Reasonix CLI to monitor session execution states, tool invocations, and exit statuses.
+Crewlight contains an experimental Reasonix CLI payload parser, but its setup contract has not yet been verified against a supported Reasonix external-hook schema.
 
-> [!NOTE]
-> This adapter is currently labeled as **Experimental** and relies on allowlisted event payloads.
+> [!WARNING]
+> `crewlight setup reasonix-cli --print` is intentionally disabled and returns a non-zero exit code. Crewlight has no verified external command-hook contract for Reasonix CLI and does not emit its legacy draft configuration.
 
-## Setup Instructions
+## Current scope
 
-### 1. Print configuration snippet
+The current implementation can parse allowlisted synthetic hook payloads sent directly to:
 
-Generate your hook configuration block by running:
+```bash
+crewlight ingest reasonix-cli
+```
+
+The setup command reports the missing bridge and does not print a configuration or synthetic smoke command:
 
 ```bash
 crewlight setup reasonix-cli --print
 ```
 
-### 2. Output Snippet
+The ingest parser remains available only for development of a future Reasonix-specific bridge. Direct synthetic ingest does not prove that Reasonix accepts a schema, loaded a hook, or executed an end-to-end lifecycle event.
 
-The command will produce a mergeable JSON hook block similar to the following:
+## Production use
 
-```json
-{
-  "hooks": {
-    "start": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest reasonix-cli"
-          }
-        ]
-      }
-    ],
-    "tool_use": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest reasonix-cli"
-          }
-        ]
-      }
-    ],
-    "finish": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest reasonix-cli"
-          }
-        ]
-      }
-    ],
-    "error": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest reasonix-cli"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+Crewlight needs a dedicated bridge based on a verified Reasonix external-hook configuration and event contract before this adapter can be installed safely.
 
-Merge this block into your global or workspace-specific Reasonix CLI configuration.
-
-### 3. Verify
-
-Run `crewlight daemon --notifier console` and start a session using Reasonix CLI. Verified statuses will route automatically to your local companion dashboard.
+Until that contract is implemented and tested, keep this adapter limited to parser and bridge development. Crewlight does not provide an installable Reasonix setup snippet.

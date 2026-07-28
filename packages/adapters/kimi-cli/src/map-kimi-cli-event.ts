@@ -12,25 +12,23 @@ export type KimiCliAdapterResult =
 
 const STATUS_MAP = new Map<string, AgentStatus>([
   ["SessionStart", "running"],
-  ["BeforeTool", "using_tool"],
-  ["AfterTool", "running"],
+  ["UserPromptSubmit", "running"],
+  ["PreToolUse", "using_tool"],
+  ["PostToolUse", "running"],
+  ["PostToolUseFailure", "running"],
+  ["PermissionRequest", "waiting_permission"],
+  ["PermissionResult", "running"],
+  ["SubagentStart", "using_tool"],
+  ["SubagentStop", "running"],
   ["Stop", "completed"],
+  ["SessionEnd", "idle"],
+  ["Interrupt", "idle"],
 ]);
-
-function optionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
 
 function eventMessage(
   input: KimiCliHookInput,
   status: AgentStatus,
 ): string | undefined {
-  const explicit = optionalText(input.message);
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return "Using tool: " + input.tool_name;
   }
@@ -42,8 +40,6 @@ function toEvent(
   input: KimiCliHookInput,
   status: AgentStatus,
 ): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
 
   return {
@@ -52,7 +48,7 @@ function toEvent(
     status,
     ...(input.session_id ? { sessionId: input.session_id } : {}),
     ...(input.cwd ? { projectPath: input.cwd } : {}),
-    ...(title ? { title } : {}),
+    title: input.hook_event_name,
     ...(message ? { message } : {}),
   };
 }
@@ -64,6 +60,16 @@ export function mapKimiCliEvent(input: unknown): KimiCliAdapterResult {
   }
 
   const payload = parsed.data;
+
+  if (payload.hook_event_name === "StopFailure") {
+    return {
+      kind: "event",
+      event: toEvent(
+        payload,
+        payload.error === "rate_limit" ? "rate_limited" : "failed",
+      ),
+    };
+  }
 
   const status = STATUS_MAP.get(payload.hook_event_name);
   if (!status) {

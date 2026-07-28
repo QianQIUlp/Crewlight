@@ -21,12 +21,25 @@ function eventFor(payload: Record<string, unknown>) {
 describe("Qoder adapter", () => {
   it.each([
     ["SessionStart", "running"],
+    ["UserPromptSubmit", "running"],
     ["PreToolUse", "using_tool"],
     ["PostToolUse", "running"],
+    ["PostToolUseFailure", "running"],
     ["Stop", "completed"],
-    ["StopFailure", "failed"],
+    ["SessionEnd", "idle"],
   ] as const)("maps %s to %s", (hookEventName, status) => {
     expect(eventFor({ hook_event_name: hookEventName }).status).toBe(status);
+  });
+
+  it("does not forward arbitrary platform messages or titles", () => {
+    const result = mapQoderEvent({
+      hook_event_name: "Stop",
+      message: "private platform details",
+      title: "private platform title",
+    });
+
+    expect(result.kind).toBe("event");
+    expect(JSON.stringify(result)).not.toContain("private platform");
   });
 
   it("maps session identity, project path, and safe descriptive fields", () => {

@@ -23,17 +23,50 @@ function eventFor(payload: Record<string, unknown>) {
 
 describe("HermesAgent adapter", () => {
   it.each([
-    ["start", "running"],
-    ["tool_use", "using_tool"],
-    ["finish", "completed"],
-    ["error", "failed"],
+    ["on_session_start", "running"],
+    ["pre_llm_call", "running"],
+    ["pre_tool_call", "using_tool"],
+    ["post_tool_call", "running"],
+    ["post_llm_call", "completed"],
+    ["pre_approval_request", "waiting_permission"],
+    ["post_approval_response", "running"],
+    ["subagent_start", "using_tool"],
+    ["subagent_stop", "running"],
   ] as const)("maps %s to %s", (hookEventName, status) => {
     expect(eventFor({ hook_event_name: hookEventName }).status).toBe(status);
   });
 
+  it.each([
+    [{ completed: true, interrupted: false }, "idle"],
+    [{ completed: false, interrupted: false }, "failed"],
+    [{ completed: false, interrupted: true }, "idle"],
+    [{}, "unknown"],
+  ] as const)(
+    "classifies on_session_end from safe outcome flags",
+    (extra, status) => {
+      expect(
+        eventFor({ hook_event_name: "on_session_end", extra }).status,
+      ).toBe(status);
+    },
+  );
+
+  it("does not forward other on_session_end payload fields", () => {
+    const event = eventFor({
+      hook_event_name: "on_session_end",
+      extra: {
+        completed: false,
+        interrupted: false,
+        conversation_history: "private transcript",
+      },
+    });
+
+    expect(event.status).toBe("failed");
+    expect(JSON.stringify(event)).not.toContain("private transcript");
+  });
+
   it("maps session identity, project path, and safe descriptive fields", () => {
     const event = eventFor({
-      hook_event_name: "tool_use",
+      hook_event_name: "pre_tool_call",
       tool_name: "run_command",
     });
 
@@ -44,18 +77,20 @@ describe("HermesAgent adapter", () => {
       status: "using_tool",
       sessionId: "hermes-agent-session",
       projectPath: "/tmp/hermes-agent-project",
-      title: "tool_use",
+      title: "pre_tool_call",
       ...(normalized.message ? { message: normalized.message } : {}),
     });
   });
 
   it("never leaks raw parameters or transcripts", () => {
     const result = mapHermesAgentEvent({
-      hook_event_name: "tool_use",
+      hook_event_name: "pre_tool_call",
       tool_name: "run_command",
       prompt: "find secret credentials",
       transcript: "some private dialog",
       raw_output: "keys keys keys",
+      message: "secret platform message",
+      title: "secret platform title",
     });
 
     expect(result.kind).toBe("event");

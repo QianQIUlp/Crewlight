@@ -11,27 +11,21 @@ export type CodewhaleAdapterResult =
   | { kind: "invalid"; reason: string };
 
 const STATUS_MAP = new Map<string, AgentStatus>([
-  ["SessionStart", "running"],
-  ["PreToolUse", "using_tool"],
-  ["PostToolUse", "running"],
-  ["Stop", "completed"],
-  ["StopFailure", "failed"],
+  ["session_start", "running"],
+  ["message_submit", "running"],
+  ["tool_call_before", "using_tool"],
+  ["tool_call_after", "running"],
+  ["turn_end", "completed"],
+  ["on_error", "failed"],
+  ["session_end", "completed"],
+  ["subagent_spawn", "using_tool"],
+  ["subagent_complete", "running"],
 ]);
-
-function optionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
 
 function eventMessage(
   input: CodewhaleHookInput,
   status: AgentStatus,
 ): string | undefined {
-  const explicit = optionalText(input.message);
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return "Using tool: " + input.tool_name;
   }
@@ -42,9 +36,8 @@ function eventMessage(
 function toEvent(
   input: CodewhaleHookInput,
   status: AgentStatus,
+  eventName: string,
 ): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
 
   return {
@@ -52,8 +45,10 @@ function toEvent(
     surface: "cli",
     status,
     ...(input.session_id ? { sessionId: input.session_id } : {}),
-    ...(input.cwd ? { projectPath: input.cwd } : {}),
-    ...(title ? { title } : {}),
+    ...(input.workspace || input.cwd
+      ? { projectPath: input.workspace ?? input.cwd }
+      : {}),
+    title: eventName,
     ...(message ? { message } : {}),
   };
 }
@@ -65,8 +60,16 @@ export function mapCodewhaleEvent(input: unknown): CodewhaleAdapterResult {
   }
 
   const payload = parsed.data;
+  const eventName = payload.event ?? payload.hook_event_name;
+  if (!eventName) {
+    return { kind: "invalid", reason: "Invalid Codewhale hook payload" };
+  }
 
-  const status = STATUS_MAP.get(payload.hook_event_name);
+  const status =
+    eventName === "turn_end" &&
+    (payload.status === "failed" || payload.status === "error")
+      ? "failed"
+      : STATUS_MAP.get(eventName);
   if (!status) {
     return {
       kind: "ignored",
@@ -74,5 +77,5 @@ export function mapCodewhaleEvent(input: unknown): CodewhaleAdapterResult {
     };
   }
 
-  return { kind: "event", event: toEvent(payload, status) };
+  return { kind: "event", event: toEvent(payload, status, eventName) };
 }

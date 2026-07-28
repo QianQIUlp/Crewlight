@@ -714,7 +714,6 @@ body.expanded .compact-overview {
 
 .tone-action {
   --tone: var(--action);
-  animation: pulse-border 2.2s ease-in-out infinite;
 }
 
 .tone-error {
@@ -813,6 +812,10 @@ body[data-state="api-unavailable"] .connection-icon {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .tone-action {
+    animation: pulse-border 2.2s ease-in-out infinite;
+  }
+
   body[data-state="running"] .status-orb span {
     animation: activity-bar 1.6s ease-in-out infinite;
   }
@@ -880,8 +883,8 @@ body[data-state="api-unavailable"] .connection-icon {
   font-weight: 500;
 }
 
-.session-card.expandable {
-  cursor: pointer;
+.session-detail-toggle {
+  margin-top: 6px;
 }
 .session-detail {
   margin-top: 6px;

@@ -7,6 +7,7 @@ import {
 import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
 
 export const DASHBOARD_CAPABILITIES_TIMEOUT_MS = 200;
+export const DAEMON_REQUEST_TIMEOUT_MS = 1_000;
 
 function disabledDashboardCapabilities(): DashboardCapabilities {
   return { taskTitleMode: "off" };
@@ -21,6 +22,7 @@ export interface CrewlightClient {
 export interface DaemonClientOptions {
   baseUrl?: string;
   env?: NodeJS.ProcessEnv;
+  requestTimeoutMs?: number;
 }
 
 function daemonBaseUrl(env: NodeJS.ProcessEnv): string {
@@ -29,13 +31,24 @@ function daemonBaseUrl(env: NodeJS.ProcessEnv): string {
   return formatDaemonUrl(host, port);
 }
 
+function positiveTimeout(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error("Daemon request timeout must be a positive number");
+  }
+  return value;
+}
+
 export class DaemonClient implements CrewlightClient {
   readonly #baseUrl: string;
+  readonly #requestTimeoutMs: number;
 
   constructor(options: DaemonClientOptions = {}) {
     this.#baseUrl = (
       options.baseUrl ?? daemonBaseUrl(options.env ?? process.env)
     ).replace(/\/$/, "");
+    this.#requestTimeoutMs = positiveTimeout(
+      options.requestTimeoutMs ?? DAEMON_REQUEST_TIMEOUT_MS,
+    );
   }
 
   async emit(event: AgentEventInput): Promise<IngestResult> {
@@ -47,40 +60,63 @@ export class DaemonClient implements CrewlightClient {
   }
 
   async dashboardCapabilities(): Promise<DashboardCapabilities> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      DASHBOARD_CAPABILITIES_TIMEOUT_MS,
+    return (
+      (await this.probeDashboardCapabilities()) ??
+      disabledDashboardCapabilities()
     );
+  }
+
+  async probeDashboardCapabilities(): Promise<
+    DashboardCapabilities | undefined
+  > {
+    const controller = new AbortController();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<undefined>((resolve) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        resolve(undefined);
+      }, DASHBOARD_CAPABILITIES_TIMEOUT_MS);
+    });
+
+    const request = async (): Promise<DashboardCapabilities | undefined> => {
+      try {
+        const response = await fetch(
+          `${this.#baseUrl}/dashboard/capabilities`,
+          {
+            signal: controller.signal,
+          },
+        );
+        if (!response.ok) {
+          return undefined;
+        }
+
+        const body: unknown = await response.json();
+        if (
+          typeof body === "object" &&
+          body !== null &&
+          "taskTitleMode" in body &&
+          ((body as { taskTitleMode?: unknown }).taskTitleMode === "off" ||
+            (body as { taskTitleMode?: unknown }).taskTitleMode ===
+              "prompt-preview")
+        ) {
+          return {
+            taskTitleMode: (body as DashboardCapabilities).taskTitleMode,
+          };
+        }
+      } catch {
+        // Capability discovery must never block or fail host workflows.
+      }
+
+      return undefined;
+    };
 
     try {
-      const response = await fetch(`${this.#baseUrl}/dashboard/capabilities`, {
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        return disabledDashboardCapabilities();
-      }
-
-      const body: unknown = await response.json();
-      if (
-        typeof body === "object" &&
-        body !== null &&
-        "taskTitleMode" in body &&
-        ((body as { taskTitleMode?: unknown }).taskTitleMode === "off" ||
-          (body as { taskTitleMode?: unknown }).taskTitleMode ===
-            "prompt-preview")
-      ) {
-        return {
-          taskTitleMode: (body as DashboardCapabilities).taskTitleMode,
-        };
-      }
-    } catch {
-      // Capability discovery must never block or fail host workflows.
+      return await Promise.race([request(), deadline]);
     } finally {
-      clearTimeout(timeout);
+      if (timeout) {
+        clearTimeout(timeout);
+      }
     }
-
-    return disabledDashboardCapabilities();
   }
 
   async sessions(): Promise<AgentSession[]> {
@@ -91,26 +127,67 @@ export class DaemonClient implements CrewlightClient {
   }
 
   async #request<T>(path: string, init?: RequestInit): Promise<T> {
-    let response: Response;
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutError = () =>
+      new Error(
+        `Request to the Crewlight daemon at ${this.#baseUrl} timed out. Start it with \`crewlight daemon --notifier console\`, or verify CREWLIGHT_HOST and CREWLIGHT_PORT.`,
+      );
+
+    const request = async (): Promise<T> => {
+      let response: Response;
+      try {
+        response = await fetch(`${this.#baseUrl}${path}`, {
+          ...init,
+          signal: controller.signal,
+        });
+      } catch {
+        if (timedOut) {
+          throw timeoutError();
+        }
+        throw new Error(
+          `Cannot reach the Crewlight daemon at ${this.#baseUrl}. Start it with \`crewlight daemon --notifier console\`, or verify CREWLIGHT_HOST and CREWLIGHT_PORT.`,
+        );
+      }
+
+      let body: T | { error?: string };
+      try {
+        body = (await response.json()) as T | { error?: string };
+      } catch {
+        if (timedOut) {
+          throw timeoutError();
+        }
+        throw new Error(
+          `Crewlight daemon at ${this.#baseUrl} returned an invalid response. Restart it, then run \`crewlight doctor\`.`,
+        );
+      }
+
+      if (!response.ok) {
+        const message =
+          "error" in (body as object) &&
+          typeof (body as { error?: unknown }).error === "string"
+            ? (body as { error: string }).error
+            : `HTTP ${response.status}`;
+        throw new Error(`Crewlight daemon rejected the request: ${message}`);
+      }
+
+      return body as T;
+    };
+
+    let rejectTimeout: ((reason: Error) => void) | undefined;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      rejectTimeout = reject;
+    });
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+      rejectTimeout?.(timeoutError());
+    }, this.#requestTimeoutMs);
 
     try {
-      response = await fetch(`${this.#baseUrl}${path}`, init);
-    } catch {
-      throw new Error(
-        `Cannot reach the Crewlight daemon at ${this.#baseUrl}. Start it with \`crewlight daemon --notifier console\`, or verify CREWLIGHT_HOST and CREWLIGHT_PORT.`,
-      );
+      return await Promise.race([request(), deadline]);
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const body = (await response.json()) as T | { error?: string };
-    if (!response.ok) {
-      const message =
-        "error" in (body as object) &&
-        typeof (body as { error?: unknown }).error === "string"
-          ? (body as { error: string }).error
-          : `HTTP ${response.status}`;
-      throw new Error(`Crewlight daemon rejected the request: ${message}`);
-    }
-
-    return body as T;
   }
 }

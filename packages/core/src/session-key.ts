@@ -1,23 +1,52 @@
 import { createHash, randomUUID } from "node:crypto";
-import { resolve } from "node:path";
+import { posix, resolve, win32 } from "node:path";
 
 import type { AgentEventInput } from "./types.js";
 
 type SessionIdentity = Pick<
   AgentEventInput,
-  "projectPath" | "sessionId" | "source" | "surface"
+  "projectPath" | "remoteAlias" | "sessionId" | "source" | "surface"
 >;
 
 function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 24);
 }
 
-export function normalizeProjectPath(projectPath: string): string {
+function normalizeRemoteProjectPath(projectPath: string): string {
+  const looksLikeWindowsPath =
+    /^[A-Za-z]:[\\/]/u.test(projectPath) || projectPath.startsWith("\\\\");
+
+  if (looksLikeWindowsPath || projectPath.includes("\\")) {
+    return win32.normalize(projectPath);
+  }
+
+  return posix.normalize(projectPath);
+}
+
+export function normalizeProjectPath(
+  projectPath: string,
+  remoteAlias?: string,
+): string {
+  if (remoteAlias) {
+    return normalizeRemoteProjectPath(projectPath);
+  }
+
   return resolve(projectPath);
 }
 
 export function deriveSessionKey(identity: SessionIdentity): string {
   if (identity.sessionId) {
+    if (identity.remoteAlias) {
+      const value = JSON.stringify([
+        "remote-session",
+        identity.remoteAlias,
+        identity.source,
+        identity.surface,
+        identity.sessionId,
+      ]);
+      return `session:${digest(value)}`;
+    }
+
     const value = [
       "session",
       identity.source,
@@ -28,6 +57,17 @@ export function deriveSessionKey(identity: SessionIdentity): string {
   }
 
   if (identity.projectPath) {
+    if (identity.remoteAlias) {
+      const value = JSON.stringify([
+        "remote-project",
+        identity.remoteAlias,
+        identity.source,
+        identity.surface,
+        normalizeProjectPath(identity.projectPath, identity.remoteAlias),
+      ]);
+      return `project:${digest(value)}`;
+    }
+
     const value = [
       "project",
       identity.source,

@@ -6,7 +6,7 @@ import { ingestCodewhaleHookJson, mapCodewhaleEvent } from "../src/index.js";
 function eventFor(payload: Record<string, unknown>) {
   const result = mapCodewhaleEvent({
     session_id: "codewhale-session",
-    cwd: "/tmp/codewhale-project",
+    workspace: "/tmp/codewhale-project",
     ...payload,
   });
 
@@ -20,18 +20,28 @@ function eventFor(payload: Record<string, unknown>) {
 
 describe("Codewhale adapter", () => {
   it.each([
-    ["SessionStart", "running"],
-    ["PreToolUse", "using_tool"],
-    ["PostToolUse", "running"],
-    ["Stop", "completed"],
-    ["StopFailure", "failed"],
-  ] as const)("maps %s to %s", (hookEventName, status) => {
-    expect(eventFor({ hook_event_name: hookEventName }).status).toBe(status);
+    ["session_start", "running"],
+    ["message_submit", "running"],
+    ["tool_call_before", "using_tool"],
+    ["tool_call_after", "running"],
+    ["turn_end", "completed"],
+    ["on_error", "failed"],
+    ["session_end", "completed"],
+    ["subagent_spawn", "using_tool"],
+    ["subagent_complete", "running"],
+  ] as const)("maps %s to %s", (eventName, status) => {
+    expect(eventFor({ event: eventName }).status).toBe(status);
+  });
+
+  it("uses a failed turn_end status when CodeWhale reports failure", () => {
+    expect(eventFor({ event: "turn_end", status: "failed" }).status).toBe(
+      "failed",
+    );
   });
 
   it("maps session identity, project path, and safe descriptive fields", () => {
     const event = eventFor({
-      hook_event_name: "PreToolUse",
+      event: "tool_call_before",
       tool_name: "run_command",
     });
 
@@ -42,18 +52,21 @@ describe("Codewhale adapter", () => {
       status: "using_tool",
       sessionId: "codewhale-session",
       projectPath: "/tmp/codewhale-project",
-      title: "PreToolUse",
+      title: "tool_call_before",
       ...(normalized.message ? { message: normalized.message } : {}),
     });
   });
 
   it("never leaks raw parameters or transcripts", () => {
     const result = mapCodewhaleEvent({
-      hook_event_name: "PreToolUse",
+      event: "tool_call_before",
+      workspace: "/tmp/codewhale-project",
       tool_name: "run_command",
       prompt: "find secret credentials",
       transcript: "some private dialog",
       raw_output: "keys keys keys",
+      message: "secret platform message",
+      title: "secret platform title",
     });
 
     expect(result.kind).toBe("event");
@@ -67,14 +80,14 @@ describe("Codewhale adapter", () => {
 
   it("ignores unsupported events", () => {
     const result = mapCodewhaleEvent({
-      hook_event_name: "UnknownEventName",
+      event: "UnknownEventName",
     });
     expect(result.kind).toBe("ignored");
   });
 
   it("rejects malformed payloads", () => {
     const result = mapCodewhaleEvent({
-      hook_event_name: 123,
+      event: 123,
     });
     expect(result.kind).toBe("invalid");
   });

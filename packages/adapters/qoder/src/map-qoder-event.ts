@@ -12,26 +12,18 @@ export type QoderAdapterResult =
 
 const STATUS_MAP = new Map<string, AgentStatus>([
   ["SessionStart", "running"],
+  ["UserPromptSubmit", "running"],
   ["PreToolUse", "using_tool"],
   ["PostToolUse", "running"],
+  ["PostToolUseFailure", "running"],
   ["Stop", "completed"],
-  ["StopFailure", "failed"],
+  ["SessionEnd", "idle"],
 ]);
-
-function optionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
 
 function eventMessage(
   input: QoderHookInput,
   status: AgentStatus,
 ): string | undefined {
-  const explicit = optionalText(input.message);
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return "Using tool: " + input.tool_name;
   }
@@ -40,8 +32,6 @@ function eventMessage(
 }
 
 function toEvent(input: QoderHookInput, status: AgentStatus): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
 
   return {
@@ -50,7 +40,7 @@ function toEvent(input: QoderHookInput, status: AgentStatus): AgentEventInput {
     status,
     ...(input.session_id ? { sessionId: input.session_id } : {}),
     ...(input.cwd ? { projectPath: input.cwd } : {}),
-    ...(title ? { title } : {}),
+    title: input.hook_event_name,
     ...(message ? { message } : {}),
   };
 }

@@ -41,8 +41,9 @@ describe("Claude Code adapter", () => {
       sessionId: "fixture-claude-session",
       projectPath: "/workspace/sanitized-project",
       title: "Stop",
-      message: "Sanitized completion",
     });
+    expect(event).not.toHaveProperty("message");
+    expect(JSON.stringify(event)).not.toContain("Sanitized completion");
     expect(JSON.stringify(event)).not.toContain("private-command-placeholder");
     expect(JSON.stringify(event)).not.toContain("private-secret-placeholder");
     expect(JSON.stringify(event)).not.toContain("transcript");
@@ -174,6 +175,26 @@ describe("Claude Code adapter", () => {
     expect(JSON.stringify(result)).not.toContain("private-command");
     expect(JSON.stringify(result)).not.toContain("private-prompt");
     expect(JSON.stringify(result)).not.toContain("transcript");
+  });
+
+  it("does not forward assistant messages or error details", () => {
+    const result = mapClaudeEvent({
+      hook_event_name: "StopFailure",
+      error: "server_error",
+      last_assistant_message: "private assistant transcript",
+      error_details: "private provider details",
+      title: "private platform title",
+    });
+
+    expect(result.kind).toBe("event");
+    expect(JSON.stringify(result)).not.toContain(
+      "private assistant transcript",
+    );
+    expect(JSON.stringify(result)).not.toContain("private provider details");
+    expect(JSON.stringify(result)).not.toContain("private platform title");
+    if (result.kind === "event") {
+      expect(result.event).not.toHaveProperty("message");
+    }
   });
 
   it("ignores SessionEnd and unsupported events", () => {

@@ -16,6 +16,12 @@ export interface DaemonServerOptions {
   dashboard?: DashboardOptions;
 }
 
+const MAX_EVENT_BODY_BYTES = 64 * 1_024;
+export const EVENT_BODY_TIMEOUT_MS = 2_000;
+
+class EventBodyTooLargeError extends Error {}
+class EventBodyTimeoutError extends Error {}
+
 export function isLoopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "::1";
 }
@@ -36,14 +42,110 @@ function sendJson(
   response.end(JSON.stringify(body));
 }
 
-async function readJson(request: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = [];
+function sendJsonAndClose(
+  request: IncomingMessage,
+  response: ServerResponse,
+  statusCode: number,
+  body: unknown,
+): void {
+  response.shouldKeepAlive = false;
+  response.writeHead(statusCode, {
+    connection: "close",
+    "content-type": "application/json; charset=utf-8",
+  });
+  response.end(JSON.stringify(body), () => {
+    if (!request.destroyed) {
+      request.destroy();
+    }
+  });
+}
 
-  for await (const chunk of request) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+function declaredBodyTooLarge(request: IncomingMessage): boolean {
+  const header = request.headers["content-length"];
+  if (typeof header !== "string") {
+    return false;
   }
 
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  const contentLength = Number(header);
+  return Number.isFinite(contentLength) && contentLength > MAX_EVENT_BODY_BYTES;
+}
+
+function readJson(request: IncomingMessage): Promise<unknown> {
+  if (declaredBodyTooLarge(request)) {
+    throw new EventBodyTooLargeError();
+  }
+
+  return new Promise<unknown>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout>;
+
+    const cleanup = (): void => {
+      clearTimeout(timeout);
+      request.off("data", onData);
+      request.off("end", onEnd);
+      request.off("error", onError);
+      request.off("aborted", onAborted);
+    };
+
+    const finish = (error?: unknown, value?: unknown): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      if (error !== undefined) {
+        reject(error);
+      } else {
+        resolve(value);
+      }
+    };
+
+    const stopReading = (error: Error): void => {
+      request.pause();
+      finish(error);
+    };
+
+    const onData = (chunk: Buffer | string): void => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      totalBytes += buffer.byteLength;
+      if (totalBytes > MAX_EVENT_BODY_BYTES) {
+        chunks.length = 0;
+        stopReading(new EventBodyTooLargeError());
+        return;
+      }
+      chunks.push(buffer);
+    };
+
+    const onEnd = (): void => {
+      try {
+        finish(undefined, JSON.parse(Buffer.concat(chunks).toString("utf8")));
+      } catch (error) {
+        finish(error);
+      }
+    };
+
+    const onError = (error: Error): void => finish(error);
+    const onAborted = (): void => finish(new Error("Request body aborted"));
+
+    timeout = setTimeout(
+      () => stopReading(new EventBodyTimeoutError()),
+      EVENT_BODY_TIMEOUT_MS,
+    );
+    request.on("data", onData);
+    request.once("end", onEnd);
+    request.once("error", onError);
+    request.once("aborted", onAborted);
+  });
+}
+
+function hasJsonContentType(request: IncomingMessage): boolean {
+  const contentType = request.headers["content-type"];
+  return (
+    typeof contentType === "string" &&
+    contentType.split(";", 1)[0]?.trim().toLowerCase() === "application/json"
+  );
 }
 
 async function handleRequest(
@@ -53,7 +155,14 @@ async function handleRequest(
   options: DaemonServerOptions,
   startedAt: number,
 ): Promise<void> {
-  const url = new URL(request.url ?? "/", "http://localhost");
+  let url: URL;
+
+  try {
+    url = new URL(request.url ?? "/", "http://localhost");
+  } catch {
+    sendJson(response, 400, { error: "Invalid request target" });
+    return;
+  }
 
   if (
     request.method === "GET" &&
@@ -75,14 +184,33 @@ async function handleRequest(
   }
 
   if (request.method === "POST" && url.pathname === "/events") {
+    if (!hasJsonContentType(request)) {
+      sendJsonAndClose(request, response, 415, {
+        error: "Content-Type must be application/json",
+      });
+      return;
+    }
+
     let input: unknown;
 
     try {
       input = await readJson(request);
     } catch (error) {
-      sendJson(response, 400, {
-        error: error instanceof Error ? error.message : "Invalid JSON body",
-      });
+      if (error instanceof EventBodyTooLargeError) {
+        sendJsonAndClose(request, response, 413, {
+          error: "Event body too large",
+        });
+        return;
+      }
+
+      if (error instanceof EventBodyTimeoutError) {
+        sendJsonAndClose(request, response, 408, {
+          error: "Event body timed out",
+        });
+        return;
+      }
+
+      sendJson(response, 400, { error: "Invalid JSON body" });
       return;
     }
 
@@ -93,19 +221,14 @@ async function handleRequest(
         ...(typeof remoteAlias === "string" ? { remoteAlias } : {}),
       };
       const result = await service.ingest(eventInput as AgentEventInput);
-      sendJson(response, 202, result);
+      sendJson(response, result.applied ? 202 : 200, result);
     } catch (error) {
       if (error instanceof ZodError) {
-        sendJson(response, 400, {
-          error: "Invalid event",
-          issues: error.issues,
-        });
+        sendJson(response, 400, { error: "Invalid event" });
         return;
       }
 
-      sendJson(response, 500, {
-        error: error instanceof Error ? error.message : "Internal server error",
-      });
+      sendJson(response, 500, { error: "Internal server error" });
     }
     return;
   }
@@ -119,7 +242,20 @@ export function createDaemonServer(
 ): Server {
   const startedAt = Date.now();
   return createServer((request, response) => {
-    void handleRequest(request, response, service, options, startedAt);
+    void handleRequest(request, response, service, options, startedAt).catch(
+      () => {
+        if (response.writableEnded) {
+          return;
+        }
+
+        if (!response.headersSent) {
+          sendJson(response, 500, { error: "Internal server error" });
+          return;
+        }
+
+        response.destroy();
+      },
+    );
   });
 }
 

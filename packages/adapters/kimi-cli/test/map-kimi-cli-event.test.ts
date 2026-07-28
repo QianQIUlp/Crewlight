@@ -21,16 +21,33 @@ function eventFor(payload: Record<string, unknown>) {
 describe("KimiCli adapter", () => {
   it.each([
     ["SessionStart", "running"],
-    ["BeforeTool", "using_tool"],
-    ["AfterTool", "running"],
+    ["UserPromptSubmit", "running"],
+    ["PreToolUse", "using_tool"],
+    ["PostToolUse", "running"],
+    ["PostToolUseFailure", "running"],
+    ["PermissionRequest", "waiting_permission"],
+    ["PermissionResult", "running"],
     ["Stop", "completed"],
+    ["SessionEnd", "idle"],
+    ["StopFailure", "failed"],
+    ["Interrupt", "idle"],
   ] as const)("maps %s to %s", (hookEventName, status) => {
     expect(eventFor({ hook_event_name: hookEventName }).status).toBe(status);
   });
 
+  it("distinguishes rate limits from other turn failures", () => {
+    expect(
+      eventFor({ hook_event_name: "StopFailure", error: "rate_limit" }).status,
+    ).toBe("rate_limited");
+    expect(
+      eventFor({ hook_event_name: "StopFailure", error: "server_error" })
+        .status,
+    ).toBe("failed");
+  });
+
   it("maps session identity, project path, and safe descriptive fields", () => {
     const event = eventFor({
-      hook_event_name: "BeforeTool",
+      hook_event_name: "PreToolUse",
       tool_name: "run_command",
     });
 
@@ -41,18 +58,20 @@ describe("KimiCli adapter", () => {
       status: "using_tool",
       sessionId: "kimi-cli-session",
       projectPath: "/tmp/kimi-cli-project",
-      title: "BeforeTool",
+      title: "PreToolUse",
       ...(normalized.message ? { message: normalized.message } : {}),
     });
   });
 
   it("never leaks raw parameters or transcripts", () => {
     const result = mapKimiCliEvent({
-      hook_event_name: "BeforeTool",
+      hook_event_name: "PreToolUse",
       tool_name: "run_command",
       prompt: "find secret credentials",
       transcript: "some private dialog",
       raw_output: "keys keys keys",
+      message: "secret platform message",
+      title: "secret platform title",
     });
 
     expect(result.kind).toBe("event");
