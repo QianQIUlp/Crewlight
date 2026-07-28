@@ -56,6 +56,8 @@ describe("ReasonixCli adapter", () => {
       prompt: "find secret credentials",
       transcript: "some private dialog",
       raw_output: "keys keys keys",
+      title: "secret platform title",
+      message: "secret platform message",
     });
 
     expect(result.kind).toBe("event");
@@ -64,6 +66,9 @@ describe("ReasonixCli adapter", () => {
       expect(eventJson).not.toContain("secret");
       expect(eventJson).not.toContain("dialog");
       expect(eventJson).not.toContain("keys");
+      expect(eventJson).not.toContain("secret platform title");
+      expect(eventJson).not.toContain("secret platform message");
+      expect(result.event.title).toBe("tool_use");
     }
   });
 

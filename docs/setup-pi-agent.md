@@ -1,74 +1,28 @@
-# Pi Agent Integration Guide (Experimental)
+# Pi Agent parser status (setup unavailable)
 
-Crewlight provides an integration adapter for Pi Agent to monitor session execution states, tool invocations, and exit statuses.
+Crewlight contains an experimental Pi Agent payload parser, but it does not yet provide a verified Pi Agent integration extension.
 
-> [!NOTE]
-> This adapter is currently labeled as **Experimental** and relies on allowlisted event payloads.
+> [!WARNING]
+> `crewlight setup pi-agent --print` is intentionally disabled and returns a non-zero exit code. Crewlight does not emit the legacy draft because it is not a valid, verified Pi TypeScript extension.
 
-## Setup Instructions
+## Current scope
 
-### 1. Print configuration snippet
+The current implementation can parse allowlisted synthetic hook payloads sent directly to:
 
-Generate your hook configuration block by running:
+```bash
+crewlight ingest pi-agent
+```
+
+The setup command reports the missing bridge and does not print a configuration or synthetic smoke command:
 
 ```bash
 crewlight setup pi-agent --print
 ```
 
-### 2. Output Snippet
+The ingest parser remains available only for development of a future Pi-specific bridge. Direct synthetic ingest does not install or load an extension, register lifecycle callbacks, or verify end-to-end host behavior.
 
-The command will produce a mergeable JSON hook block similar to the following:
+## Production use
 
-```json
-{
-  "hooks": {
-    "start": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest pi-agent"
-          }
-        ]
-      }
-    ],
-    "tool_use": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest pi-agent"
-          }
-        ]
-      }
-    ],
-    "finish": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest pi-agent"
-          }
-        ]
-      }
-    ],
-    "error": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest pi-agent"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+Pi integrations are implemented as TypeScript extensions. Crewlight needs a dedicated extension bridge and a verified event mapping before this adapter can be installed safely.
 
-Merge this block into your global or workspace-specific Pi Agent configuration.
-
-### 3. Verify
-
-Run `crewlight daemon --notifier console` and start a session using Pi Agent. Verified statuses will route automatically to your local companion dashboard.
+Until that bridge exists, keep this adapter limited to parser and bridge development. Crewlight does not provide an installable Pi Agent setup snippet.

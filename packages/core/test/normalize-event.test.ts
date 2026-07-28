@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeAgentEvent, type AgentEventInput } from "../src/index.js";
+import {
+  AGENT_DISPLAY_MAX_LENGTH,
+  AGENT_IDENTITY_MAX_LENGTH,
+  AGENT_PATH_MAX_LENGTH,
+  agentSessionSchema,
+  deriveSessionKey,
+  normalizeAgentEvent,
+  type AgentEventInput,
+} from "../src/index.js";
 
 const baseInput: AgentEventInput = {
   source: "custom",
@@ -26,6 +34,85 @@ describe("normalizeAgentEvent", () => {
     expect(custom.sessionKey).not.toBe(codex.sessionKey);
   });
 
+  it("namespaces remote sessions by remote alias without splitting local sessions", () => {
+    const localFirst = normalizeAgentEvent({
+      ...baseInput,
+      sessionId: "shared-remote-id",
+    });
+    const localSecond = normalizeAgentEvent({
+      ...baseInput,
+      sessionId: "shared-remote-id",
+    });
+    const remoteA = normalizeAgentEvent({
+      ...baseInput,
+      sessionId: "shared-remote-id",
+      remoteAlias: "host-a",
+    });
+    const remoteARepeat = normalizeAgentEvent({
+      ...baseInput,
+      sessionId: "shared-remote-id",
+      remoteAlias: "host-a",
+    });
+    const remoteB = normalizeAgentEvent({
+      ...baseInput,
+      sessionId: "shared-remote-id",
+      remoteAlias: "host-b",
+    });
+
+    expect(localFirst.sessionKey).toBe(localSecond.sessionKey);
+    expect(remoteA.sessionKey).toBe(remoteARepeat.sessionKey);
+    expect(remoteA.sessionKey).not.toBe(remoteB.sessionKey);
+    expect(remoteA.sessionKey).not.toBe(localFirst.sessionKey);
+  });
+
+  it("namespaces remote project fallbacks by remote alias", () => {
+    const remoteA = normalizeAgentEvent({
+      ...baseInput,
+      projectPath: "/workspace/shared",
+      remoteAlias: "host-a",
+    });
+    const remoteB = normalizeAgentEvent({
+      ...baseInput,
+      projectPath: "/workspace/shared",
+      remoteAlias: "host-b",
+    });
+
+    expect(remoteA.sessionKey).not.toBe(remoteB.sessionKey);
+  });
+
+  it.each([
+    {
+      label: "POSIX",
+      input: "/srv/crewlight/../workspace/team project",
+      expected: "/srv/workspace/team project",
+    },
+    {
+      label: "Windows",
+      input: String.raw`C:\Users\crewlight\..\workspace\team project`,
+      expected: String.raw`C:\Users\workspace\team project`,
+    },
+  ])(
+    "lexically normalizes a remote $label path without resolving it against the local host",
+    ({ input, expected }) => {
+      const event = normalizeAgentEvent({
+        ...baseInput,
+        projectPath: input,
+        remoteAlias: "remote-host",
+      });
+
+      expect(event.projectPath).toBe(expected);
+      expect(event.sessionKey).toBe(
+        deriveSessionKey({
+          ...baseInput,
+          projectPath: input,
+          remoteAlias: "remote-host",
+        }),
+      );
+      expect(event.projectPath).toContain("team project");
+      expect(event.projectPath).not.toContain(process.cwd());
+    },
+  );
+
   it("uses a stable normalized project fallback", () => {
     const first = normalizeAgentEvent({
       ...baseInput,
@@ -48,6 +135,27 @@ describe("normalizeAgentEvent", () => {
     expect(first.sessionKey).not.toBe(second.sessionKey);
   });
 
+  it("rejects timestamps outside JavaScript's safe integer range", () => {
+    expect(() =>
+      normalizeAgentEvent({
+        ...baseInput,
+        timestamp: Number.MAX_SAFE_INTEGER + 1,
+      }),
+    ).toThrow();
+  });
+
+  it("caps future timestamps at normalization time", () => {
+    const event = normalizeAgentEvent(
+      {
+        ...baseInput,
+        timestamp: 9_000_000,
+      },
+      () => 1_000,
+    );
+
+    expect(event.timestamp).toBe(1_000);
+  });
+
   it("drops rawEvent at the normalization boundary", () => {
     const event = normalizeAgentEvent({
       ...baseInput,
@@ -56,6 +164,84 @@ describe("normalizeAgentEvent", () => {
 
     expect(event).not.toHaveProperty("rawEvent");
     expect(JSON.stringify(event)).not.toContain("transient");
+  });
+
+  it("strips terminal and line control characters from identity and display strings", () => {
+    const event = normalizeAgentEvent({
+      ...baseInput,
+      id: "event\u001b[31m\n-id",
+      sessionId: "session\r\n-id",
+      projectPath: "/srv/team \u0085name/project",
+      workspaceName: "workspace\u0000\u2028name",
+      taskTitle: "task\u009b\u2029title",
+      title: "title\u007fvalue",
+      message: "message\tvalue",
+      remoteAlias: "remote\u001bhost",
+    });
+
+    expect(event).toMatchObject({
+      id: "event[31m-id",
+      sessionId: "session-id",
+      projectPath: "/srv/team name/project",
+      workspaceName: "workspacename",
+      taskTitle: "tasktitle",
+      title: "titlevalue",
+      message: "messagevalue",
+      remoteAlias: "remotehost",
+    });
+    expect(JSON.stringify(event)).not.toMatch(
+      /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u,
+    );
+  });
+
+  it("rejects overlong identity, path, and display input", () => {
+    expect(() =>
+      normalizeAgentEvent({
+        ...baseInput,
+        sessionId: "s".repeat(AGENT_IDENTITY_MAX_LENGTH + 1),
+      }),
+    ).toThrow();
+    expect(() =>
+      normalizeAgentEvent({
+        ...baseInput,
+        projectPath: `/${"p".repeat(AGENT_PATH_MAX_LENGTH)}`,
+      }),
+    ).toThrow();
+    expect(() =>
+      normalizeAgentEvent({
+        ...baseInput,
+        message: "m".repeat(AGENT_DISPLAY_MAX_LENGTH + 1),
+      }),
+    ).toThrow();
+  });
+
+  it("rejects required identity strings that become empty after sanitizing", () => {
+    expect(() =>
+      normalizeAgentEvent({
+        ...baseInput,
+        sessionId: "\u001b\r\n\u009b\u2028",
+      }),
+    ).toThrow();
+  });
+
+  it("bounds identity and display strings in stored session schemas", () => {
+    const session = {
+      sessionKey: "session:key",
+      sessionId: "s".repeat(AGENT_IDENTITY_MAX_LENGTH),
+      source: "custom",
+      surface: "manual",
+      workspaceName: "w".repeat(AGENT_DISPLAY_MAX_LENGTH),
+      status: "completed",
+      lastEventAt: 1,
+    };
+
+    expect(agentSessionSchema.parse(session)).toEqual(session);
+    expect(() =>
+      agentSessionSchema.parse({
+        ...session,
+        workspaceName: "w".repeat(AGENT_DISPLAY_MAX_LENGTH + 1),
+      }),
+    ).toThrow();
   });
 
   it("retains explicit normalized task titles separately from event titles", () => {

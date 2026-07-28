@@ -341,6 +341,36 @@ describe("platform ingest commands", () => {
     },
   );
 
+  it.each([
+    ["mimo-code", "MiMo Code"],
+    ["openclaw", "OpenClaw"],
+    ["pi-agent", "Pi Agent"],
+    ["reasonix-cli", "Reasonix CLI"],
+  ] as const)(
+    "disables %s setup until a dedicated bridge is verified",
+    (platform, displayName) => {
+      const capture = captureIo();
+
+      expect(
+        executeSetupCommand([platform, "--print"], capture.io, setupRuntime()),
+      ).toBe(1);
+      expect(capture.output).toEqual([]);
+      expect(capture.warnings).toHaveLength(1);
+      expect(capture.warnings[0]).toContain(
+        `${displayName} setup is unavailable`,
+      );
+      expect(capture.warnings[0]).toContain(
+        "no verified external command-hook contract",
+      );
+      expect(capture.warnings[0]).toContain(
+        "ingest parser is retained only for bridge development",
+      );
+      expect(capture.warnings[0]).toContain(`dedicated ${displayName} bridge`);
+      expect(capture.warnings[0]).not.toContain("Adapter smoke test");
+      expect(capture.warnings[0]).not.toContain("crewlight-verify");
+    },
+  );
+
   it("derives Codex hook prompt titles only when opted in", async () => {
     const capture = captureIo();
     const target = captureClient("prompt-preview");
@@ -1174,11 +1204,22 @@ describe("setup snippet commands", () => {
     expect(capture.warnings[0]).toContain("manually");
     expect(capture.warnings[0]).toContain("crewlight doctor");
     expect(snippets.copilotCli).toContain("SessionStart");
-    expect(snippets.copilotCli).toContain("PreToolUse");
+    expect(snippets.copilotCli).not.toContain("PreToolUse");
     expect(snippets.copilotCli).toContain("PostToolUse");
     expect(snippets.copilotCli).toContain("Stop");
-    expect(snippets.copilotCli).toContain("StopFailure");
+    expect(snippets.copilotCli).toContain("ErrorOccurred");
+    expect(snippets.copilotCli).not.toContain("StopFailure");
     expect(snippets.copilotCli).toContain("Notification");
+    const copilotConfig = JSON.parse(snippets.copilotCli) as {
+      hooks: Record<string, Array<Record<string, unknown>>>;
+    };
+    expect(copilotConfig.hooks.SessionStart?.[0]).toMatchObject({
+      type: "command",
+    });
+    expect(copilotConfig.hooks.SessionStart?.[0]).not.toHaveProperty("hooks");
+    expect(capture.warnings[0]).toContain(
+      "PreToolUse is intentionally omitted",
+    );
     expect(snippets.copilotCli).toContain(
       "/usr/local/bin/node /workspace/Crewlight/packages/cli/dist/index.js ingest copilot-cli",
     );
@@ -1215,19 +1256,15 @@ describe("setup snippet commands", () => {
 
   it.each([
     ["codebuddy", "codebuddy", "SessionStart"],
-    ["kiro-cli", "kiroCli", "onSessionStart"],
-    ["kimi-cli", "kimiCli", "SessionStart"],
-    ["qwen-code", "qwenCode", "start"],
-    ["codewhale", "codewhale", "SessionStart"],
-    ["mimo-code", "mimoCode", "SessionStart"],
-    ["pi-agent", "piAgent", "start"],
-    ["openclaw", "openclaw", "SessionStart"],
-    ["hermes-agent", "hermesAgent", "start"],
-    ["qoder", "qoder", "SessionStart"],
+    ["kiro-cli", "kiroCli", "agentSpawn"],
+    ["kimi-cli", "kimiCli", "PreToolUse"],
+    ["qwen-code", "qwenCode", "SessionStart"],
+    ["codewhale", "codewhale", "message_submit"],
+    ["hermes-agent", "hermesAgent", "on_session_start"],
+    ["qoder", "qoder", "UserPromptSubmit"],
     ["qoderwork", "qoderwork", "SessionStart"],
-    ["reasonix-cli", "reasonixCli", "start"],
   ] as const)(
-    "prints the %s snippet and verification command",
+    "prints the %s snippet and explicit adapter smoke test",
     (platform, prop, verifyEvent) => {
       const capture = captureIo();
       const snippets = createSetupSnippets(undefined, setupRuntime());
@@ -1237,9 +1274,12 @@ describe("setup snippet commands", () => {
       ).toBe(0);
       expect(capture.output).toEqual([snippets[prop]]);
       expect(capture.warnings).toHaveLength(1);
-      expect(capture.warnings[0]).toContain("only printed a mergeable snippet");
+      expect(capture.warnings[0]).toContain("only printed");
       expect(capture.warnings[0]).toContain(
-        `Verification command: ${snippets.verification[prop]}`,
+        `Adapter smoke test: ${snippets.verification[prop]}`,
+      );
+      expect(capture.warnings[0]).toContain(
+        "does not verify that the platform loaded this hook",
       );
       expect(snippets[prop]).toContain(verifyEvent);
       expect(snippets[prop]).toContain(
@@ -1247,6 +1287,132 @@ describe("setup snippet commands", () => {
       );
     },
   );
+
+  it("uses Kimi Code's TOML hook contract", () => {
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+    const capture = captureIo();
+
+    expect(snippets.kimiCli).toContain("[[hooks]]");
+    expect(snippets.kimiCli).toContain('event = "PreToolUse"');
+    expect(snippets.kimiCli).toContain('event = "StopFailure"');
+    expect(snippets.kimiCli).toContain('event = "Interrupt"');
+    expect(snippets.kimiCli).not.toContain('"hooks":');
+    expect(
+      executeSetupCommand(["kimi-cli", "--print"], capture.io, setupRuntime()),
+    ).toBe(0);
+    expect(capture.warnings.join("\n")).toContain("~/.kimi-code/config.toml");
+  });
+
+  it("uses CodeWhale's TOML hook contract and event field", () => {
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+
+    expect(snippets.codewhale).toContain("[[hooks.hooks]]");
+    expect(snippets.codewhale).toContain('event = "message_submit"');
+    expect(snippets.codewhale).toContain('event = "turn_end"');
+    expect(snippets.codewhale).toContain('event = "subagent_spawn"');
+    expect(snippets.codewhale).toContain('event = "subagent_complete"');
+    expect(snippets.codewhale).not.toContain('event = "session_start"');
+    expect(snippets.codewhale).not.toContain('event = "tool_call_before"');
+    expect(snippets.codewhale).not.toContain('event = "tool_call_after"');
+    expect(snippets.codewhale).not.toContain('event = "on_error"');
+    expect(snippets.codewhale).not.toContain('event = "session_end"');
+    expect(snippets.codewhale).toContain("continue_on_error = true");
+    expect(snippets.codewhale).not.toContain('"hooks":');
+    expect(snippets.verification.codewhale).toContain(
+      '"event":"message_submit"',
+    );
+  });
+
+  it("uses Hermes Agent's YAML shell-hook contract and consent guidance", () => {
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+    const capture = captureIo();
+
+    expect(snippets.hermesAgent).toMatch(/^hooks:\n/u);
+    expect(snippets.hermesAgent).toContain("  pre_tool_call:");
+    expect(snippets.hermesAgent).toContain("    - command:");
+    expect(snippets.hermesAgent).not.toContain('"hooks":');
+    expect(
+      executeSetupCommand(
+        ["hermes-agent", "--print"],
+        capture.io,
+        setupRuntime(),
+      ),
+    ).toBe(0);
+    expect(capture.warnings.join("\n")).toContain("~/.hermes/config.yaml");
+    expect(capture.warnings.join("\n")).toContain("consent");
+  });
+
+  it("uses documented CodeBuddy, Qoder, and QoderWork events", () => {
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+    const codebuddy = JSON.parse(snippets.codebuddy) as {
+      hooks: Record<string, unknown>;
+    };
+    const qoder = JSON.parse(snippets.qoder) as {
+      hooks: Record<string, unknown>;
+    };
+    const qoderwork = JSON.parse(snippets.qoderwork) as {
+      hooks: Record<string, unknown>;
+    };
+
+    expect(codebuddy.hooks).toHaveProperty("PermissionRequest");
+    expect(codebuddy.hooks).toHaveProperty("StopFailure");
+    expect(codebuddy.hooks).not.toHaveProperty("PermissionNeeded");
+    expect(codebuddy.hooks).not.toHaveProperty("TaskEnd");
+    expect(qoder.hooks).toHaveProperty("PostToolUseFailure");
+    expect(qoder.hooks).not.toHaveProperty("StopFailure");
+    expect(qoderwork.hooks).toHaveProperty("PermissionRequest");
+    expect(qoderwork.hooks).toHaveProperty("PostToolUseFailure");
+    expect(qoderwork.hooks).not.toHaveProperty("StopFailure");
+  });
+
+  it("uses Kiro CLI's custom-agent hook contract", () => {
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+    const capture = captureIo();
+    const config = JSON.parse(snippets.kiroCli) as {
+      hooks: Record<string, Array<Record<string, unknown>>>;
+    };
+
+    expect(Object.keys(config.hooks)).toEqual([
+      "agentSpawn",
+      "userPromptSubmit",
+      "preToolUse",
+      "postToolUse",
+      "stop",
+    ]);
+    expect(config.hooks.agentSpawn?.[0]).toHaveProperty("command");
+    expect(config.hooks.agentSpawn?.[0]).not.toHaveProperty("hooks");
+    expect(
+      executeSetupCommand(["kiro-cli", "--print"], capture.io, setupRuntime()),
+    ).toBe(0);
+    expect(capture.warnings.join("\n")).toContain(".kiro/agents/");
+  });
+
+  it("uses Qwen Code's documented PascalCase hook events", () => {
+    const snippets = createSetupSnippets(undefined, setupRuntime());
+    const capture = captureIo();
+    const config = JSON.parse(snippets.qwenCode) as {
+      hooks: Record<string, unknown>;
+    };
+
+    expect(Object.keys(config.hooks)).toEqual(
+      expect.arrayContaining([
+        "SessionStart",
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "PermissionRequest",
+        "Stop",
+        "StopFailure",
+        "Notification",
+      ]),
+    );
+    expect(config.hooks).not.toHaveProperty("start");
+    expect(config.hooks).not.toHaveProperty("tool_use");
+    expect(
+      executeSetupCommand(["qwen-code", "--print"], capture.io, setupRuntime()),
+    ).toBe(0);
+    expect(capture.warnings.join("\n")).toContain(".qwen/settings.json");
+  });
 
   it("prints the Codex notify snippet", () => {
     const capture = captureIo();
@@ -1261,6 +1427,8 @@ describe("setup snippet commands", () => {
     expect(capture.warnings[0]).toContain("do not overwrite");
     expect(capture.warnings[0]).toContain("project .codex/config.toml");
     expect(capture.warnings[0]).toContain("crewlight doctor");
+    expect(snippets.verification.codex).toContain("agent-turn-complete");
+    expect(snippets.verification.codex).toContain("thread-id");
   });
 
   it("prints practical manual Cursor bridge commands", () => {
@@ -1288,7 +1456,10 @@ describe("setup snippet commands", () => {
     expect(capture.warnings.join("\n")).toContain(
       "does not observe Cursor internals",
     );
-    expect(capture.warnings.join("\n")).toContain("Verification command:");
+    expect(capture.warnings.join("\n")).toContain("Adapter smoke test:");
+    expect(capture.warnings.join("\n")).toContain(
+      "does not verify that the platform loaded this hook",
+    );
     expect(capture.warnings.join("\n")).toContain(
       "--session crewlight-verify-cursor",
     );

@@ -1,18 +1,17 @@
-# SSH Remote Tunneling & Event Ingest
+# SSH remote event ingest
 
-Crewlight enables zero-config monitoring of agents running on remote development servers via secure, lazy-loaded SSH tunnels.
+Crewlight Desktop can receive agent events from explicitly selected SSH hosts through a reverse SSH tunnel. Remote support is opt-in and remains ingest-only: the tunnel accepts JSON `POST /events` requests and does not expose dashboard, session-read, or daemon-control endpoints to the remote host.
 
-## How It Works
+## How it works
 
-1. **Host Discovery**: Crewlight parses your local `~/.ssh/config` to look for designated hosts.
-2. **Tunneling**: When you connect, Crewlight sets up a local HTTP listener and binds it to a remote port forward (`127.0.0.1:3768`) on the remote server over SSH.
-3. **Session Tagging**: Remote event requests include the alias, which Crewlight dashboard renders as a distinct `🌐 host-alias` badge.
+1. **Host discovery:** Crewlight reads `~/.ssh/config` and includes only host blocks marked with `# CrewlightRemote: yes`.
+2. **Host verification:** Crewlight verifies the SSH server key against `~/.ssh/known_hosts`, including ordinary and hashed entries. Unknown, changed, or revoked keys fail closed.
+3. **Authentication:** Crewlight uses the block's `IdentityFile` when present and can fall back to the local SSH agent when `SSH_AUTH_SOCK` is available. Password prompts are not supported.
+4. **Event forwarding:** The SSH server listens on remote `127.0.0.1:3768`; accepted event requests are forwarded to a loopback-only proxy and then to the local Crewlight daemon. Crewlight attaches the configured host alias locally.
 
-## Setup Instructions
+## Configure a host
 
-### 1. Tag your SSH host
-
-Add a `# CrewlightRemote: yes` comment inline to your designated host block in `~/.ssh/config`:
+Mark a concrete SSH host block in `~/.ssh/config`:
 
 ```text
 Host devserver
@@ -22,15 +21,46 @@ Host devserver
   # CrewlightRemote: yes
 ```
 
-_Note: Only public-key authentication is supported. Make sure your identity file is loaded or config path is correct._
+The marker may also appear immediately before the `Host` line. Use a single concrete alias rather than a wildcard block. Relative `IdentityFile` paths are resolved from the directory containing the SSH config file; `~/...` paths are resolved from your home directory.
 
-### 2. Connect in the Desktop App
+Before connecting in Crewlight, connect once with OpenSSH:
 
-- Launch Crewlight Desktop and navigate to `Settings -> Remote`.
-- Click **Scan** (or restart the app) to discover your tagged hosts.
-- Click **Connect**.
-- If `crewlight` is not installed on the remote machine, a dialog will appear showing the remote CLI installation snippet. Paste it into your remote terminal to install `crewlight` on the server.
+```bash
+ssh devserver
+```
 
-### 3. Observe remote events
+Review the server fingerprint and let OpenSSH add the verified key to `known_hosts`. If Crewlight later reports an unknown or changed host key, verify the host outside Crewlight and update `known_hosts` manually; Crewlight does not auto-trust or replace keys.
 
-Run any compatible agent CLI (e.g. Claude Code or Gemini CLI) on your remote server. The events will flow over the tunnel and appear on your local machine tagged with the host's glob icon and name chip.
+## Connect from Crewlight Desktop
+
+1. Start the local Crewlight service.
+2. Open **Settings → Remote**.
+3. Select **Scan** to reload marked hosts.
+4. Select **Connect** for the host.
+
+Rescanning removes connections whose marked host block was removed or materially changed. Optional auto-connect applies only to hosts already discovered from the marked SSH configuration.
+
+## Install the remote CLI
+
+The remote host must have the `crewlight` CLI on `PATH`. Crewlight Desktop does not install it automatically and Crewlight does not publish an npm-installable CLI package.
+
+If the desktop app reports that the CLI is missing, open the [Crewlight releases page](https://github.com/QianQIUlp/Crewlight/releases) and download the same Crewlight version shown by the dialog for the remote operating system and architecture. CLI archive names follow these patterns:
+
+- Linux/macOS: `crewlight-v<version>-<os>-<arch>.tar.gz`
+- Windows: `crewlight-v<version>-windows-<arch>.zip`
+
+Download the matching `.sha256` file, verify the archive checksum, extract it, and place the `crewlight` executable in a directory on the remote host's `PATH`. On Linux or macOS, preserve or restore its executable bit. Reconnect after installation.
+
+Do not copy the desktop application's bundled executable to a different operating system or architecture. Use the matching same-version CLI release artifact.
+
+## Verify remote ingest
+
+After the tunnel is connected, configure a supported agent adapter on the remote host and complete a real agent turn. Events sent to remote `http://127.0.0.1:3768/events` appear in the local dashboard with the SSH alias badge.
+
+If events do not appear, verify that:
+
+- the local Crewlight service is running;
+- the remote CLI version matches the desktop version;
+- the remote adapter loaded its hook configuration;
+- `crewlight` resolves from the hook process's `PATH`;
+- the SSH host key and authentication method are accepted.

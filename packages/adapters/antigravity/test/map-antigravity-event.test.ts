@@ -30,7 +30,7 @@ describe("Antigravity adapter", () => {
     ["PostToolUse", "running"],
     ["Stop", "completed"],
     ["StopFailure", "failed"],
-    ["SessionEnd", "completed"],
+    ["SessionEnd", "idle"],
   ] as const)("maps %s to %s", (hookEventName, status) => {
     expect(eventFor({ hook_event_name: hookEventName }).status).toBe(status);
   });
@@ -60,6 +60,8 @@ describe("Antigravity adapter", () => {
       prompt: "find secret credentials",
       transcript: "some private dialog",
       raw_output: "keys keys keys",
+      title: "secret platform title",
+      message: "secret platform message",
     });
 
     expect(result.kind).toBe("event");
@@ -68,6 +70,9 @@ describe("Antigravity adapter", () => {
       expect(eventJson).not.toContain("secret");
       expect(eventJson).not.toContain("dialog");
       expect(eventJson).not.toContain("keys");
+      expect(eventJson).not.toContain("secret platform title");
+      expect(eventJson).not.toContain("secret platform message");
+      expect(result.event.title).toBe("PreToolUse");
     }
   });
 

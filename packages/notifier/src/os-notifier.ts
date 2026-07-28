@@ -6,6 +6,7 @@ import { shouldNotify } from "./notification-policy.js";
 export const OS_NOTIFICATION_TITLE_LIMIT = 80;
 export const OS_NOTIFICATION_MESSAGE_LIMIT = 200;
 export const OS_NOTIFICATION_TIMEOUT_MS = 1_000;
+export const OS_NOTIFIER_PROBE_TIMEOUT_MS = 1_000;
 
 export const OS_NOTIFIER_WARNINGS = {
   callback:
@@ -30,6 +31,9 @@ export type OsNotificationSender = (
   notification: OsNotification,
   callback: OsNotificationCallback,
 ) => void;
+type OsNotificationSenderLoadResult =
+  | { kind: "ready"; sender: OsNotificationSender }
+  | { kind: "unavailable"; reason: "import" | "shape" };
 export type OsNotifierModuleLoader = () => Promise<unknown>;
 export type OsNotifierWarningWriter = (warning: string) => void;
 
@@ -73,12 +77,28 @@ function senderFromModule(module: unknown): OsNotificationSender | undefined {
 
 export async function probeOsNotifier(
   loader: OsNotifierModuleLoader = () => import("node-notifier"),
+  timeoutMs = OS_NOTIFIER_PROBE_TIMEOUT_MS,
 ): Promise<OsNotifierProbeResult> {
-  let module: unknown;
+  const timedOut = Symbol("os-notifier-probe-timeout");
+  let timeout: NodeJS.Timeout | undefined;
+  let module: unknown | typeof timedOut;
 
   try {
-    module = await loader();
+    module = await Promise.race([
+      loader(),
+      new Promise<typeof timedOut>((resolve) => {
+        timeout = setTimeout(() => resolve(timedOut), timeoutMs);
+      }),
+    ]);
   } catch {
+    return { available: false, reason: "import" };
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+
+  if (module === timedOut) {
     return { available: false, reason: "import" };
   }
 
@@ -112,7 +132,7 @@ export class OsNotifier implements Notifier {
   readonly #loader: OsNotifierModuleLoader;
   readonly #timeoutMs: number;
   readonly #warning: OsNotifierWarningWriter;
-  #senderPromise: Promise<OsNotificationSender | undefined> | undefined;
+  #senderPromise: Promise<OsNotificationSenderLoadResult> | undefined;
 
   constructor(options: OsNotifierOptions = {}) {
     this.#loader = options.loader ?? (() => import("node-notifier"));
@@ -122,11 +142,6 @@ export class OsNotifier implements Notifier {
 
   async notify(event: AgentEvent, session: AgentSession): Promise<void> {
     if (!shouldNotify(event)) {
-      return;
-    }
-
-    const sender = await this.#loadSender();
-    if (!sender) {
       return;
     }
 
@@ -148,53 +163,73 @@ export class OsNotifier implements Notifier {
         finish();
       }, this.#timeoutMs);
 
-      try {
-        sender(notification, (error) => {
+      void this.#loadSender().then(
+        (result) => {
           if (settled) {
             return;
           }
-
-          if (error) {
-            this.#warn(OS_NOTIFIER_WARNINGS.callback);
+          if (result.kind === "unavailable") {
+            this.#warn(
+              result.reason === "import"
+                ? OS_NOTIFIER_WARNINGS.import
+                : OS_NOTIFIER_WARNINGS.shape,
+            );
+            finish();
+            return;
           }
-          finish();
-        });
-      } catch {
-        this.#warn(OS_NOTIFIER_WARNINGS.runtime);
-        finish();
-      }
+
+          try {
+            result.sender(notification, (error) => {
+              if (settled) {
+                return;
+              }
+
+              if (error) {
+                this.#warn(OS_NOTIFIER_WARNINGS.callback);
+              }
+              finish();
+            });
+          } catch {
+            this.#warn(OS_NOTIFIER_WARNINGS.runtime);
+            finish();
+          }
+        },
+        () => {
+          if (!settled) {
+            this.#warn(OS_NOTIFIER_WARNINGS.import);
+            finish();
+          }
+        },
+      );
     });
   }
 
-  async #loadSender(): Promise<OsNotificationSender | undefined> {
+  async #loadSender(): Promise<OsNotificationSenderLoadResult> {
     this.#senderPromise ??= this.#createSender();
     return this.#senderPromise;
   }
 
-  async #createSender(): Promise<OsNotificationSender | undefined> {
+  async #createSender(): Promise<OsNotificationSenderLoadResult> {
     let module: unknown;
 
     try {
       module = await this.#loader();
     } catch {
-      this.#warn(OS_NOTIFIER_WARNINGS.import);
-      return undefined;
+      return { kind: "unavailable", reason: "import" };
     }
 
     let sender: OsNotificationSender | undefined;
     try {
       sender = senderFromModule(module);
     } catch {
-      this.#warn(OS_NOTIFIER_WARNINGS.shape);
-      return undefined;
+      return { kind: "unavailable", reason: "shape" };
     }
 
     if (!sender) {
-      this.#warn(OS_NOTIFIER_WARNINGS.shape);
-      return undefined;
+      return { kind: "unavailable", reason: "shape" };
     }
 
-    return sender;
+    return { kind: "ready", sender };
   }
 
   #warn(message: string): void {

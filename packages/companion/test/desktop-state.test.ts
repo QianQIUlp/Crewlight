@@ -48,6 +48,7 @@ function session(
   overrides: Partial<SanitizedSession> = {},
 ): SanitizedSession {
   return {
+    viewId: `view-${status}`,
     sessionKey: `demo:${status}`,
     source: "codex",
     surface: "cli",

@@ -48,6 +48,12 @@ describe("OS notifier", () => {
     expect(sends).toBe(0);
   });
 
+  it("bounds a notifier availability probe whose loader never settles", async () => {
+    await expect(
+      probeOsNotifier(() => new Promise<never>(() => {}), 5),
+    ).resolves.toEqual({ available: false, reason: "import" });
+  });
+
   it("limits notification title and message length", () => {
     const { event, session } = sessionFor("message".repeat(100));
     const notification = formatOsNotification(event, session);
@@ -166,6 +172,69 @@ describe("OS notifier", () => {
 
     await expect(notifier.notify(event, session)).resolves.toBeUndefined();
     expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.timeout]);
+  });
+
+  it("applies the timeout while the notifier module is still loading", async () => {
+    const warnings: string[] = [];
+    const { event, session } = sessionFor();
+    const notifier = new OsNotifier({
+      loader: () => new Promise<never>(() => {}),
+      timeoutMs: 5,
+      warning: (warning) => warnings.push(warning),
+    });
+
+    await expect(notifier.notify(event, session)).resolves.toBeUndefined();
+    expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.timeout]);
+  });
+
+  it("suppresses an import warning that arrives after the loading timeout", async () => {
+    const warnings: string[] = [];
+    const { event, session } = sessionFor();
+    let rejectLoader: ((reason: Error) => void) | undefined;
+    const notifier = new OsNotifier({
+      loader: () =>
+        new Promise<never>((_resolve, reject) => {
+          rejectLoader = reject;
+        }),
+      timeoutMs: 5,
+      warning: (warning) => warnings.push(warning),
+    });
+
+    await notifier.notify(event, session);
+    rejectLoader?.(new Error("late import detail"));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.timeout]);
+  });
+
+  it("suppresses a late shape warning while caching the loader result", async () => {
+    const warnings: string[] = [];
+    const { event, session } = sessionFor();
+    let loads = 0;
+    let resolveLoader: ((module: unknown) => void) | undefined;
+    const notifier = new OsNotifier({
+      loader: () => {
+        loads += 1;
+        return new Promise<unknown>((resolve) => {
+          resolveLoader = resolve;
+        });
+      },
+      timeoutMs: 5,
+      warning: (warning) => warnings.push(warning),
+    });
+
+    await notifier.notify(event, session);
+    resolveLoader?.({ default: {} });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.timeout]);
+
+    await notifier.notify(event, session);
+    expect(loads).toBe(1);
+    expect(warnings).toEqual([
+      OS_NOTIFIER_WARNINGS.timeout,
+      OS_NOTIFIER_WARNINGS.shape,
+    ]);
   });
 
   it("contains failures from the warning output itself", async () => {

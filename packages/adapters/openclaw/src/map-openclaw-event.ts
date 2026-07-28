@@ -18,20 +18,10 @@ const STATUS_MAP = new Map<string, AgentStatus>([
   ["StopFailure", "failed"],
 ]);
 
-function optionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
-
 function eventMessage(
   input: OpenclawHookInput,
   status: AgentStatus,
 ): string | undefined {
-  const explicit = optionalText(input.message);
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return "Using tool: " + input.tool_name;
   }
@@ -43,8 +33,6 @@ function toEvent(
   input: OpenclawHookInput,
   status: AgentStatus,
 ): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
 
   return {
@@ -53,7 +41,7 @@ function toEvent(
     status,
     ...(input.session_id ? { sessionId: input.session_id } : {}),
     ...(input.cwd ? { projectPath: input.cwd } : {}),
-    ...(title ? { title } : {}),
+    title: input.hook_event_name,
     ...(message ? { message } : {}),
   };
 }

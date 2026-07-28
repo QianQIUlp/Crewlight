@@ -47,7 +47,11 @@ async function emitSafely(
   try {
     await sink(event);
   } catch (error) {
-    onError?.(error, event);
+    try {
+      onError?.(error, event);
+    } catch {
+      // Event reporting must never interrupt or strand the wrapped command.
+    }
   }
 }
 

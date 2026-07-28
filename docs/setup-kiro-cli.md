@@ -1,74 +1,29 @@
 # Kiro CLI Integration Guide (Experimental)
 
-Crewlight provides an integration adapter for Kiro CLI to monitor session execution states, tool invocations, and exit statuses.
+Crewlight observes Kiro CLI through its documented custom-agent hooks and keeps only allowlisted status, identity, location, and short descriptive fields.
 
-> [!NOTE]
-> This adapter is currently labeled as **Experimental** and relies on allowlisted event payloads.
+## Setup
 
-## Setup Instructions
-
-### 1. Print configuration snippet
-
-Generate your hook configuration block by running:
+Print a mergeable JSON fragment:
 
 ```bash
 crewlight setup kiro-cli --print
 ```
 
-### 2. Output Snippet
+Merge the generated `hooks` object into the Kiro custom-agent JSON file you actually use. Project agents live under `.kiro/agents/`; global agents live under `~/.kiro/agents/`. Preserve the rest of the agent definition and any existing hooks.
 
-The command will produce a mergeable JSON hook block similar to the following:
+The fragment uses Kiro CLI's documented event names and direct command entries:
 
-```json
-{
-  "hooks": {
-    "onSessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest kiro-cli"
-          }
-        ]
-      }
-    ],
-    "onToolCall": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest kiro-cli"
-          }
-        ]
-      }
-    ],
-    "onComplete": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest kiro-cli"
-          }
-        ]
-      }
-    ],
-    "onError": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest kiro-cli"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+- `agentSpawn`
+- `userPromptSubmit`
+- `preToolUse`
+- `postToolUse`
+- `stop`
 
-Merge this block into your global or workspace-specific Kiro CLI configuration.
+## Verify
 
-### 3. Verify
+1. Start `crewlight daemon --notifier console`.
+2. Run the printed adapter smoke test. This checks only Crewlight's ingest path.
+3. Activate the edited Kiro agent, inspect `/hooks`, invoke a tool, and complete a turn. Confirm those real events appear in Crewlight.
 
-Run `crewlight daemon --notifier console` and start a session using Kiro CLI. Verified statuses will route automatically to your local companion dashboard.
+The smoke test does not prove that Kiro loaded the custom-agent hooks.

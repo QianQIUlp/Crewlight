@@ -1,23 +1,18 @@
-# Qoderwork Integration Guide (Experimental)
+# QoderWork integration (experimental)
 
-Crewlight provides an integration adapter for Qoderwork to monitor session execution states, tool invocations, and exit statuses.
+Crewlight observes an allowlisted subset of QoderWork hook fields. It does not retain prompts, transcripts, tool input, tool output, or complete hook payloads.
 
-> [!NOTE]
-> This adapter is currently labeled as **Experimental** and relies on allowlisted event payloads.
+## Configure
 
-## Setup Instructions
-
-### 1. Print configuration snippet
-
-Generate your hook configuration block by running:
+Print a mergeable hook block:
 
 ```bash
 crewlight setup qoderwork --print
 ```
 
-### 2. Output Snippet
+Crewlight only prints the JSON. It does not read or modify QoderWork settings. Merge the generated `hooks` object into `~/.qoderwork/settings.json` while preserving existing hook groups, then restart QoderWork. QoderWork does not currently hot-reload hook configuration.
 
-The command will produce a mergeable JSON hook block similar to the following:
+The generated block uses QoderWork's nested command-hook format:
 
 ```json
 {
@@ -27,49 +22,7 @@ The command will produce a mergeable JSON hook block similar to the following:
         "hooks": [
           {
             "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest qoderwork"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest qoderwork"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest qoderwork"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest qoderwork"
-          }
-        ]
-      }
-    ],
-    "StopFailure": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest qoderwork"
+            "command": "<generated Crewlight ingest command>"
           }
         ]
       }
@@ -78,8 +31,16 @@ The command will produce a mergeable JSON hook block similar to the following:
 }
 ```
 
-Merge this block into your global or workspace-specific Qoderwork configuration.
+Crewlight generates handlers for `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `SubagentStart`, `SubagentStop`, `PreCompact`, `Stop`, and `SessionEnd`. Events with tool or subagent matchers use `*`. It does not generate the nonexistent `StopFailure` entry from older examples.
 
-### 3. Verify
+The default output embeds the current Crewlight executable path. Use `--binary crewlight` only when QoderWork can reliably resolve `crewlight` from `PATH`.
 
-Run `crewlight daemon --notifier console` and start a session using Qoderwork. Verified statuses will route automatically to your local companion dashboard.
+## Verify
+
+Start the daemon, restart QoderWork, and complete a real turn:
+
+```bash
+crewlight daemon --notifier console
+```
+
+The adapter smoke test printed by `crewlight setup` checks only Crewlight's parser and daemon ingest path. It does not prove that QoderWork loaded or executed the hook configuration.

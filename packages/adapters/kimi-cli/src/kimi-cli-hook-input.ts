@@ -9,6 +9,7 @@ export const kimiCliHookInputSchema = z
     message: z.string().min(1).optional(),
     tool_name: z.string().min(1).optional(),
     notification_type: z.string().min(1).optional(),
+    error: z.string().min(1).optional(),
   })
   .passthrough();
 

@@ -1,12 +1,20 @@
 import net from "node:net";
-import { readFileSync } from "node:fs";
-import { Client } from "ssh2";
+import { Client, type ConnectConfig } from "ssh2";
+import { loadSshIdentity } from "./ssh-auth.js";
+import {
+  knownHostCandidates,
+  loadKnownHosts,
+  verifyKnownHostKey,
+  type KnownHostEntry,
+} from "./known-hosts.js";
 import type { SshConfigHost } from "./ssh-config-parser.js";
 
 export interface SshTunnelOptions {
   host: SshConfigHost;
   remotePort: number;
   localPort: number;
+  knownHosts?: readonly KnownHostEntry[];
+  knownHostsPath?: string;
   onStateChange: (state: TunnelState) => void;
 }
 
@@ -28,6 +36,7 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
   let isConnected = false;
   const maxRetries = 3;
   let shouldReconnect = true;
+  let hostKeyFailure: "changed" | "unknown" | undefined;
 
   function connect() {
     if (!shouldReconnect) {
@@ -37,26 +46,42 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
 
     conn = new Client();
 
-    const connectConfig: any = {
-      host: host.hostname ?? host.alias,
-      port: host.port ?? 22,
+    const hostname = host.hostname ?? host.alias;
+    const port = host.port ?? 22;
+    const knownHosts =
+      options.knownHosts ?? loadKnownHosts(options.knownHostsPath);
+    const candidates = knownHostCandidates(hostname, port, host.alias);
+    hostKeyFailure = undefined;
+    const connectConfig: ConnectConfig = {
+      host: hostname,
+      port,
       username: host.user ?? process.env.USER ?? "root",
       keepaliveInterval: 15000,
       keepaliveCountMax: 3,
+      hostVerifier: (key: Buffer) => {
+        const verification = verifyKnownHostKey(knownHosts, candidates, key);
+        hostKeyFailure = verification.ok ? undefined : verification.reason;
+        if (!verification.ok) {
+          shouldReconnect = false;
+        }
+        return verification.ok;
+      },
     };
 
+    const agentSocket = process.env.SSH_AUTH_SOCK;
+    if (agentSocket) {
+      connectConfig.agent = agentSocket;
+    }
+
     if (host.identityFile) {
-      try {
-        connectConfig.privateKey = readFileSync(host.identityFile);
-      } catch (err: any) {
-        onStateChange({
-          kind: "error",
-          message: `Failed to read private key: ${err.message}`,
-        });
+      const identity = loadSshIdentity(host.identityFile, !!agentSocket);
+      if (!identity.ok) {
+        onStateChange({ kind: "error", message: identity.message });
         return;
       }
-    } else if (process.env.SSH_AUTH_SOCK) {
-      connectConfig.agent = process.env.SSH_AUTH_SOCK;
+      if (identity.privateKey) {
+        connectConfig.privateKey = identity.privateKey;
+      }
     }
 
     conn
@@ -75,7 +100,7 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
           onStateChange({ kind: "connected", localPort });
         });
       })
-      .on("tcp connection", (info, accept, reject) => {
+      .on("tcp connection", (_info, accept, reject) => {
         const localSocket = net.connect(localPort, "127.0.0.1", () => {
           const remoteStream = accept();
           remoteStream.pipe(localSocket).pipe(remoteStream);
@@ -85,11 +110,20 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
         });
       })
       .on("error", (err) => {
-        onStateChange({ kind: "error", message: err.message });
+        const message =
+          hostKeyFailure === "changed"
+            ? "SSH host key changed. Connection refused; verify the host and update known_hosts manually."
+            : hostKeyFailure === "unknown"
+              ? "SSH host key is unknown. Connection refused; verify it with OpenSSH before connecting."
+              : err.message;
+        onStateChange({ kind: "error", message });
       })
       .on("close", () => {
         isConnected = false;
-        if (shouldReconnect && retryCount < maxRetries) {
+        if (!shouldReconnect) {
+          return;
+        }
+        if (retryCount < maxRetries) {
           retryCount++;
           setTimeout(connect, 3000);
         } else {
@@ -99,8 +133,12 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
 
     try {
       conn.connect(connectConfig);
-    } catch (err: any) {
-      onStateChange({ kind: "error", message: err.message });
+    } catch (error) {
+      onStateChange({
+        kind: "error",
+        message:
+          error instanceof Error ? error.message : "SSH connection failed",
+      });
     }
   }
 
@@ -127,7 +165,7 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
             return;
           }
           let output = "";
-          stream.on("data", (data: any) => {
+          stream.on("data", (data: Buffer | string) => {
             output += data.toString();
           });
           stream.on("close", (code: number) => {

@@ -8,6 +8,7 @@ import type { CrewlightCliContext } from "./runtime.js";
 const OUTPUT_LINE_LIMIT = 8;
 const OUTPUT_TEXT_LIMIT = 180;
 const STOP_TIMEOUT_MS = 5_000;
+const FORCE_STOP_GRACE_MS = 1_000;
 
 export type ManagedServicePhase =
   | "stopped"
@@ -79,6 +80,7 @@ export function createDaemonServiceManager(
   const events = new EventEmitter();
   let child: ChildProcessWithoutNullStreams | undefined;
   let stopTimer: NodeJS.Timeout | undefined;
+  let stopPromise: Promise<boolean> | undefined;
   let expectedStop = false;
   let currentSettings = { ...defaults };
   let state: ManagedServiceState = {
@@ -125,6 +127,9 @@ export function createDaemonServiceManager(
   }
 
   async function stop(): Promise<boolean> {
+    if (stopPromise) {
+      return await stopPromise;
+    }
     if (!child) {
       applyState({
         phase: "stopped",
@@ -140,30 +145,62 @@ export function createDaemonServiceManager(
       managed: true,
     });
     const activeChild = child;
-    return await new Promise<boolean>((resolve) => {
+    const operation = new Promise<boolean>((resolve) => {
+      let settled = false;
       const finish = (result: boolean) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
         activeChild.removeListener("exit", onExit);
         clearStopTimer();
         resolve(result);
+      };
+      const failStop = () => {
+        if (child === activeChild) {
+          applyState({
+            phase: "error",
+            managed: true,
+            lastError:
+              "The managed local service did not exit after a forced stop.",
+          });
+        }
+        finish(false);
       };
       const onExit = () => {
         finish(true);
       };
       activeChild.once("exit", onExit);
       try {
-        activeChild.kill("SIGTERM");
+        if (!activeChild.kill("SIGTERM")) {
+          failStop();
+          return;
+        }
       } catch {
-        finish(false);
+        failStop();
         return;
       }
       stopTimer = setTimeout(() => {
         try {
-          activeChild.kill("SIGKILL");
+          if (!activeChild.kill("SIGKILL")) {
+            failStop();
+            return;
+          }
         } catch {
-          // Ignore a late kill failure; the exit handler will settle state.
+          failStop();
+          return;
         }
+        stopTimer = setTimeout(failStop, FORCE_STOP_GRACE_MS);
       }, STOP_TIMEOUT_MS);
     });
+    stopPromise = operation;
+    try {
+      return await operation;
+    } finally {
+      if (stopPromise === operation) {
+        stopPromise = undefined;
+      }
+    }
   }
 
   async function start(settings: ManagedServiceSettings): Promise<boolean> {

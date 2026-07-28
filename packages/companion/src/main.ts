@@ -16,7 +16,6 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import http from "node:http";
 
 import {
   DaemonClient,
@@ -58,6 +57,16 @@ import {
 } from "./desktop-state.js";
 import { createCompanionEndpoint, isAllowedDashboardUrl } from "./endpoint.js";
 import {
+  canStopManagedService,
+  getCompanionDismissAction,
+  isExternalServiceConnection,
+} from "./lifecycle.js";
+import {
+  RemoteConnectionAttempts,
+  changedOrRemovedRemoteAliases,
+  reconcileRemoteHostState,
+} from "./remote-host-state.js";
+import {
   createDaemonServiceManager,
   type ManagedServiceState,
 } from "./service-manager.js";
@@ -70,6 +79,7 @@ import {
   type SshTunnel,
   type TunnelState,
 } from "./ssh-tunnel.js";
+import { createLocalHttpProxy, type LocalHttpProxy } from "./ssh-proxy.js";
 import type { DesktopRemoteHost } from "./desktop-state.js";
 import {
   deriveCompanionViewModel,
@@ -99,6 +109,8 @@ let mainWindow: BrowserWindow | undefined;
 let companionWindow: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let quitting = false;
+let shutdownComplete = false;
+let shutdownPromise: Promise<void> | undefined;
 let companionExpanded = false;
 let pollTimer: NodeJS.Timeout | undefined;
 let polling = false;
@@ -136,81 +148,43 @@ let preferencesStore:
 let parsedSshConfigHosts: SshConfigHost[] = [];
 let remoteHostsState: DesktopRemoteHost[] = [];
 const activeTunnels = new Map<string, SshTunnel>();
-const activeProxies = new Map<string, { close: () => void }>();
+const activeProxies = new Map<string, LocalHttpProxy>();
+const remoteConnectionAttempts = new RemoteConnectionAttempts();
+const remoteScanAttempts = new RemoteConnectionAttempts();
 
-function createLocalHttpProxy(
-  alias: string,
-): Promise<{ port: number; close: () => void }> {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer((req, res) => {
-      const targetPort = desiredRuntimeSettings.port;
-      const headers = { ...req.headers };
-      headers["x-crewlight-remote-alias"] = alias;
-      headers["host"] = `127.0.0.1:${targetPort}`;
-
-      const proxyReq = http.request(
-        {
-          host: "127.0.0.1",
-          port: targetPort,
-          path: req.url,
-          method: req.method,
-          headers,
-        },
-        (proxyRes) => {
-          res.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
-          proxyRes.pipe(res);
-        },
-      );
-
-      proxyReq.on("error", (err) => {
-        res.writeHead(502);
-        res.end(`Bad Gateway: ${err.message}`);
-      });
-
-      req.pipe(proxyReq);
-    });
-
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (address && typeof address === "object") {
-        resolve({
-          port: address.port,
-          close: () => {
-            server.close();
-          },
-        });
-      } else {
-        reject(new Error("Failed to get proxy port"));
-      }
-    });
-
-    server.on("error", (err) => {
-      reject(err);
-    });
-  });
+function disposeRemoteConnection(alias: string): void {
+  remoteConnectionAttempts.invalidate(alias);
+  const tunnel = activeTunnels.get(alias);
+  activeTunnels.delete(alias);
+  const proxy = activeProxies.get(alias);
+  activeProxies.delete(alias);
+  try {
+    tunnel?.disconnect();
+  } catch {}
+  try {
+    proxy?.close();
+  } catch {}
 }
 
 async function scanRemoteHosts() {
-  parsedSshConfigHosts = await parseCrewlightRemoteHosts();
-  remoteHostsState = parsedSshConfigHosts.map((h) => {
-    const existing = remoteHostsState.find((x) => x.alias === h.alias);
-    const pref = preferences.remoteHosts?.find((p) => p.alias === h.alias);
-    const autoConnect = pref ? pref.autoConnect : false;
-    const installPromptDismissed = pref ? !!pref.installPromptDismissed : false;
-    return {
-      alias: h.alias,
-      hostname: h.hostname,
-      user: h.user,
-      port: h.port,
-      tunnelState: activeTunnels.has(h.alias)
-        ? (existing?.tunnelState ?? "disconnected")
-        : "disconnected",
-      tunnelMessage: existing?.tunnelMessage,
-      hasCli: existing?.hasCli,
-      autoConnect,
-      installPromptDismissed,
-    };
-  });
+  const scanAttempt = remoteScanAttempts.begin("ssh-config");
+  const nextParsedHosts = await parseCrewlightRemoteHosts();
+  if (quitting || !remoteScanAttempts.finish("ssh-config", scanAttempt)) {
+    return;
+  }
+  for (const alias of changedOrRemovedRemoteAliases(
+    parsedSshConfigHosts,
+    nextParsedHosts,
+  )) {
+    disposeRemoteConnection(alias);
+  }
+  parsedSshConfigHosts = nextParsedHosts;
+  remoteHostsState = reconcileRemoteHostState(
+    parsedSshConfigHosts,
+    remoteHostsState,
+    preferences.remoteHosts,
+    new Set(activeTunnels.keys()),
+  );
 
   for (const host of remoteHostsState) {
     if (host.autoConnect && host.tunnelState === "disconnected") {
@@ -639,12 +613,17 @@ function buildTrayMenu(): Menu {
     { type: "separator" },
     {
       label: "Start Local Service",
+      enabled: !isExternalServiceConnection(
+        serviceState,
+        isSnapshotOnline(latestSnapshot),
+      ),
       click: () => {
         void startLocalService();
       },
     },
     {
       label: "Stop Local Service",
+      enabled: canStopManagedService(serviceState),
       click: () => {
         void stopLocalService();
       },
@@ -754,13 +733,16 @@ function createDesktopWindow(): BrowserWindow {
   window.on("hide", refreshTray);
   window.on("close", (event) => {
     if (!quitting) {
-      // Always hide instead of close so the app stays alive in the background.
-      // On platforms where the tray icon was successfully created the user can
-      // re-open via the tray; on Windows without a tray they can re-open via
-      // the taskbar or by launching the executable again.
-      event.preventDefault();
-      window.hide();
-      refreshTray();
+      const trayAvailable = !!tray && !tray.isDestroyed();
+      if (getCompanionDismissAction(trayAvailable) === "hide") {
+        event.preventDefault();
+        window.hide();
+        refreshTray();
+      } else {
+        event.preventDefault();
+        quitting = true;
+        app.quit();
+      }
     }
   });
   void window.loadFile(desktopPagePath);
@@ -809,6 +791,15 @@ function createCompanionWindow(): BrowserWindow {
 
 async function startLocalService(): Promise<boolean> {
   clearNotice();
+  if (
+    isExternalServiceConnection(serviceState, isSnapshotOnline(latestSnapshot))
+  ) {
+    setNotice(
+      "info",
+      "An externally started daemon is already connected and was left running.",
+    );
+    return false;
+  }
   connectionSettings = {
     host: desiredRuntimeSettings.host,
     port: desiredRuntimeSettings.port,
@@ -831,6 +822,15 @@ async function startLocalService(): Promise<boolean> {
 
 async function stopLocalService(): Promise<boolean> {
   clearNotice();
+  if (!canStopManagedService(serviceState)) {
+    setNotice(
+      "info",
+      latestSnapshot.kind === "online"
+        ? "The connected daemon was started outside Crewlight Desktop and was left running. Stop it from the terminal that owns it."
+        : "No Crewlight Desktop-managed local service is running.",
+    );
+    return false;
+  }
   const stopped = await serviceManager.stop();
   if (stopped) {
     connectionSettings = {
@@ -856,6 +856,15 @@ async function stopLocalService(): Promise<boolean> {
 
 async function restartLocalService(): Promise<boolean> {
   clearNotice();
+  if (
+    isExternalServiceConnection(serviceState, isSnapshotOnline(latestSnapshot))
+  ) {
+    setNotice(
+      "info",
+      "The connected daemon was started outside Crewlight Desktop and cannot be restarted here.",
+    );
+    return false;
+  }
   connectionSettings = {
     host: desiredRuntimeSettings.host,
     port: desiredRuntimeSettings.port,
@@ -1078,28 +1087,37 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
       return false;
     }
 
-    if (activeTunnels.has(action.alias)) {
-      activeTunnels.get(action.alias)!.disconnect();
-      activeTunnels.delete(action.alias);
-    }
-    if (activeProxies.has(action.alias)) {
-      activeProxies.get(action.alias)!.close();
-      activeProxies.delete(action.alias);
-    }
+    disposeRemoteConnection(action.alias);
+    const connectionAttempt = remoteConnectionAttempts.begin(action.alias);
 
     host.tunnelState = "connecting";
     host.tunnelMessage = undefined;
     publishDesktopState();
 
+    let proxy: LocalHttpProxy | undefined;
     try {
-      const proxy = await createLocalHttpProxy(action.alias);
+      proxy = await createLocalHttpProxy({
+        alias: action.alias,
+        targetHost: connectionSettings.host === "::1" ? "::1" : "127.0.0.1",
+        targetPort: connectionSettings.port,
+      });
+      if (
+        !remoteConnectionAttempts.isCurrent(action.alias, connectionAttempt)
+      ) {
+        proxy.close();
+        return false;
+      }
       activeProxies.set(action.alias, proxy);
 
-      const tunnel = createSshTunnel({
+      let tunnel: SshTunnel | undefined;
+      tunnel = createSshTunnel({
         host: parsed,
         remotePort: 3768,
         localPort: proxy.port,
         onStateChange: (state) => {
+          if (tunnel && activeTunnels.get(action.alias) !== tunnel) {
+            return;
+          }
           host.tunnelState = state.kind;
           if (state.kind === "error") {
             host.tunnelMessage = state.message;
@@ -1110,7 +1128,10 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
           }
 
           if (state.kind === "connected") {
-            tunnel.checkRemoteCli().then((hasCli) => {
+            void tunnel?.checkRemoteCli().then((hasCli) => {
+              if (activeTunnels.get(action.alias) !== tunnel) {
+                return;
+              }
               host.hasCli = hasCli;
               publishDesktopState();
             });
@@ -1120,25 +1141,33 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
       });
 
       activeTunnels.set(action.alias, tunnel);
+      remoteConnectionAttempts.finish(action.alias, connectionAttempt);
       return true;
-    } catch (err: any) {
+    } catch (error) {
+      const isCurrentAttempt = remoteConnectionAttempts.finish(
+        action.alias,
+        connectionAttempt,
+      );
+      if (activeProxies.get(action.alias) === proxy) {
+        activeProxies.delete(action.alias);
+      }
+      try {
+        proxy?.close();
+      } catch {}
+      if (!isCurrentAttempt) {
+        return false;
+      }
       host.tunnelState = "error";
-      host.tunnelMessage = `Proxy creation failed: ${err.message}`;
+      host.tunnelMessage =
+        error instanceof Error
+          ? `Remote connection setup failed: ${error.message}`
+          : "Remote connection setup failed.";
       publishDesktopState();
       return false;
     }
   }
   if (action.type === "remote:disconnect") {
-    const tunnel = activeTunnels.get(action.alias);
-    if (tunnel) {
-      tunnel.disconnect();
-      activeTunnels.delete(action.alias);
-    }
-    const proxy = activeProxies.get(action.alias);
-    if (proxy) {
-      proxy.close();
-      activeProxies.delete(action.alias);
-    }
+    disposeRemoteConnection(action.alias);
     const host = remoteHostsState.find((h) => h.alias === action.alias);
     if (host) {
       host.tunnelState = "disconnected";
@@ -1308,86 +1337,112 @@ serviceManager.subscribe((nextState) => {
     serviceState.managed !== nextState.managed;
   serviceState = nextState;
   refreshViewModels();
+  refreshTray();
   if (phaseChanged) {
     void refreshDoctorReport(true);
   }
 });
 
-if (process.platform === "win32") {
-  app.setAppUserModelId("com.qianqiulp.crewlight.desktop");
-}
-
-app.on("before-quit", () => {
-  quitting = true;
+async function disposeApplicationResources(): Promise<void> {
+  remoteConnectionAttempts.invalidateAll();
+  remoteScanAttempts.invalidateAll();
   if (pollTimer) {
     clearInterval(pollTimer);
+    pollTimer = undefined;
   }
-  for (const proxy of activeProxies.values()) {
-    try {
-      proxy.close();
-    } catch {}
+  for (const alias of new Set([
+    ...activeTunnels.keys(),
+    ...activeProxies.keys(),
+  ])) {
+    disposeRemoteConnection(alias);
   }
-  activeProxies.clear();
-  for (const tunnel of activeTunnels.values()) {
-    try {
-      tunnel.disconnect();
-    } catch {}
-  }
-  activeTunnels.clear();
-});
+  await serviceManager.dispose();
+}
 
-app.on("window-all-closed", () => {
-  // Do not quit when all windows are closed. The app lives in the system tray
-  // (or silently in the background on platforms where the tray could not be
-  // created). The user must choose Quit from the tray menu to exit.
-  // On macOS this is the expected behaviour. On Windows it keeps the process
-  // alive so the window can be re-shown by clicking the taskbar icon or by
-  // running the executable again.
-});
+const ownsSingleInstance = app.requestSingleInstanceLock();
+if (!ownsSingleInstance) {
+  quitting = true;
+  shutdownComplete = true;
+  app.quit();
+} else {
+  if (process.platform === "win32") {
+    app.setAppUserModelId("com.qianqiulp.crewlight.desktop");
+  }
 
-app.on("activate", () => {
-  showMainWindow();
+  app.on("second-instance", () => {
+    showMainWindow();
+    if (preferences.companionVisibilityPreference) {
+      void showCompanion(false);
+    }
+  });
+
+  app.on("before-quit", (event) => {
+    quitting = true;
+    if (shutdownComplete) {
+      return;
+    }
+    event.preventDefault();
+    if (!shutdownPromise) {
+      shutdownPromise = disposeApplicationResources().catch(() => {});
+      void shutdownPromise.then(() => {
+        shutdownComplete = true;
+        app.quit();
+      });
+    }
+  });
+
+  app.on("window-all-closed", () => {
+    const trayAvailable = !!tray && !tray.isDestroyed();
+    if (getCompanionDismissAction(trayAvailable) === "quit" && !quitting) {
+      quitting = true;
+      app.quit();
+    }
+  });
+
+  app.on("activate", () => {
+    showMainWindow();
+    if (preferences.companionVisibilityPreference) {
+      void showCompanion(false);
+    }
+  });
+
+  await app.whenReady();
+  preferencesStore = createDesktopPreferencesStore(
+    join(app.getPath("userData"), "desktop-preferences.json"),
+  );
+  preferences = await preferencesStore.load();
+  desiredRuntimeSettings = {
+    host: DEFAULT_DAEMON_HOST,
+    port: DEFAULT_DAEMON_PORT,
+    notifier: "none",
+  };
+  connectionSettings = {
+    host: desiredRuntimeSettings.host,
+    port: desiredRuntimeSettings.port,
+  };
+  Menu.setApplicationMenu(null);
+  registerIpc();
+  mainWindow = createDesktopWindow();
+  companionWindow = createCompanionWindow();
+  try {
+    await createTray();
+  } catch {
+    tray = undefined;
+  }
+  startPolling();
+  await refreshDoctorReport(true);
+  void scanRemoteHosts();
+
   if (preferences.companionVisibilityPreference) {
-    void showCompanion(false);
+    await showCompanion(false);
   }
-});
 
-await app.whenReady();
-preferencesStore = createDesktopPreferencesStore(
-  join(app.getPath("userData"), "desktop-preferences.json"),
-);
-preferences = await preferencesStore.load();
-desiredRuntimeSettings = {
-  host: DEFAULT_DAEMON_HOST,
-  port: DEFAULT_DAEMON_PORT,
-  notifier: "none",
-};
-connectionSettings = {
-  host: desiredRuntimeSettings.host,
-  port: desiredRuntimeSettings.port,
-};
-Menu.setApplicationMenu(null);
-registerIpc();
-mainWindow = createDesktopWindow();
-companionWindow = createCompanionWindow();
-try {
-  await createTray();
-} catch {
-  tray = undefined;
-}
-startPolling();
-await refreshDoctorReport(true);
-void scanRemoteHosts();
-
-if (preferences.companionVisibilityPreference) {
-  await showCompanion(false);
-}
-
-if (preferences.serviceAutoStart) {
-  await pollDashboardOnce();
-  if (!isSnapshotOnline(latestSnapshot)) {
-    await startLocalService();
+  if (preferences.serviceAutoStart) {
+    await pollDashboardOnce();
+    if (!isSnapshotOnline(latestSnapshot)) {
+      await startLocalService();
+    }
   }
-}
 
-refreshViewModels();
+  refreshViewModels();
+}

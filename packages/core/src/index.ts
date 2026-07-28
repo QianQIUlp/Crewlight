@@ -1,4 +1,7 @@
 export {
+  AGENT_DISPLAY_MAX_LENGTH,
+  AGENT_IDENTITY_MAX_LENGTH,
+  AGENT_PATH_MAX_LENGTH,
   agentEventInputSchema,
   agentEventSchema,
   agentSessionSchema,
@@ -13,7 +16,11 @@ export {
   PROMPT_PREVIEW_TASK_TITLE_LIMIT,
 } from "./prompt-preview.js";
 export { deriveSessionKey, normalizeProjectPath } from "./session-key.js";
-export { SessionStore } from "./session-store.js";
+export {
+  SessionStore,
+  type SessionApplyResult,
+  type SessionStoreOptions,
+} from "./session-store.js";
 export type {
   AgentEvent,
   AgentEventInput,

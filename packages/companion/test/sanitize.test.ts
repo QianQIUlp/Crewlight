@@ -39,7 +39,10 @@ describe("dashboard response sanitization", () => {
       doctor: { checks: [{ message: "doctor-secret" }] },
     });
 
-    expect(result?.sessions[0]).toEqual(dashboardSession());
+    expect(result?.sessions[0]).toEqual({
+      ...dashboardSession(),
+      viewId: expect.stringMatching(/^session-\d+$/u),
+    });
     expect(JSON.stringify(result)).not.toContain("secret");
     expect(result?.sessions[0]).not.toHaveProperty("lastMessage");
     expect(result?.sessions[0]).not.toHaveProperty("error");
@@ -51,7 +54,7 @@ describe("dashboard response sanitization", () => {
       sessions: [
         {
           ...dashboardSession(),
-          remoteAlias: "my-valid-host_123",
+          remoteAlias: "prod.eu-west_123",
         },
         {
           ...dashboardSession(),
@@ -60,8 +63,22 @@ describe("dashboard response sanitization", () => {
       ],
     });
 
-    expect(result?.sessions[0]?.remoteAlias).toBe("my-valid-host_123");
+    expect(result?.sessions[0]?.remoteAlias).toBe("prod.eu-west_123");
     expect(result?.sessions[1]?.remoteAlias).toBeUndefined();
+  });
+
+  it("keeps an opaque renderer identity stable without exposing sessionKey", () => {
+    const first = sanitizeDashboardResponse({
+      health: { status: "ok" },
+      sessions: [dashboardSession()],
+    });
+    const second = sanitizeDashboardResponse({
+      health: { status: "ok" },
+      sessions: [dashboardSession()],
+    });
+
+    expect(second?.sessions[0]?.viewId).toBe(first?.sessions[0]?.viewId);
+    expect(second?.sessions[0]?.viewId).not.toContain("codex:cli:session");
   });
 
   it("normalizes and bounds display strings", () => {

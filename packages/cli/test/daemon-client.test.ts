@@ -1,25 +1,26 @@
 import { createServer, type Server } from "node:http";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DAEMON_REQUEST_TIMEOUT_MS,
   DASHBOARD_CAPABILITIES_TIMEOUT_MS,
   DaemonClient,
 } from "../src/daemon-client.js";
 
 let server: Server | undefined;
 
-afterEach(
-  () =>
-    new Promise<void>((resolve, reject) => {
-      if (!server) {
-        resolve();
-        return;
-      }
-      server.close((error) => (error ? reject(error) : resolve()));
-      server = undefined;
-    }),
-);
+afterEach(async () => {
+  vi.unstubAllGlobals();
+  await new Promise<void>((resolve, reject) => {
+    if (!server) {
+      resolve();
+      return;
+    }
+    server.close((error) => (error ? reject(error) : resolve()));
+    server = undefined;
+  });
+});
 
 async function startServer(
   handler: Parameters<typeof createServer>[0],
@@ -101,6 +102,26 @@ describe("DaemonClient dashboard capabilities", () => {
     ).resolves.toEqual({ taskTitleMode: "off" });
   });
 
+  it.each([
+    ["non-200", 404, JSON.stringify({ taskTitleMode: "off" })],
+    ["invalid JSON", 200, "not-json"],
+    ["invalid shape", 200, JSON.stringify({ taskTitleMode: "enabled" })],
+  ] as const)(
+    "reports %s responses as unavailable when explicitly probing",
+    async (_name, status, body) => {
+      const target = await startServer((_request, response) => {
+        response.writeHead(status, { "content-type": "application/json" });
+        response.end(body);
+      });
+
+      await expect(
+        new DaemonClient({
+          baseUrl: target.url,
+        }).probeDashboardCapabilities(),
+      ).resolves.toBeUndefined();
+    },
+  );
+
   it("times out quickly and resolves to off", async () => {
     const target = await startServer((_request, response) => {
       setTimeout(() => {
@@ -124,5 +145,83 @@ describe("DaemonClient dashboard capabilities", () => {
         baseUrl: "http://127.0.0.1:1",
       }).dashboardCapabilities(),
     ).resolves.toEqual({ taskTitleMode: "off" });
+  });
+
+  it("bounds explicit probes when fetch ignores abort", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+    const client = new DaemonClient({
+      baseUrl: "http://127.0.0.1:3768",
+    });
+    const startedAt = Date.now();
+
+    await expect(client.probeDashboardCapabilities()).resolves.toBeUndefined();
+    expect(Date.now() - startedAt).toBeLessThan(
+      DASHBOARD_CAPABILITIES_TIMEOUT_MS * 3,
+    );
+  });
+});
+
+describe("DaemonClient request timeout", () => {
+  it.each(["emit", "sessions"] as const)(
+    "bounds stalled %s requests and keeps the error actionable",
+    async (operation) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          (_url: string | URL | Request, init?: RequestInit) =>
+            new Promise<Response>((_resolve, reject) => {
+              init?.signal?.addEventListener("abort", () => {
+                reject(new DOMException("aborted", "AbortError"));
+              });
+            }),
+        ),
+      );
+      const client = new DaemonClient({
+        baseUrl: "http://127.0.0.1:3768",
+        requestTimeoutMs: 10,
+      });
+
+      const request =
+        operation === "emit"
+          ? client.emit({
+              source: "custom",
+              surface: "manual",
+              status: "running",
+            })
+          : client.sessions();
+
+      await expect(request).rejects.toThrow(
+        /timed out.*crewlight daemon --notifier console/iu,
+      );
+    },
+  );
+
+  it("exports a finite positive production timeout", () => {
+    expect(DAEMON_REQUEST_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(DAEMON_REQUEST_TIMEOUT_MS).toBeLessThanOrEqual(5_000);
+  });
+
+  it("still rejects on time when a fetch implementation ignores abort", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {})),
+    );
+    const client = new DaemonClient({
+      baseUrl: "http://127.0.0.1:3768",
+      requestTimeoutMs: 10,
+    });
+
+    const outcome = await Promise.race([
+      client.sessions().catch((error: unknown) => error),
+      new Promise<"still-pending">((resolve) => {
+        setTimeout(() => resolve("still-pending"), 100);
+      }),
+    ]);
+
+    expect(outcome).toBeInstanceOf(Error);
+    expect(String(outcome)).toMatch(/timed out/iu);
   });
 });

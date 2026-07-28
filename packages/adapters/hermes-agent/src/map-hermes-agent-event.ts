@@ -11,26 +11,38 @@ export type HermesAgentAdapterResult =
   | { kind: "invalid"; reason: string };
 
 const STATUS_MAP = new Map<string, AgentStatus>([
-  ["start", "running"],
-  ["tool_use", "using_tool"],
-  ["finish", "completed"],
-  ["error", "failed"],
+  ["on_session_start", "running"],
+  ["pre_llm_call", "running"],
+  ["pre_tool_call", "using_tool"],
+  ["post_tool_call", "running"],
+  ["post_llm_call", "completed"],
+  ["pre_approval_request", "waiting_permission"],
+  ["post_approval_response", "running"],
+  ["subagent_start", "using_tool"],
+  ["subagent_stop", "running"],
+  ["on_session_finalize", "completed"],
+  ["on_session_reset", "completed"],
 ]);
 
-function optionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
+function sessionEndStatus(input: HermesAgentHookInput): AgentStatus {
+  if (input.extra?.interrupted === true) {
+    return "idle";
+  }
+  if (input.extra?.completed === true) {
+    // post_llm_call is the successful-turn completion signal. Treat the
+    // subsequent session cleanup as idle so it cannot notify twice.
+    return "idle";
+  }
+  if (input.extra?.completed === false) {
+    return "failed";
+  }
+  return "unknown";
 }
 
 function eventMessage(
   input: HermesAgentHookInput,
   status: AgentStatus,
 ): string | undefined {
-  const explicit = optionalText(input.message);
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return "Using tool: " + input.tool_name;
   }
@@ -42,8 +54,6 @@ function toEvent(
   input: HermesAgentHookInput,
   status: AgentStatus,
 ): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
 
   return {
@@ -52,7 +62,7 @@ function toEvent(
     status,
     ...(input.session_id ? { sessionId: input.session_id } : {}),
     ...(input.cwd ? { projectPath: input.cwd } : {}),
-    ...(title ? { title } : {}),
+    title: input.hook_event_name,
     ...(message ? { message } : {}),
   };
 }
@@ -65,7 +75,10 @@ export function mapHermesAgentEvent(input: unknown): HermesAgentAdapterResult {
 
   const payload = parsed.data;
 
-  const status = STATUS_MAP.get(payload.hook_event_name);
+  const status =
+    payload.hook_event_name === "on_session_end"
+      ? sessionEndStatus(payload)
+      : STATUS_MAP.get(payload.hook_event_name);
   if (!status) {
     return {
       kind: "ignored",

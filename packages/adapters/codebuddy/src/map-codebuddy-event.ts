@@ -12,25 +12,20 @@ export type CodebuddyAdapterResult =
 
 const STATUS_MAP = new Map<string, AgentStatus>([
   ["SessionStart", "running"],
+  ["UserPromptSubmit", "running"],
   ["PreToolUse", "using_tool"],
-  ["PermissionNeeded", "waiting_permission"],
-  ["TaskEnd", "completed"],
+  ["PostToolUse", "running"],
+  ["PostToolUseFailure", "running"],
+  ["PermissionRequest", "waiting_permission"],
+  ["Stop", "completed"],
+  ["StopFailure", "failed"],
+  ["SessionEnd", "idle"],
 ]);
-
-function optionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
 
 function eventMessage(
   input: CodebuddyHookInput,
   status: AgentStatus,
 ): string | undefined {
-  const explicit = optionalText(input.message);
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return "Using tool: " + input.tool_name;
   }
@@ -42,8 +37,6 @@ function toEvent(
   input: CodebuddyHookInput,
   status: AgentStatus,
 ): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
 
   return {
@@ -52,7 +45,7 @@ function toEvent(
     status,
     ...(input.session_id ? { sessionId: input.session_id } : {}),
     ...(input.cwd ? { projectPath: input.cwd } : {}),
-    ...(title ? { title } : {}),
+    title: input.hook_event_name,
     ...(message ? { message } : {}),
   };
 }
@@ -64,6 +57,19 @@ export function mapCodebuddyEvent(input: unknown): CodebuddyAdapterResult {
   }
 
   const payload = parsed.data;
+
+  if (payload.hook_event_name === "Notification") {
+    if (payload.notification_type !== "permission_prompt") {
+      return {
+        kind: "ignored",
+        reason: "CodeBuddy notification does not require attention",
+      };
+    }
+    return {
+      kind: "event",
+      event: toEvent(payload, "waiting_permission"),
+    };
+  }
 
   const status = STATUS_MAP.get(payload.hook_event_name);
   if (!status) {

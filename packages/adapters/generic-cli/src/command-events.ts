@@ -46,19 +46,19 @@ export function createCommandEvent(
   };
 }
 
-export function createRunningMessage(context: CommandEventContext): string {
-  return `Command started: ${context.commandText}`;
+export function createRunningMessage(_context: CommandEventContext): string {
+  return "Command started";
 }
 
 export function createCompletedMessage(
-  context: CommandEventContext,
+  _context: CommandEventContext,
   durationMs: number,
 ): string {
-  return `Command completed: ${context.commandText}; exitCode=0; durationMs=${durationMs}`;
+  return `Command completed; exitCode=0; durationMs=${durationMs}`;
 }
 
 export function createFailedMessage(
-  context: CommandEventContext,
+  _context: CommandEventContext,
   details: {
     durationMs: number;
     exitCode?: number;
@@ -67,10 +67,10 @@ export function createFailedMessage(
   },
 ): string {
   const result = details.spawnError
-    ? `exitCode=unavailable; signal=unavailable; spawnError=${details.spawnError}`
+    ? "exitCode=unavailable; signal=unavailable; spawnError=command_start_failed"
     : details.signal
       ? `signal=${details.signal}`
       : `exitCode=${details.exitCode ?? "unknown"}`;
 
-  return `Command failed: ${context.commandText}; ${result}; durationMs=${details.durationMs}`;
+  return `Command failed; ${result}; durationMs=${details.durationMs}`;
 }

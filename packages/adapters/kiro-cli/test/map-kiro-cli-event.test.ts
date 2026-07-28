@@ -20,17 +20,18 @@ function eventFor(payload: Record<string, unknown>) {
 
 describe("KiroCli adapter", () => {
   it.each([
-    ["onSessionStart", "running"],
-    ["onToolCall", "using_tool"],
-    ["onComplete", "completed"],
-    ["onError", "failed"],
+    ["agentSpawn", "running"],
+    ["userPromptSubmit", "running"],
+    ["preToolUse", "using_tool"],
+    ["postToolUse", "running"],
+    ["stop", "completed"],
   ] as const)("maps %s to %s", (hookEventName, status) => {
     expect(eventFor({ hook_event_name: hookEventName }).status).toBe(status);
   });
 
   it("maps session identity, project path, and safe descriptive fields", () => {
     const event = eventFor({
-      hook_event_name: "onToolCall",
+      hook_event_name: "preToolUse",
       tool_name: "run_command",
     });
 
@@ -41,18 +42,20 @@ describe("KiroCli adapter", () => {
       status: "using_tool",
       sessionId: "kiro-cli-session",
       projectPath: "/tmp/kiro-cli-project",
-      title: "onToolCall",
+      title: "preToolUse",
       ...(normalized.message ? { message: normalized.message } : {}),
     });
   });
 
   it("never leaks raw parameters or transcripts", () => {
     const result = mapKiroCliEvent({
-      hook_event_name: "onToolCall",
+      hook_event_name: "preToolUse",
       tool_name: "run_command",
       prompt: "find secret credentials",
       transcript: "some private dialog",
       raw_output: "keys keys keys",
+      message: "secret platform message",
+      title: "secret platform title",
     });
 
     expect(result.kind).toBe("event");

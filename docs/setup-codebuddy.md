@@ -1,23 +1,22 @@
-# CodeBuddy Integration Guide (Experimental)
+# CodeBuddy integration (experimental)
 
-Crewlight provides an integration adapter for CodeBuddy to monitor session execution states, tool invocations, and exit statuses.
+Crewlight observes an allowlisted subset of CodeBuddy hook fields. It does not retain prompts, transcripts, tool input, tool output, or complete hook payloads.
 
-> [!NOTE]
-> This adapter is currently labeled as **Experimental** and relies on allowlisted event payloads.
+## Configure
 
-## Setup Instructions
-
-### 1. Print configuration snippet
-
-Generate your hook configuration block by running:
+Print a mergeable hook block:
 
 ```bash
 crewlight setup codebuddy --print
 ```
 
-### 2. Output Snippet
+Crewlight only prints the JSON. It does not read or modify CodeBuddy settings. Merge the generated `hooks` object into one of these files while preserving existing hook groups:
 
-The command will produce a mergeable JSON hook block similar to the following:
+- `~/.codebuddy/settings.json` for user-level hooks
+- `<project>/.codebuddy/settings.json` for shared project hooks
+- `<project>/.codebuddy/settings.local.json` for local project hooks
+
+The generated block uses CodeBuddy's nested command-hook format:
 
 ```json
 {
@@ -27,38 +26,7 @@ The command will produce a mergeable JSON hook block similar to the following:
         "hooks": [
           {
             "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codebuddy"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codebuddy"
-          }
-        ]
-      }
-    ],
-    "PermissionNeeded": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codebuddy"
-          }
-        ]
-      }
-    ],
-    "TaskEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codebuddy"
+            "command": "<generated Crewlight ingest command>"
           }
         ]
       }
@@ -67,8 +35,16 @@ The command will produce a mergeable JSON hook block similar to the following:
 }
 ```
 
-Merge this block into your global or workspace-specific CodeBuddy configuration.
+Crewlight generates handlers for `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `PermissionRequest`, `Stop`, `StopFailure`, and `SessionEnd`. Tool events use the `*` matcher.
 
-### 3. Verify
+The default output embeds the current Crewlight executable path. Use `--binary crewlight` only when CodeBuddy can reliably resolve `crewlight` from `PATH`.
 
-Run `crewlight daemon --notifier console` and start a session using CodeBuddy. Verified statuses will route automatically to your local companion dashboard.
+## Verify
+
+Start the daemon, inspect CodeBuddy's `/hooks` panel, and complete a real turn:
+
+```bash
+crewlight daemon --notifier console
+```
+
+The adapter smoke test printed by `crewlight setup` checks only Crewlight's parser and daemon ingest path. It does not prove that CodeBuddy loaded or executed the hook configuration.

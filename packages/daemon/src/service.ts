@@ -8,6 +8,7 @@ import {
 import { ConsoleNotifier, type Notifier } from "@crewlight/notifier";
 
 export interface IngestResult {
+  applied: boolean;
   event: AgentEvent;
   session: AgentSession;
 }
@@ -28,11 +29,20 @@ export class CrewlightService {
 
   async ingest(input: AgentEventInput): Promise<IngestResult> {
     const event = normalizeAgentEvent(input);
-    const session = this.#sessions.apply(event);
+    const { applied, session } = this.#sessions.applyWithResult(event);
 
-    await this.#notifier.notify(event, session);
+    if (applied) {
+      try {
+        const delivery = this.#notifier.notify(event, session);
+        if (delivery) {
+          void delivery.catch(() => undefined);
+        }
+      } catch {
+        // Notification failures must not change an already-applied ingest.
+      }
+    }
 
-    return { event, session };
+    return { applied, event, session };
   }
 
   listSessions(): AgentSession[] {

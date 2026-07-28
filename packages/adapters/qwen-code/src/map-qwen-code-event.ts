@@ -11,26 +11,22 @@ export type QwenCodeAdapterResult =
   | { kind: "invalid"; reason: string };
 
 const STATUS_MAP = new Map<string, AgentStatus>([
-  ["start", "running"],
-  ["tool_use", "using_tool"],
-  ["finish", "completed"],
-  ["error", "failed"],
+  ["SessionStart", "running"],
+  ["UserPromptSubmit", "running"],
+  ["PreToolUse", "using_tool"],
+  ["PostToolUse", "running"],
+  ["PostToolUseFailure", "running"],
+  ["PermissionRequest", "waiting_permission"],
+  ["SubagentStart", "using_tool"],
+  ["SubagentStop", "running"],
+  ["Stop", "completed"],
+  ["SessionEnd", "idle"],
 ]);
-
-function optionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
 
 function eventMessage(
   input: QwenCodeHookInput,
   status: AgentStatus,
 ): string | undefined {
-  const explicit = optionalText(input.message);
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return "Using tool: " + input.tool_name;
   }
@@ -42,8 +38,6 @@ function toEvent(
   input: QwenCodeHookInput,
   status: AgentStatus,
 ): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
 
   return {
@@ -52,7 +46,7 @@ function toEvent(
     status,
     ...(input.session_id ? { sessionId: input.session_id } : {}),
     ...(input.cwd ? { projectPath: input.cwd } : {}),
-    ...(title ? { title } : {}),
+    title: input.hook_event_name,
     ...(message ? { message } : {}),
   };
 }
@@ -64,6 +58,32 @@ export function mapQwenCodeEvent(input: unknown): QwenCodeAdapterResult {
   }
 
   const payload = parsed.data;
+
+  if (payload.hook_event_name === "Notification") {
+    const status: AgentStatus | undefined =
+      payload.notification_type === "permission_prompt"
+        ? "waiting_permission"
+        : payload.notification_type === "idle_prompt"
+          ? "waiting_input"
+          : undefined;
+    if (!status) {
+      return {
+        kind: "ignored",
+        reason: "Qwen Code notification does not require attention",
+      };
+    }
+    return { kind: "event", event: toEvent(payload, status) };
+  }
+
+  if (payload.hook_event_name === "StopFailure") {
+    return {
+      kind: "event",
+      event: toEvent(
+        payload,
+        payload.error === "rate_limit" ? "rate_limited" : "failed",
+      ),
+    };
+  }
 
   const status = STATUS_MAP.get(payload.hook_event_name);
   if (!status) {

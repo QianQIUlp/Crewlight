@@ -1,85 +1,34 @@
-# CodeWhale Integration Guide (Experimental)
+# CodeWhale integration
 
-Crewlight provides an integration adapter for CodeWhale to monitor session execution states, tool invocations, and exit statuses.
+Crewlight can observe CodeWhale's structured hook events without retaining prompts, tool arguments, or result previews.
 
-> [!NOTE]
-> This adapter is currently labeled as **Experimental** and relies on allowlisted event payloads.
+## Configure
 
-## Setup Instructions
-
-### 1. Print configuration snippet
-
-Generate your hook configuration block by running:
+Print mergeable TOML entries:
 
 ```bash
 crewlight setup codewhale --print
 ```
 
-### 2. Output Snippet
+Crewlight only prints the TOML. It does not read or modify CodeWhale configuration. Append the output to `~/.codewhale/config.toml`, preserving existing settings and hook entries. The generated entries use CodeWhale's `[[hooks.hooks]]` format, set `continue_on_error = true`, and register only these events:
 
-The command will produce a mergeable JSON hook block similar to the following:
+- `message_submit`
+- `turn_end`
+- `subagent_spawn`
+- `subagent_complete`
 
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codewhale"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codewhale"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codewhale"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codewhale"
-          }
-        ]
-      }
-    ],
-    "StopFailure": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest codewhale"
-          }
-        ]
-      }
-    ]
-  }
-}
+These are the events that supply structured JSON on standard input. CodeWhale's `session_start`, `session_end`, `tool_call_before`, `tool_call_after`, `mode_change`, and `on_error` hooks expose their context through environment variables instead, so the direct Crewlight ingest command deliberately does not register them.
+
+CodeWhale hooks run only in the interactive TUI. They do not run for `codewhale exec`, app-server, or ACP sessions.
+
+The default output embeds the current Crewlight executable path. Use `--binary crewlight` only when CodeWhale can reliably resolve `crewlight` from `PATH`.
+
+## Verify
+
+Start the daemon, inspect the loaded hooks in CodeWhale, and complete a real turn:
+
+```bash
+crewlight daemon --notifier console
 ```
 
-Merge this block into your global or workspace-specific CodeWhale configuration.
-
-### 3. Verify
-
-Run `crewlight daemon --notifier console` and start a session using CodeWhale. Verified statuses will route automatically to your local companion dashboard.
+In the CodeWhale TUI, run `/hooks`. The adapter smoke test printed by `crewlight setup` only checks Crewlight's parser and daemon path; it does not prove that CodeWhale loaded the hook configuration.

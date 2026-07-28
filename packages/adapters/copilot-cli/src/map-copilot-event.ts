@@ -15,23 +15,13 @@ const STATUS_MAP = new Map<string, AgentStatus>([
   ["PreToolUse", "using_tool"],
   ["PostToolUse", "running"],
   ["Stop", "completed"],
-  ["StopFailure", "failed"],
+  ["ErrorOccurred", "failed"],
 ]);
-
-function optionalText(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
 
 function eventMessage(
   input: CopilotHookInput,
   status: AgentStatus,
 ): string | undefined {
-  const explicit = optionalText(input.message);
-  if (explicit) {
-    return explicit;
-  }
-
   if (status === "using_tool" && input.tool_name) {
     return `Using tool: ${input.tool_name}`;
   }
@@ -43,17 +33,16 @@ function toEvent(
   input: CopilotHookInput,
   status: AgentStatus,
 ): AgentEventInput {
-  const title =
-    optionalText(input.title) ?? optionalText(input.hook_event_name);
   const message = eventMessage(input, status);
+  const sessionId = input.session_id ?? input.sessionId;
 
   return {
     source: "copilot-cli",
     surface: "cli",
     status,
-    ...(input.session_id ? { sessionId: input.session_id } : {}),
+    ...(sessionId ? { sessionId } : {}),
     ...(input.cwd ? { projectPath: input.cwd } : {}),
-    ...(title ? { title } : {}),
+    title: input.hook_event_name,
     ...(message ? { message } : {}),
   };
 }
@@ -66,11 +55,26 @@ export function mapCopilotEvent(input: unknown): CopilotAdapterResult {
 
   const payload = parsed.data;
 
+  if (payload.hook_event_name === "ErrorOccurred" && payload.recoverable) {
+    return {
+      kind: "event",
+      event: toEvent(payload, "running"),
+    };
+  }
+
   if (payload.hook_event_name === "Notification") {
-    const status: AgentStatus =
+    const status: AgentStatus | undefined =
       payload.notification_type === "permission_prompt"
         ? "waiting_permission"
-        : "waiting_input";
+        : payload.notification_type === "elicitation_dialog"
+          ? "waiting_input"
+          : undefined;
+    if (!status) {
+      return {
+        kind: "ignored",
+        reason: "Copilot CLI notification does not require attention",
+      };
+    }
     return {
       kind: "event",
       event: toEvent(payload, status),

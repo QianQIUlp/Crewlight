@@ -22,25 +22,31 @@ describe("Gemini CLI adapter", () => {
   it.each([
     ["SessionStart", "running"],
     ["BeforeAgent", "running"],
-    ["AfterAgent", "running"],
+    ["AfterAgent", "completed"],
     ["BeforeTool", "using_tool"],
     ["AfterTool", "running"],
     ["PreCompress", "running"],
-    ["SessionEnd", "completed"],
+    ["SessionEnd", "idle"],
   ] as const)("maps %s to %s", (hookEventName, status) => {
     expect(eventFor({ hook_event_name: hookEventName }).status).toBe(status);
   });
 
-  it.each([
-    ["permission_prompt", "waiting_permission"],
-    ["other_prompt", "waiting_input"],
-  ] as const)("refines Notification(%s) to %s", (notificationType, status) => {
+  it("maps the documented ToolPermission notification", () => {
     expect(
       eventFor({
         hook_event_name: "Notification",
-        notification_type: notificationType,
+        notification_type: "ToolPermission",
       }).status,
-    ).toBe(status);
+    ).toBe("waiting_permission");
+  });
+
+  it("ignores undocumented notification types", () => {
+    expect(
+      mapGeminiEvent({
+        hook_event_name: "Notification",
+        notification_type: "other_prompt",
+      }).kind,
+    ).toBe("ignored");
   });
 
   it("maps session identity, project path, and safe descriptive fields", () => {
@@ -68,6 +74,8 @@ describe("Gemini CLI adapter", () => {
       prompt: "find secret credentials",
       transcript: "some private dialog",
       raw_output: "keys keys keys",
+      message: "secret platform message",
+      title: "secret platform title",
     });
 
     expect(result.kind).toBe("event");

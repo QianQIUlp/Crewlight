@@ -1,74 +1,41 @@
-# Hermes Agent Integration Guide (Experimental)
+# Hermes Agent integration (experimental)
 
-Crewlight provides an integration adapter for Hermes Agent to monitor session execution states, tool invocations, and exit statuses.
+Crewlight observes an allowlisted subset of Hermes Agent shell-hook fields. It does not retain prompts, transcripts, tool input, tool output, or complete hook payloads.
 
-> [!NOTE]
-> This adapter is currently labeled as **Experimental** and relies on allowlisted event payloads.
+## Configure
 
-## Setup Instructions
-
-### 1. Print configuration snippet
-
-Generate your hook configuration block by running:
+Print a mergeable YAML hooks block:
 
 ```bash
 crewlight setup hermes-agent --print
 ```
 
-### 2. Output Snippet
+Crewlight only prints the YAML. It does not read or modify Hermes configuration. Merge the generated event entries into the existing `hooks` block in `~/.hermes/config.yaml`, preserving other settings and hooks. The shape is:
 
-The command will produce a mergeable JSON hook block similar to the following:
-
-```json
-{
-  "hooks": {
-    "start": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest hermes-agent"
-          }
-        ]
-      }
-    ],
-    "tool_use": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest hermes-agent"
-          }
-        ]
-      }
-    ],
-    "finish": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest hermes-agent"
-          }
-        ]
-      }
-    ],
-    "error": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/qiu/.local/share/mise/installs/node/22.23.1/bin/node /home/qiu/src/Crewlight/packages/cli/dist/index.js ingest hermes-agent"
-          }
-        ]
-      }
-    ]
-  }
-}
+```yaml
+hooks:
+  on_session_start:
+    - command: "<generated Crewlight ingest command>"
+      timeout: 5
+  pre_tool_call:
+    - command: "<generated Crewlight ingest command>"
+      timeout: 5
 ```
 
-Merge this block into your global or workspace-specific Hermes Agent configuration.
+The complete generated block covers `on_session_start`, `pre_llm_call`, `pre_tool_call`, `post_tool_call`, `post_llm_call`, `pre_approval_request`, `post_approval_response`, `subagent_start`, `subagent_stop`, and `on_session_end`.
 
-### 3. Verify
+Hermes asks for consent the first time it sees each exact `(event, command)` pair. Review and approve the generated commands interactively. Use `hermes hooks list` and `hermes hooks doctor` to inspect registration and consent status; do not enable blanket auto-accept merely to bypass review.
 
-Run `crewlight daemon --notifier console` and start a session using Hermes Agent. Verified statuses will route automatically to your local companion dashboard.
+The default output embeds the current Crewlight executable path. Use `--binary crewlight` only when Hermes can reliably resolve `crewlight` from `PATH`.
+
+## Verify
+
+Start the daemon, inspect the hooks, and complete a real Hermes turn:
+
+```bash
+crewlight daemon --notifier console
+hermes hooks list
+hermes hooks doctor
+```
+
+The adapter smoke test printed by `crewlight setup` checks only Crewlight's parser and daemon ingest path. It does not prove that Hermes loaded, approved, or executed the hook configuration.
