@@ -12,31 +12,37 @@
   <a href="README.zh-CN.md">简体中文</a>
 </p>
 
+> 开发状态：v0.5.0 目前是稳定化候选版本。Linux x64 已通过本地构建与 smoke
+> 验证；Windows 和 macOS 仍需在对应平台修复和验证。当前最新公开 Release
+> 仍是 v0.4.0。
+
 <p align="center">
-  <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-0f766e" alt="Release v0.4.0"></a>
-  <img src="https://img.shields.io/badge/desktop-Windows_x64-334155" alt="主要桌面平台：Windows x64">
+  <a href="https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/latest_release-v0.4.0-0f766e" alt="最新公开版本 v0.4.0"></a>
+  <img src="https://img.shields.io/badge/v0.5.0-Linux_已验证%3B_Windows_/_macOS_待验证-334155" alt="v0.5.0 状态：Linux 已验证；Windows 和 macOS 待验证">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/QianQIUlp/Crewlight" alt="MIT 许可证"></a>
   <a href="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml"><img src="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a>
 </p>
 
-Crewlight Desktop 是 v0.4.0 的主要用户入口。它把主控窗口、浮动 companion、
+Crewlight Desktop 是计划中的主要用户入口。它把主控窗口、浮动 companion、
 本地服务控制、demo 流程和集成配置收进一个本地优先的桌面应用里。
 
 浏览器 dashboard 现在是次级开发者界面。CLI 则保留为高级和自动化入口。
 
-## Windows 桌面端优先
+## v0.5.0 稳定化状态
 
-### 主要下载项
+v0.5.0 尚未发布。目前只在 Linux x64 上完成了 standalone 压缩包、校验和、
+受限 `PATH` 启动、daemon、dashboard、ingest、status 和 doctor smoke 验证。
 
-- 便携桌面包：
-  [`crewlight-v0.4.0-windows-x64-desktop.zip`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/crewlight-v0.4.0-windows-x64-desktop.zip)
-- 未签名安装器：
-  [`Crewlight-Setup-v0.4.0.exe`](https://github.com/QianQIUlp/Crewlight/releases/download/v0.4.0/Crewlight-Setup-v0.4.0.exe)
+Windows x64 与 macOS x64/arm64 的桌面打包、原生通知、SSH 和完整运行流程仍是
+发布门槛。生成过文件名或已有平台代码不代表对应版本已经验证或可以下载。
 
-### 首次体验流程
+[v0.4.0 Release](https://github.com/QianQIUlp/Crewlight/releases/tag/v0.4.0)
+仍作为历史参考版本保留。
 
-1. 下载并解压 `crewlight-v0.4.0-windows-x64-desktop.zip`
-2. 双击 `Crewlight.exe`
+### 预期首次体验流程
+
+1. 在对应平台验证完成后，下载并打开相应安装包
+2. 启动 `Crewlight`
 3. 完成 onboarding：
    - Welcome
    - Start local service
@@ -49,7 +55,7 @@ Crewlight Desktop 是 v0.4.0 的主要用户入口。它把主控窗口、浮动
 
 ## 产品界面分层
 
-| 界面              | v0.4.0 中的角色                                    |
+| 界面              | v0.5.0 候选版本中的角色                            |
 | ----------------- | -------------------------------------------------- |
 | Crewlight Desktop | 主要用户发布界面                                   |
 | 浮动 companion    | 由桌面端控制的次级常驻状态界面                     |
@@ -102,10 +108,11 @@ Dashboard 仍然存在于 loopback-only 的 daemon 端点上，但它不再是�
 
 ## 高级 CLI 用法
 
-Standalone CLI 构建仍然保留：
+当前已从源码验证的 Linux standalone 构建是：
 
-- `crewlight-v0.4.0-linux-x64.tar.gz`
-- `crewlight-v0.4.0-windows-x64.zip`
+- `crewlight-v0.5.0-linux-x64.tar.gz`
+
+v0.5.0 的 Windows 与 macOS 产物尚未验证或发布。
 
 以下场景仍然适合使用 CLI：
 
@@ -146,7 +153,7 @@ git remote set-url origin https://github.com/QianQIUlp/Crewlight.git
 - 不抓取私有 API
 - 不自动批准权限
 - 不保留 prompt、transcript 或 tool I/O
-- v0.4.0 不持久化 session 历史
+- 不持久化 session 历史；daemon 只在内存中保留最新 1,000 个 session
 
 ## 开发
 
