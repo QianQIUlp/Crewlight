@@ -124,12 +124,7 @@ execFileSync(process.execPath, ["--experimental-sea-config", seaConfigPath], {
 
 await copyFile(process.execPath, binaryPath);
 
-if (platform === "darwin") {
-  execFileSync("codesign", ["--remove-signature", binaryPath], {
-    cwd: root,
-    stdio: "inherit",
-  });
-} else if (platform === "win32") {
+if (platform === "win32") {
   const located = spawnSync("where.exe", ["signtool.exe"], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
@@ -157,6 +152,10 @@ await inject(binaryPath, "NODE_SEA_BLOB", await readFile(seaBlobPath), {
 });
 if (platform === "darwin") {
   execFileSync("codesign", ["--sign", "-", binaryPath], {
+    cwd: root,
+    stdio: "inherit",
+  });
+  execFileSync("codesign", ["--verify", binaryPath], {
     cwd: root,
     stdio: "inherit",
   });

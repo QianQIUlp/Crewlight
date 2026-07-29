@@ -95,8 +95,22 @@ run_binary() {
     "$BIN" "$@"
 }
 
-run_binary --help >"$WORK/help.txt"
-"$GREP" -qF "Crewlight v$VERSION" "$WORK/help.txt"
+if ! run_binary --help >"$WORK/help.txt"; then
+  echo "Standalone --help exited unsuccessfully." >&2
+  exit 1
+fi
+if ! "$GREP" -qF "Crewlight v$VERSION" "$WORK/help.txt"; then
+  echo "Standalone --help did not execute the embedded Crewlight entry point. First 40 output lines:" >&2
+  line_count=0
+  while IFS= read -r line; do
+    printf '%s\n' "$line" >&2
+    line_count=$((line_count + 1))
+    if [[ "$line_count" -ge 40 ]]; then
+      break
+    fi
+  done <"$WORK/help.txt"
+  exit 1
+fi
 run_binary setup claude-code --print >"$WORK/claude-setup.txt" 2>"$WORK/claude-guidance.txt"
 "$GREP" -qF '"hooks"' "$WORK/claude-setup.txt"
 "$GREP" -qF "$BIN ingest claude-code" "$WORK/claude-setup.txt"
