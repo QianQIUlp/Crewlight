@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
+
+report_error() {
+  local status=$?
+  local line="${BASH_LINENO[0]:-unknown}"
+  printf 'Standalone smoke failed at line %s with exit code %s.\n' "$line" "$status" >&2
+  exit "$status"
+}
+trap report_error ERR
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('$ROOT/package.json', 'utf8')).version")"
