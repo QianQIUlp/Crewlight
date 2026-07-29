@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -41,7 +43,7 @@ describe("Openclaw adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "openclaw-session",
-      projectPath: "/tmp/openclaw-project",
+      projectPath: resolve("/tmp/openclaw-project"),
       title: "PreToolUse",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

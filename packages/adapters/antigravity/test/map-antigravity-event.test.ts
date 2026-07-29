@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -47,7 +49,7 @@ describe("Antigravity adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "antigravity-session",
-      projectPath: "/tmp/antigravity-project",
+      projectPath: resolve("/tmp/antigravity-project"),
       title: "PreToolUse",
       message: "Using tool: run_command",
     });

@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -41,7 +43,7 @@ describe("KiroCli adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "kiro-cli-session",
-      projectPath: "/tmp/kiro-cli-project",
+      projectPath: resolve("/tmp/kiro-cli-project"),
       title: "preToolUse",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

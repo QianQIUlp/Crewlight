@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -41,7 +43,7 @@ describe("MimoCode adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "mimo-code-session",
-      projectPath: "/tmp/mimo-code-project",
+      projectPath: resolve("/tmp/mimo-code-project"),
       title: "PreToolUse",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

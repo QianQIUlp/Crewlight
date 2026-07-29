@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -61,7 +63,7 @@ describe("Gemini CLI adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "gemini-session",
-      projectPath: "/tmp/gemini-project",
+      projectPath: resolve("/tmp/gemini-project"),
       title: "BeforeTool",
       message: "Using tool: glob",
     });

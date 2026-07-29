@@ -51,7 +51,7 @@ describe("runCommand", () => {
     expect(capture.events[1]?.message).toMatch(/durationMs=\d+/);
   });
 
-  it("emits failed with a terminating signal", async () => {
+  it("emits failed when the child terminates itself", async () => {
     const capture = captureEvents();
     const result = await runCommand({
       command: process.execPath,
@@ -61,8 +61,13 @@ describe("runCommand", () => {
     });
 
     expect(result.status).toBe("failed");
-    expect(result.signal).toBe("SIGTERM");
-    expect(capture.events[1]?.message).toContain("signal=SIGTERM");
+    if (process.platform === "win32") {
+      expect(result.signal).toBeNull();
+      expect(capture.events[1]?.message).toContain("exitCode=");
+    } else {
+      expect(result.signal).toBe("SIGTERM");
+      expect(capture.events[1]?.message).toContain("signal=SIGTERM");
+    }
     expect(capture.events[1]?.message).toMatch(/durationMs=\d+/);
   });
 

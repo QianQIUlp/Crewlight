@@ -1,9 +1,12 @@
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { resolveCrewlightCliContext } from "../src/runtime.js";
 
 describe("desktop CLI runtime resolution", () => {
   it("uses node plus the built CLI entry in development", () => {
+    const developmentEntry = join("packages", "cli", "dist", "index.js");
     const context = resolveCrewlightCliContext({
       isPackaged: false,
       nodeExecutable: "/usr/local/bin/node",
@@ -11,10 +14,8 @@ describe("desktop CLI runtime resolution", () => {
     });
 
     expect(context.command).toBe("/usr/local/bin/node");
-    expect(context.args.at(0)).toContain("packages/cli/dist/index.js");
-    expect(context.setupRuntime.entryPath).toContain(
-      "packages/cli/dist/index.js",
-    );
+    expect(context.args.at(0)).toContain(developmentEntry);
+    expect(context.setupRuntime.entryPath).toContain(developmentEntry);
     expect(context.displayCommand).toContain("/usr/local/bin/node");
   });
 

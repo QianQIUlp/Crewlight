@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -90,7 +92,7 @@ describe("Copilot CLI adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "copilot-session",
-      projectPath: "/tmp/copilot-project",
+      projectPath: resolve("/tmp/copilot-project"),
       title: "PreToolUse",
       message: "Using tool: read_file",
     });

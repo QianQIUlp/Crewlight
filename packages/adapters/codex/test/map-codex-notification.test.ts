@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
@@ -24,7 +25,7 @@ describe("Codex notify adapter", () => {
       surface: "cli",
       status: "completed",
       sessionId: "fixture-codex-thread",
-      projectPath: "/workspace/sanitized-project",
+      projectPath: resolve("/workspace/sanitized-project"),
       title: "agent-turn-complete",
       message: "Codex turn completed",
     });
