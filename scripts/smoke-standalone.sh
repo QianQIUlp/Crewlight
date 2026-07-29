@@ -75,7 +75,7 @@ trap cleanup EXIT
 )
 "$TAR" -xzf "$ARCHIVE" -C "$WORK"
 
-BIN_DIR="$WORK/$ARTIFACT"
+BIN_DIR="$(cd "$WORK/$ARTIFACT" && pwd -P)"
 BIN="$BIN_DIR/crewlight"
 HOME_DIR="$WORK/home"
 mkdir -p "$HOME_DIR"
@@ -123,7 +123,13 @@ run_binary setup claude-code --print >"$WORK/claude-setup.txt" 2>"$WORK/claude-g
 "$GREP" -qF '"hooks"' "$WORK/claude-setup.txt"
 "$GREP" -qF "$BIN ingest claude-code" "$WORK/claude-setup.txt"
 run_binary setup codex --print >"$WORK/codex-setup.txt" 2>"$WORK/codex-guidance.txt"
-"$GREP" -qF "\"$BIN\", \"ingest\", \"codex\"" "$WORK/codex-setup.txt"
+if ! "$GREP" -qF "\"$BIN\", \"ingest\", \"codex\"" "$WORK/codex-setup.txt"; then
+  echo "Codex setup did not contain the canonical standalone command:" >&2
+  while IFS= read -r line; do
+    printf '%s\n' "$line" >&2
+  done <"$WORK/codex-setup.txt"
+  exit 1
+fi
 run_binary setup codex-hooks --print >"$WORK/codex-hooks-setup.txt" 2>"$WORK/codex-hooks-guidance.txt"
 "$GREP" -qF "$BIN ingest codex-hook --hook Stop" "$WORK/codex-hooks-setup.txt"
 "$GREP" -qF "$BIN ingest codex-hook --hook PreToolUse" "$WORK/codex-hooks-setup.txt"
