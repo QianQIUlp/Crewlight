@@ -1441,7 +1441,7 @@ function renderConnectivity(sessions) {
   setText("conn-codex", getAge("codex"));
   setText("conn-cursor", getAge("cursor"));
   setText("conn-opencode", getAge("opencode"));
-  setText("conn-antigravity", getAge("antigravity-probe"));
+  setText("conn-antigravity", getAge("antigravity"));
 }
 
 async function fetchCapabilities() {

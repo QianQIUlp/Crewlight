@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b && pnpm --filter @crewlight/companion copy:assets",
+    "build": "tsc -b && node packages/companion/scripts/copy-assets.mjs",
     "build:desktop": "pnpm build",
     "build:standalone": "pnpm build && node scripts/build-standalone.mjs",
     "clean": "tsc -b --clean",
@@ -21,10 +21,14 @@
     "package:desktop:portable": "node scripts/package-desktop.mjs portable",
     "package:desktop:dmg": "node scripts/package-desktop.mjs dmg",
     "package:desktop:linux": "node scripts/package-desktop.mjs linux",
+    "package:desktop:windows": "node scripts/package-desktop.mjs windows",
+    "release:verify": "node scripts/verify-release.mjs",
     "smoke:standalone": "bash scripts/smoke-standalone.sh",
     "smoke:standalone:windows": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-standalone.ps1",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -b --pretty false"
+    "test": "tsc -b --pretty false && vitest run --passWithNoTests",
+    "test:run": "vitest run --passWithNoTests",
+    "typecheck": "tsc -b --pretty false",
+    "validate": "pnpm format:check && pnpm typecheck && pnpm test:run && pnpm build"
   },
   "devDependencies": {
     "@types/node": "^22.15.29",

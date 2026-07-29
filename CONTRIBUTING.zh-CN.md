@@ -25,19 +25,19 @@ Crewlight 的定位是一个小而可靠的 AI coding agent 可观测层。这�
 如果涉及代码改动，请运行本地校验：
 
 ```bash
-pnpm install
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm install --frozen-lockfile
+pnpm validate
 ```
 
-如果改动涉及 Windows 桌面端，也请补充验证：
+如果改动涉及发布或打包，还应在当前受支持的宿主平台构建并 smoke-test
+发布产物：
 
 ```bash
-pnpm package:desktop:portable
-pnpm package:desktop:installer
+pnpm release:verify
 ```
+
+产物检查不能替代真实目标系统上的 GUI、安装器、原生通知、签名或公证验证。详见
+[源码与发布验证](docs/release-validation.md)。
 
 如果只是文档改动，至少检查 Markdown 渲染效果，并确认链接有效。
 

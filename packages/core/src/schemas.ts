@@ -4,8 +4,29 @@ export const AGENT_IDENTITY_MAX_LENGTH = 2_048;
 export const AGENT_PATH_MAX_LENGTH = 4_096;
 export const AGENT_DISPLAY_MAX_LENGTH = 4_096;
 
-const identityStringSchema = z.string().min(1).max(AGENT_IDENTITY_MAX_LENGTH);
-const projectPathSchema = z.string().min(1).max(AGENT_PATH_MAX_LENGTH);
+const UNSAFE_SINGLE_LINE_CHARACTERS =
+  /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u;
+
+function containsUnsafeSingleLineCharacter(value: string): boolean {
+  return UNSAFE_SINGLE_LINE_CHARACTERS.test(value);
+}
+
+// Identity and path values participate in hashing or deduplication. Reject
+// unsafe characters instead of deleting them and aliasing distinct inputs.
+const identityStringSchema = z
+  .string()
+  .min(1)
+  .max(AGENT_IDENTITY_MAX_LENGTH)
+  .refine((value) => !containsUnsafeSingleLineCharacter(value), {
+    message: "Identity strings must not contain control characters",
+  });
+const projectPathSchema = z
+  .string()
+  .min(1)
+  .max(AGENT_PATH_MAX_LENGTH)
+  .refine((value) => !containsUnsafeSingleLineCharacter(value), {
+    message: "Project paths must not contain control characters",
+  });
 const displayStringSchema = z.string().min(1).max(AGENT_DISPLAY_MAX_LENGTH);
 
 export const agentStatusSchema = z.enum([

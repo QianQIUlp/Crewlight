@@ -4,10 +4,16 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { parseKnownHosts } from "../src/known-hosts.js";
-import { createSshTunnel } from "../src/ssh-tunnel.js";
+import {
+  createSshTunnel,
+  REMOTE_CLI_PROBE_TIMEOUT_MS,
+} from "../src/ssh-tunnel.js";
 
 // Setup global store for mock instances
 (globalThis as any).mockClientInstances = [];
+(globalThis as any).mockRemotePlatform = "posix";
+(globalThis as any).mockStalledCommands = new Set<string>();
+(globalThis as any).mockExecStreams = [];
 
 vi.mock("ssh2", () => {
   const { EventEmitter } = require("node:events");
@@ -54,14 +60,29 @@ vi.mock("ssh2", () => {
     exec(command: string, cb: (err: Error | null, stream: any) => void) {
       this.execCalls.push(command);
       const mockStream = new EventEmitter();
+      mockStream.stderr = { resume: vi.fn() };
+      mockStream.close = vi.fn();
+      mockStream.destroy = vi.fn();
+      (globalThis as any).mockExecStreams.push({ command, stream: mockStream });
       process.nextTick(() => {
         cb(null, mockStream);
-        if (command.includes("crewlight")) {
-          mockStream.emit("data", Buffer.from("/usr/bin/crewlight\n"));
-        } else {
-          mockStream.emit("data", Buffer.from(""));
+        if ((globalThis as any).mockStalledCommands.has(command)) {
+          return;
         }
-        mockStream.emit("close", 0);
+        const remotePlatform = (globalThis as any).mockRemotePlatform;
+        const foundOnPosix =
+          remotePlatform === "posix" && command === "command -v crewlight";
+        const foundOnWindows =
+          remotePlatform === "windows" && command === "where.exe crewlight";
+        if (foundOnPosix) {
+          mockStream.emit("data", Buffer.from("/usr/bin/crewlight\n"));
+        } else if (foundOnWindows) {
+          mockStream.emit(
+            "data",
+            Buffer.from("C:\\Tools\\Crewlight\\crewlight.exe\r\n"),
+          );
+        }
+        mockStream.emit("close", foundOnPosix || foundOnWindows ? 0 : 1);
       });
     }
 
@@ -84,10 +105,15 @@ vi.mock("ssh2", () => {
 describe("ssh tunnel", () => {
   beforeEach(() => {
     (globalThis as any).mockClientInstances = [];
+    (globalThis as any).mockRemotePlatform = "posix";
+    (globalThis as any).mockStalledCommands = new Set<string>();
+    (globalThis as any).mockExecStreams = [];
     vi.useFakeTimers();
   });
 
   afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -128,10 +154,108 @@ describe("ssh tunnel", () => {
 
     const hasCli = await tunnel.checkRemoteCli();
     expect(hasCli).toBe(true);
-    expect(client?.execCalls).toContain("which crewlight");
+    expect(client?.execCalls).toEqual(["command -v crewlight"]);
 
     tunnel.disconnect();
     expect(client?.ended).toBe(true);
+  });
+
+  it("falls back to a fixed Windows OpenSSH PATH probe without interpolating host data", async () => {
+    (globalThis as any).mockRemotePlatform = "windows";
+    const tunnel = createSshTunnel({
+      host: {
+        alias: "windows-host; echo injected",
+        hostname: "windows.example",
+      },
+      remotePort: 3768,
+      localPort: 12345,
+      onStateChange: () => {},
+    });
+    await vi.runAllTimersAsync();
+
+    const hasCli = await tunnel.checkRemoteCli();
+    const client = (globalThis as any).mockClientInstances[0];
+
+    expect(hasCli).toBe(true);
+    expect(client?.execCalls).toEqual([
+      "command -v crewlight",
+      "where.exe crewlight",
+    ]);
+    expect(client?.execCalls.join(" ")).not.toContain("windows-host");
+    expect(client?.execCalls.join(" ")).not.toContain("injected");
+    tunnel.disconnect();
+  });
+
+  it("times out a stalled POSIX probe and continues with the Windows fallback", async () => {
+    (globalThis as any).mockRemotePlatform = "windows";
+    (globalThis as any).mockStalledCommands = new Set(["command -v crewlight"]);
+    const tunnel = createSshTunnel({
+      host: { alias: "windows-host", hostname: "windows.example" },
+      remotePort: 3768,
+      localPort: 12345,
+      onStateChange: () => {},
+    });
+    await vi.runAllTimersAsync();
+
+    const hasCli = tunnel.checkRemoteCli();
+    await vi.advanceTimersByTimeAsync(REMOTE_CLI_PROBE_TIMEOUT_MS);
+
+    await expect(hasCli).resolves.toBe(true);
+    const client = (globalThis as any).mockClientInstances[0];
+    expect(client?.execCalls).toEqual([
+      "command -v crewlight",
+      "where.exe crewlight",
+    ]);
+    expect(
+      (globalThis as any).mockExecStreams[0].stream.close,
+    ).toHaveBeenCalledOnce();
+    tunnel.disconnect();
+  });
+
+  it("returns false after both fixed remote CLI probes time out", async () => {
+    (globalThis as any).mockStalledCommands = new Set([
+      "command -v crewlight",
+      "where.exe crewlight",
+    ]);
+    const tunnel = createSshTunnel({
+      host: { alias: "stalled-host" },
+      remotePort: 3768,
+      localPort: 12345,
+      onStateChange: () => {},
+    });
+    await vi.runAllTimersAsync();
+
+    const hasCli = tunnel.checkRemoteCli();
+    await vi.runAllTimersAsync();
+
+    await expect(hasCli).resolves.toBe(false);
+    const streams = (globalThis as any).mockExecStreams;
+    expect(streams).toHaveLength(2);
+    expect(streams[0].stream.close).toHaveBeenCalledOnce();
+    expect(streams[1].stream.close).toHaveBeenCalledOnce();
+    tunnel.disconnect();
+  });
+
+  it("does not let a timed-out probe reverse a disconnected result", async () => {
+    (globalThis as any).mockStalledCommands = new Set(["command -v crewlight"]);
+    const tunnel = createSshTunnel({
+      host: { alias: "disconnecting-host" },
+      remotePort: 3768,
+      localPort: 12345,
+      onStateChange: () => {},
+    });
+    await vi.runAllTimersAsync();
+
+    const hasCli = tunnel.checkRemoteCli();
+    tunnel.disconnect();
+    await vi.runAllTimersAsync();
+
+    await expect(hasCli).resolves.toBe(false);
+    const client = (globalThis as any).mockClientInstances[0];
+    expect(client?.execCalls).toEqual(["command -v crewlight"]);
+    expect(
+      (globalThis as any).mockExecStreams[0].stream.close,
+    ).toHaveBeenCalledOnce();
   });
 
   it("uses known_hosts verification and fails closed for a changed key", async () => {

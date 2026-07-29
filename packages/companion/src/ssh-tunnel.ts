@@ -1,5 +1,5 @@
 import net from "node:net";
-import { Client, type ConnectConfig } from "ssh2";
+import { Client, type ClientChannel, type ConnectConfig } from "ssh2";
 import { loadSshIdentity } from "./ssh-auth.js";
 import {
   knownHostCandidates,
@@ -27,6 +27,97 @@ export type TunnelState =
 export interface SshTunnel {
   disconnect(): void;
   checkRemoteCli(): Promise<boolean>;
+}
+
+const REMOTE_CLI_PROBE_COMMANDS = [
+  "command -v crewlight",
+  "where.exe crewlight",
+] as const;
+const REMOTE_CLI_PROBE_OUTPUT_LIMIT = 4_096;
+export const REMOTE_CLI_PROBE_TIMEOUT_MS = 1_000;
+
+function closeProbeChannel(stream: ClientChannel): void {
+  const channel = stream as ClientChannel & {
+    close?: () => void;
+    destroy?: () => unknown;
+  };
+  try {
+    if (typeof channel.close === "function") {
+      channel.close();
+      return;
+    }
+  } catch {
+    // Fall through to the generic stream teardown below.
+  }
+  try {
+    channel.destroy?.();
+  } catch {
+    // The probe has already timed out, so teardown errors are non-fatal.
+  }
+}
+
+function probeRemoteCommand(
+  connection: Client,
+  command: (typeof REMOTE_CLI_PROBE_COMMANDS)[number],
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let stream: ClientChannel | undefined;
+    let timeout: NodeJS.Timeout | undefined;
+    const finish = (result: boolean, closeStream = false): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = undefined;
+      }
+      if (closeStream && stream) {
+        closeProbeChannel(stream);
+      }
+      resolve(result);
+    };
+
+    timeout = setTimeout(
+      () => finish(false, true),
+      REMOTE_CLI_PROBE_TIMEOUT_MS,
+    );
+
+    try {
+      connection.exec(command, (error, openedStream) => {
+        if (settled) {
+          if (openedStream) {
+            closeProbeChannel(openedStream);
+          }
+          return;
+        }
+        if (error) {
+          finish(false);
+          return;
+        }
+
+        stream = openedStream;
+        let output = "";
+        stream.on("data", (data: Buffer | string) => {
+          if (output.length >= REMOTE_CLI_PROBE_OUTPUT_LIMIT) {
+            return;
+          }
+          output = `${output}${data.toString()}`.slice(
+            0,
+            REMOTE_CLI_PROBE_OUTPUT_LIMIT,
+          );
+        });
+        stream.stderr?.resume?.();
+        stream.once("error", () => finish(false, true));
+        stream.once("close", (code: number) => {
+          finish(code === 0 && output.trim().length > 0);
+        });
+      });
+    } catch {
+      finish(false, true);
+    }
+  });
 }
 
 export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
@@ -153,26 +244,21 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
         conn = null;
       }
     },
-    checkRemoteCli(): Promise<boolean> {
-      return new Promise((resolve) => {
-        if (!conn || !isConnected) {
-          resolve(false);
-          return;
+    async checkRemoteCli(): Promise<boolean> {
+      const activeConnection = conn;
+      if (!activeConnection || !isConnected) {
+        return false;
+      }
+
+      for (const command of REMOTE_CLI_PROBE_COMMANDS) {
+        if (await probeRemoteCommand(activeConnection, command)) {
+          return conn === activeConnection && isConnected;
         }
-        conn.exec("which crewlight", (err, stream) => {
-          if (err) {
-            resolve(false);
-            return;
-          }
-          let output = "";
-          stream.on("data", (data: Buffer | string) => {
-            output += data.toString();
-          });
-          stream.on("close", (code: number) => {
-            resolve(code === 0 && output.trim().length > 0);
-          });
-        });
-      });
+        if (conn !== activeConnection || !isConnected) {
+          return false;
+        }
+      }
+      return false;
     },
   };
 }

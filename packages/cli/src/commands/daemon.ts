@@ -10,6 +10,7 @@ import {
   type DashboardTaskTitleMode,
 } from "@crewlight/daemon";
 import { createNotifier } from "@crewlight/notifier";
+import { DAEMON_READY_OUTPUT_PREFIX } from "@crewlight/shared";
 
 import { createDoctorRuntime, runDoctor } from "./doctor.js";
 import {
@@ -139,7 +140,7 @@ export async function executeDaemonCommand(
   }
 
   io.write(
-    `Crewlight daemon listening at ${daemon.url} (notifier: ${config.notifier})`,
+    `${DAEMON_READY_OUTPUT_PREFIX}${daemon.url} (notifier: ${config.notifier})`,
   );
   if (dashboard) {
     io.write(`Crewlight dashboard: ${daemon.url}/dashboard`);

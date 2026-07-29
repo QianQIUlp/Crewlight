@@ -5,7 +5,30 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('$ROOT/package.json', 'utf8')).version")"
 NODE_VERSION="$(node --version)"
-ARTIFACT="crewlight-v${VERSION}-linux-x64"
+NODE_PLATFORM="$(node -p "process.platform")"
+NODE_ARCH="$(node -p "process.arch")"
+case "$NODE_PLATFORM" in
+  linux)
+    PLATFORM="linux"
+    ;;
+  darwin)
+    PLATFORM="macos"
+    ;;
+  *)
+    echo "Unix standalone smoke supports Linux and macOS; received $NODE_PLATFORM." >&2
+    exit 1
+    ;;
+esac
+case "$NODE_ARCH" in
+  x64 | arm64)
+    ARCH="$NODE_ARCH"
+    ;;
+  *)
+    echo "Unix standalone smoke supports x64 and arm64; received $NODE_ARCH." >&2
+    exit 1
+    ;;
+esac
+ARTIFACT="crewlight-v${VERSION}-${PLATFORM}-${ARCH}"
 ARCHIVE="$ROOT/release/${ARTIFACT}.tar.gz"
 CHECKSUM="$ARCHIVE.sha256"
 PORT="${CREWLIGHT_SMOKE_PORT:-43768}"
@@ -14,9 +37,17 @@ CURL="$(command -v curl)"
 ENV_COMMAND="$(command -v env)"
 GREP="$(command -v grep)"
 MKTEMP="$(command -v mktemp)"
-SHA256SUM="$(command -v sha256sum)"
 SLEEP="$(command -v sleep)"
 TAR="$(command -v tar)"
+
+if command -v sha256sum >/dev/null 2>&1; then
+  CHECKSUM_COMMAND=("$(command -v sha256sum)" "--check")
+elif command -v shasum >/dev/null 2>&1; then
+  CHECKSUM_COMMAND=("$(command -v shasum)" "--algorithm" "256" "--check")
+else
+  echo "Standalone smoke requires sha256sum or shasum." >&2
+  exit 1
+fi
 
 WORK="$("$MKTEMP" -d)"
 DAEMON_PID=""
@@ -32,7 +63,7 @@ trap cleanup EXIT
 
 (
   cd "$ROOT/release"
-  "$SHA256SUM" --check "$(basename "$CHECKSUM")"
+  "${CHECKSUM_COMMAND[@]}" "$(basename "$CHECKSUM")"
 )
 "$TAR" -xzf "$ARCHIVE" -C "$WORK"
 
@@ -44,8 +75,8 @@ mkdir -p "$HOME_DIR"
 test -x "$BIN"
 "$GREP" -qF "Crewlight version: $VERSION" "$BIN_DIR/BUILD-INFO.txt"
 "$GREP" -qF "Node version: $NODE_VERSION" "$BIN_DIR/BUILD-INFO.txt"
-"$GREP" -qF "Platform: linux" "$BIN_DIR/BUILD-INFO.txt"
-"$GREP" -qF "Architecture: x64" "$BIN_DIR/BUILD-INFO.txt"
+"$GREP" -qF "Platform: $PLATFORM" "$BIN_DIR/BUILD-INFO.txt"
+"$GREP" -qF "Architecture: $ARCH" "$BIN_DIR/BUILD-INFO.txt"
 
 hash -r
 for command_name in node npm pnpm; do

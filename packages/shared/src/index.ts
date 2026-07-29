@@ -1,1 +1,5 @@
-export { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "./constants.js";
+export {
+  DAEMON_READY_OUTPUT_PREFIX,
+  DEFAULT_DAEMON_HOST,
+  DEFAULT_DAEMON_PORT,
+} from "./constants.js";

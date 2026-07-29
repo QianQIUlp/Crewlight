@@ -25,19 +25,20 @@ Avoid combining unrelated work in one PR. For example, do not mix a new adapter,
 For code changes, run the local validation commands:
 
 ```bash
-pnpm install
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm install --frozen-lockfile
+pnpm validate
 ```
 
-For desktop work on Windows, also verify:
+For release or packaging work, also build and smoke-test the artifacts for the
+current supported host:
 
 ```bash
-pnpm package:desktop:portable
-pnpm package:desktop:installer
+pnpm release:verify
 ```
+
+This artifact check does not replace GUI, installer, native-notification,
+signing, or notarization verification on real target systems. See
+[Source and Release Validation](docs/release-validation.md).
 
 For documentation-only changes, at least review the rendered Markdown and check that links are valid.
 
