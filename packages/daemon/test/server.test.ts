@@ -387,6 +387,10 @@ describe("daemon HTTP server", () => {
     expect(scriptBody).not.toContain(".innerHTML");
     expect(scriptBody).toContain('setText("setup-cursor", data.setup.cursor)');
     expect(scriptBody).toContain('setText("conn-cursor", getAge("cursor"))');
+    expect(scriptBody).toContain(
+      'setText("conn-antigravity", getAge("antigravity"))',
+    );
+    expect(scriptBody).not.toContain('getAge("antigravity-probe")');
     expect(api.status).toBe(200);
     expect(api.headers.get("cache-control")).toBe("no-store");
     expect(api.headers.get("content-type")).toContain("application/json");

@@ -8,9 +8,10 @@ Status: **Linux x64 verified locally; Windows and macOS release verification pen
 - [x] Root package version is `0.5.0`
 - [x] CLI help displays `Crewlight v0.5.0`
 - [x] Linux x64 standalone archive, checksum, restricted-PATH startup, daemon, dashboard, ingest, status, and doctor smoke checks pass
+- [ ] `pnpm release:verify` passes on each supported native release target
 - [ ] Release packages compile and package successfully on all three platforms:
-  - `Crewlight-0.5.0-x64.AppImage` (Linux x64)
-  - `Crewlight-0.5.0-x64.deb` (Linux deb)
+  - `Crewlight-0.5.0-x86_64.AppImage` (Linux x64)
+  - `Crewlight-0.5.0-amd64.deb` (Linux deb)
   - `Crewlight-Setup-v0.5.0.exe` (Windows Installer)
   - `Crewlight-0.5.0-arm64.dmg` (macOS Apple Silicon)
   - `Crewlight-0.5.0-x64.dmg` (macOS Intel)
@@ -44,10 +45,28 @@ Status: **Linux x64 verified locally; Windows and macOS release verification pen
 
 ## Verification
 
+- [x] `pnpm validate` provides the single developer source-validation gate
 - [x] `pnpm format:check` runs successfully
 - [x] `pnpm typecheck` compiles clean
-- [x] `pnpm test` executes and passes all 690 tests successfully
+- [x] `pnpm test` executes the complete test suite successfully
 - [x] `pnpm build` creates release bundles in `packages/*/dist`
+- [ ] The `source-validation` CI matrix passes on Linux x64, Windows x64, macOS arm64, and macOS x64
+- [ ] Native release artifact jobs pass for Linux x64, Windows x64, macOS arm64, and macOS x64
+
+See [Source and Release Validation](release-validation.md) for the command
+contract, runner mapping, artifact outputs, and automation boundaries.
+
+## Manual Desktop Gates
+
+- [ ] The packaged desktop app launches on Linux x64, Windows x64, macOS arm64, and macOS x64
+- [ ] Onboarding, service controls, companion controls, and preference persistence work on the target OS
+- [ ] Installer/uninstaller behavior is verified where applicable
+- [ ] Native notification delivery is verified on the target OS
+- [ ] Signing, notarization, and operating-system trust behavior is recorded
+- [ ] Release screenshots come from an actual GUI-capable run
+
+Passing `pnpm release:verify` or a CI artifact job does not complete these manual
+gates.
 
 ## Security Boundaries
 

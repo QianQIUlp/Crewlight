@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -51,7 +53,7 @@ describe("Codewhale adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "codewhale-session",
-      projectPath: "/tmp/codewhale-project",
+      projectPath: resolve("/tmp/codewhale-project"),
       title: "tool_call_before",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

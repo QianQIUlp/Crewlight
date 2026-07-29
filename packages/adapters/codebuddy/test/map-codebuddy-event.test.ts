@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -71,7 +73,7 @@ describe("Codebuddy adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "codebuddy-session",
-      projectPath: "/tmp/codebuddy-project",
+      projectPath: resolve("/tmp/codebuddy-project"),
       title: "PreToolUse",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

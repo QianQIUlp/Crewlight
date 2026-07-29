@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -54,7 +56,7 @@ describe("Qoder adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "qoder-session",
-      projectPath: "/tmp/qoder-project",
+      projectPath: resolve("/tmp/qoder-project"),
       title: "PreToolUse",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

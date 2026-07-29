@@ -166,28 +166,70 @@ describe("normalizeAgentEvent", () => {
     expect(JSON.stringify(event)).not.toContain("transient");
   });
 
-  it("strips terminal and line control characters from identity and display strings", () => {
+  it.each([
+    {
+      field: "id",
+      unsafeValue: "event\u001b[31m\n-id",
+      formerlyCollidingValue: "event[31m-id",
+    },
+    {
+      field: "sessionId",
+      unsafeValue: "session\r\n-id",
+      formerlyCollidingValue: "session-id",
+    },
+    {
+      field: "remoteAlias",
+      unsafeValue: "remote\u001bhost",
+      formerlyCollidingValue: "remotehost",
+    },
+    {
+      field: "projectPath",
+      unsafeValue: "/srv/team \u0085name/project",
+      formerlyCollidingValue: "/srv/team name/project",
+    },
+  ] as const)(
+    "rejects control characters in $field instead of normalizing distinct identity values together",
+    ({ field, unsafeValue, formerlyCollidingValue }) => {
+      expect(() =>
+        normalizeAgentEvent({
+          ...baseInput,
+          sessionId: "collision-regression-session",
+          [field]: unsafeValue,
+        }),
+      ).toThrow(/control characters/u);
+
+      expect(() =>
+        normalizeAgentEvent({
+          ...baseInput,
+          sessionId: "collision-regression-session",
+          [field]: formerlyCollidingValue,
+        }),
+      ).not.toThrow();
+    },
+  );
+
+  it("continues to strip terminal and line control characters from display strings", () => {
     const event = normalizeAgentEvent({
       ...baseInput,
-      id: "event\u001b[31m\n-id",
-      sessionId: "session\r\n-id",
-      projectPath: "/srv/team \u0085name/project",
+      id: "event-id",
+      sessionId: "session-id",
+      projectPath: "/srv/team name/project",
       workspaceName: "workspace\u0000\u2028name",
       taskTitle: "task\u009b\u2029title",
       title: "title\u007fvalue",
       message: "message\tvalue",
-      remoteAlias: "remote\u001bhost",
+      remoteAlias: "remote-host",
     });
 
     expect(event).toMatchObject({
-      id: "event[31m-id",
+      id: "event-id",
       sessionId: "session-id",
       projectPath: "/srv/team name/project",
       workspaceName: "workspacename",
       taskTitle: "tasktitle",
       title: "titlevalue",
       message: "messagevalue",
-      remoteAlias: "remotehost",
+      remoteAlias: "remote-host",
     });
     expect(JSON.stringify(event)).not.toMatch(
       /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u,
@@ -215,7 +257,7 @@ describe("normalizeAgentEvent", () => {
     ).toThrow();
   });
 
-  it("rejects required identity strings that become empty after sanitizing", () => {
+  it("rejects control-only identity strings", () => {
     expect(() =>
       normalizeAgentEvent({
         ...baseInput,

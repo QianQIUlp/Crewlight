@@ -19,7 +19,8 @@ const HIGH_URGENCY = new Set<AgentStatus>([
 const UNSAFE_SINGLE_LINE_CHARACTERS =
   /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu;
 
-function sanitizeAgentString(value: string | undefined): string | undefined {
+// Display-only values do not participate in identity and remain safely scrubbed.
+function sanitizeDisplayString(value: string | undefined): string | undefined {
   return value?.replace(UNSAFE_SINGLE_LINE_CHARACTERS, "");
 }
 
@@ -39,29 +40,17 @@ export function normalizeAgentEvent(
   const { rawEvent: _rawEvent, ...safeInput } = parsed;
   const sanitizedInput = agentEventInputSchema.parse({
     ...safeInput,
-    ...(safeInput.id !== undefined
-      ? { id: sanitizeAgentString(safeInput.id) }
-      : {}),
-    ...(safeInput.sessionId !== undefined
-      ? { sessionId: sanitizeAgentString(safeInput.sessionId) }
-      : {}),
-    ...(safeInput.projectPath !== undefined
-      ? { projectPath: sanitizeAgentString(safeInput.projectPath) }
-      : {}),
     ...(safeInput.workspaceName !== undefined
-      ? { workspaceName: sanitizeAgentString(safeInput.workspaceName) }
+      ? { workspaceName: sanitizeDisplayString(safeInput.workspaceName) }
       : {}),
     ...(safeInput.taskTitle !== undefined
-      ? { taskTitle: sanitizeAgentString(safeInput.taskTitle) }
+      ? { taskTitle: sanitizeDisplayString(safeInput.taskTitle) }
       : {}),
     ...(safeInput.title !== undefined
-      ? { title: sanitizeAgentString(safeInput.title) }
+      ? { title: sanitizeDisplayString(safeInput.title) }
       : {}),
     ...(safeInput.message !== undefined
-      ? { message: sanitizeAgentString(safeInput.message) }
-      : {}),
-    ...(safeInput.remoteAlias !== undefined
-      ? { remoteAlias: sanitizeAgentString(safeInput.remoteAlias) }
+      ? { message: sanitizeDisplayString(safeInput.message) }
       : {}),
   });
   const projectPath = sanitizedInput.projectPath

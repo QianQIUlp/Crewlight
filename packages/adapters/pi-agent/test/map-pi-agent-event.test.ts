@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -40,7 +42,7 @@ describe("PiAgent adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "pi-agent-session",
-      projectPath: "/tmp/pi-agent-project",
+      projectPath: resolve("/tmp/pi-agent-project"),
       title: "tool_use",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

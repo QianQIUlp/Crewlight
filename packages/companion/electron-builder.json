@@ -43,6 +43,7 @@
     "artifactName": "Crewlight-${version}-${arch}.${ext}",
     "icon": "./assets/crewlight-icon.png",
     "category": "Development",
+    "syncDesktopName": true,
     "target": [
       {
         "target": "AppImage",

@@ -2,11 +2,13 @@ import { EventEmitter } from "node:events";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 
 import type { NotifierKind } from "@crewlight/notifier";
+import { DAEMON_READY_OUTPUT_PREFIX } from "@crewlight/shared";
 
 import type { CrewlightCliContext } from "./runtime.js";
 
 const OUTPUT_LINE_LIMIT = 8;
 const OUTPUT_TEXT_LIMIT = 180;
+export const DAEMON_START_TIMEOUT_MS = 5_000;
 const STOP_TIMEOUT_MS = 5_000;
 const FORCE_STOP_GRACE_MS = 1_000;
 
@@ -79,8 +81,11 @@ export function createDaemonServiceManager(
 ): DaemonServiceManager {
   const events = new EventEmitter();
   let child: ChildProcessWithoutNullStreams | undefined;
+  let startPromise: Promise<boolean> | undefined;
+  let settlePendingStart: ((result: boolean) => void) | undefined;
   let stopTimer: NodeJS.Timeout | undefined;
   let stopPromise: Promise<boolean> | undefined;
+  let settlePendingStop: ((result: boolean) => void) | undefined;
   let expectedStop = false;
   let currentSettings = { ...defaults };
   let state: ManagedServiceState = {
@@ -126,6 +131,53 @@ export function createDaemonServiceManager(
     }
   }
 
+  function terminateTimedOutChild(
+    activeChild: ChildProcessWithoutNullStreams,
+    timeoutMessage: string,
+  ): void {
+    const finishUnconfirmedStop = (): void => {
+      if (child !== activeChild) {
+        return;
+      }
+      clearStopTimer();
+      applyState({
+        phase: "error",
+        managed: true,
+        pid: activeChild.pid,
+        lastError: `${timeoutMessage} The process did not confirm exit after a forced stop.`,
+      });
+    };
+    const forceStop = (): void => {
+      if (child !== activeChild) {
+        return;
+      }
+      try {
+        if (!activeChild.kill("SIGKILL")) {
+          finishUnconfirmedStop();
+          return;
+        }
+      } catch {
+        finishUnconfirmedStop();
+        return;
+      }
+      stopTimer = setTimeout(finishUnconfirmedStop, FORCE_STOP_GRACE_MS);
+    };
+
+    clearStopTimer();
+    try {
+      if (!activeChild.kill("SIGTERM")) {
+        forceStop();
+        return;
+      }
+    } catch {
+      forceStop();
+      return;
+    }
+    if (child === activeChild) {
+      stopTimer = setTimeout(forceStop, STOP_TIMEOUT_MS);
+    }
+  }
+
   async function stop(): Promise<boolean> {
     if (stopPromise) {
       return await stopPromise;
@@ -140,6 +192,8 @@ export function createDaemonServiceManager(
     }
 
     expectedStop = true;
+    settlePendingStart?.(false);
+    clearStopTimer();
     applyState({
       phase: "stopping",
       managed: true,
@@ -152,6 +206,9 @@ export function createDaemonServiceManager(
           return;
         }
         settled = true;
+        if (settlePendingStop === finish) {
+          settlePendingStop = undefined;
+        }
         activeChild.removeListener("exit", onExit);
         clearStopTimer();
         resolve(result);
@@ -170,6 +227,7 @@ export function createDaemonServiceManager(
       const onExit = () => {
         finish(true);
       };
+      settlePendingStop = finish;
       activeChild.once("exit", onExit);
       try {
         if (!activeChild.kill("SIGTERM")) {
@@ -203,10 +261,13 @@ export function createDaemonServiceManager(
     }
   }
 
-  async function start(settings: ManagedServiceSettings): Promise<boolean> {
+  function start(settings: ManagedServiceSettings): Promise<boolean> {
     currentSettings = { ...settings };
+    if (startPromise) {
+      return startPromise;
+    }
     if (child) {
-      return true;
+      return Promise.resolve(state.phase === "running");
     }
 
     expectedStop = false;
@@ -248,7 +309,7 @@ export function createDaemonServiceManager(
         managed: false,
         lastError: error instanceof Error ? error.message : String(error),
       });
-      return false;
+      return Promise.resolve(false);
     }
 
     const spawnedChild = child;
@@ -258,16 +319,57 @@ export function createDaemonServiceManager(
         managed: false,
         lastError: "The local Crewlight service process did not start.",
       });
-      return false;
+      return Promise.resolve(false);
     }
 
     const stdoutCollector = createLineCollector(state.stdoutSummary);
     const stderrCollector = createLineCollector(state.stderrSummary);
+    let readyProbe = "";
+    let startupSettled = false;
+    let startupFailureMessage: string | undefined;
+    let startTimer: NodeJS.Timeout | undefined;
+    let resolveStart: ((result: boolean) => void) | undefined;
+    const operation = new Promise<boolean>((resolve) => {
+      resolveStart = resolve;
+    });
+    const settleStart = (result: boolean): void => {
+      if (startupSettled) {
+        return;
+      }
+      startupSettled = true;
+      if (startTimer) {
+        clearTimeout(startTimer);
+        startTimer = undefined;
+      }
+      if (settlePendingStart === settleStart) {
+        settlePendingStart = undefined;
+      }
+      resolveStart?.(result);
+    };
+    settlePendingStart = settleStart;
+    const markReady = (): void => {
+      if (startupSettled || child !== spawnedChild) {
+        return;
+      }
+      applyState({
+        phase: "running",
+        managed: true,
+        pid: spawnedChild.pid,
+      });
+      settleStart(true);
+    };
 
     spawnedChild.stdout.setEncoding("utf8");
     spawnedChild.stderr.setEncoding("utf8");
     spawnedChild.stdout.on("data", (chunk: string) => {
       stdoutCollector(chunk);
+      const probeOutput = `${readyProbe}${chunk}`;
+      if (probeOutput.includes(DAEMON_READY_OUTPUT_PREFIX)) {
+        markReady();
+      }
+      readyProbe = probeOutput.slice(
+        -(DAEMON_READY_OUTPUT_PREFIX.length + OUTPUT_TEXT_LIMIT),
+      );
       publish();
     });
     spawnedChild.stderr.on("data", (chunk: string) => {
@@ -275,49 +377,95 @@ export function createDaemonServiceManager(
       publish();
     });
     spawnedChild.on("spawn", () => {
-      applyState({
-        phase: "running",
-        managed: true,
-        pid: spawnedChild.pid,
-      });
+      if (child === spawnedChild && !startupSettled) {
+        applyState({
+          phase: "starting",
+          managed: true,
+          pid: spawnedChild.pid,
+        });
+      }
     });
     spawnedChild.on("error", (error) => {
+      if (child !== spawnedChild) {
+        return;
+      }
+      const stopping = settlePendingStop !== undefined;
       applyState({
         phase: "error",
-        managed: false,
-        pid: undefined,
-        lastError: error.message,
+        managed: stopping,
+        pid: stopping ? spawnedChild.pid : undefined,
+        lastError: startupFailureMessage ?? error.message,
       });
+      settleStart(false);
+      if (stopping) {
+        // A ChildProcess error does not guarantee that the OS process exited.
+        // Keep the handle and the bounded TERM/KILL timers until exit is
+        // observed or stop() reports an unconfirmed forced stop.
+        return;
+      }
       releaseChild();
     });
     spawnedChild.on("exit", (code, signal) => {
+      if (child !== spawnedChild) {
+        return;
+      }
       const unexpected = !expectedStop;
       applyState({
-        phase: unexpected ? "error" : "stopped",
+        phase: startupFailureMessage
+          ? "error"
+          : unexpected
+            ? "error"
+            : "stopped",
         managed: false,
         pid: undefined,
         exitCode: code ?? undefined,
         signal: signal ?? undefined,
-        ...(unexpected
-          ? {
-              lastError:
-                code === 0 || code === null
-                  ? "The local Crewlight service exited unexpectedly."
-                  : `The local Crewlight service exited with code ${code}.`,
-            }
-          : {}),
+        ...(startupFailureMessage
+          ? { lastError: startupFailureMessage }
+          : unexpected
+            ? {
+                lastError:
+                  code === 0 || code === null
+                    ? "The local Crewlight service exited unexpectedly."
+                    : `The local Crewlight service exited with code ${code}.`,
+              }
+            : { lastError: undefined }),
       });
+      settleStart(false);
+      settlePendingStop?.(true);
       expectedStop = false;
       releaseChild();
     });
-    return true;
+    startTimer = setTimeout(() => {
+      if (startupSettled || child !== spawnedChild) {
+        return;
+      }
+      startupFailureMessage = `The local Crewlight service did not report readiness within ${DAEMON_START_TIMEOUT_MS}ms.`;
+      applyState({
+        phase: "error",
+        managed: true,
+        pid: spawnedChild.pid,
+        lastError: startupFailureMessage,
+      });
+      settleStart(false);
+      terminateTimedOutChild(spawnedChild, startupFailureMessage);
+    }, DAEMON_START_TIMEOUT_MS);
+
+    startPromise = operation;
+    void operation.then(() => {
+      if (startPromise === operation) {
+        startPromise = undefined;
+      }
+    });
+    return operation;
   }
 
   return {
     dispose: async () => {
       expectedStop = true;
-      await stop();
-      releaseChild();
+      if (await stop()) {
+        releaseChild();
+      }
     },
     restart: async (settings) => {
       currentSettings = { ...settings };

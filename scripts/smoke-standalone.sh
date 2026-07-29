@@ -1,11 +1,42 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -eEuo pipefail
+
+report_error() {
+  local status=$?
+  local line="${BASH_LINENO[0]:-unknown}"
+  printf 'Standalone smoke failed at line %s with exit code %s.\n' "$line" "$status" >&2
+  exit "$status"
+}
+trap report_error ERR
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(node -p "JSON.parse(require('node:fs').readFileSync('$ROOT/package.json', 'utf8')).version")"
 NODE_VERSION="$(node --version)"
-ARTIFACT="crewlight-v${VERSION}-linux-x64"
+NODE_PLATFORM="$(node -p "process.platform")"
+NODE_ARCH="$(node -p "process.arch")"
+case "$NODE_PLATFORM" in
+  linux)
+    PLATFORM="linux"
+    ;;
+  darwin)
+    PLATFORM="macos"
+    ;;
+  *)
+    echo "Unix standalone smoke supports Linux and macOS; received $NODE_PLATFORM." >&2
+    exit 1
+    ;;
+esac
+case "$NODE_ARCH" in
+  x64 | arm64)
+    ARCH="$NODE_ARCH"
+    ;;
+  *)
+    echo "Unix standalone smoke supports x64 and arm64; received $NODE_ARCH." >&2
+    exit 1
+    ;;
+esac
+ARTIFACT="crewlight-v${VERSION}-${PLATFORM}-${ARCH}"
 ARCHIVE="$ROOT/release/${ARTIFACT}.tar.gz"
 CHECKSUM="$ARCHIVE.sha256"
 PORT="${CREWLIGHT_SMOKE_PORT:-43768}"
@@ -14,9 +45,17 @@ CURL="$(command -v curl)"
 ENV_COMMAND="$(command -v env)"
 GREP="$(command -v grep)"
 MKTEMP="$(command -v mktemp)"
-SHA256SUM="$(command -v sha256sum)"
 SLEEP="$(command -v sleep)"
 TAR="$(command -v tar)"
+
+if command -v sha256sum >/dev/null 2>&1; then
+  CHECKSUM_COMMAND=("$(command -v sha256sum)" "--check")
+elif command -v shasum >/dev/null 2>&1; then
+  CHECKSUM_COMMAND=("$(command -v shasum)" "--algorithm" "256" "--check")
+else
+  echo "Standalone smoke requires sha256sum or shasum." >&2
+  exit 1
+fi
 
 WORK="$("$MKTEMP" -d)"
 DAEMON_PID=""
@@ -32,11 +71,11 @@ trap cleanup EXIT
 
 (
   cd "$ROOT/release"
-  "$SHA256SUM" --check "$(basename "$CHECKSUM")"
+  "${CHECKSUM_COMMAND[@]}" "$(basename "$CHECKSUM")"
 )
 "$TAR" -xzf "$ARCHIVE" -C "$WORK"
 
-BIN_DIR="$WORK/$ARTIFACT"
+BIN_DIR="$(cd "$WORK/$ARTIFACT" && pwd -P)"
 BIN="$BIN_DIR/crewlight"
 HOME_DIR="$WORK/home"
 mkdir -p "$HOME_DIR"
@@ -44,8 +83,8 @@ mkdir -p "$HOME_DIR"
 test -x "$BIN"
 "$GREP" -qF "Crewlight version: $VERSION" "$BIN_DIR/BUILD-INFO.txt"
 "$GREP" -qF "Node version: $NODE_VERSION" "$BIN_DIR/BUILD-INFO.txt"
-"$GREP" -qF "Platform: linux" "$BIN_DIR/BUILD-INFO.txt"
-"$GREP" -qF "Architecture: x64" "$BIN_DIR/BUILD-INFO.txt"
+"$GREP" -qF "Platform: $PLATFORM" "$BIN_DIR/BUILD-INFO.txt"
+"$GREP" -qF "Architecture: $ARCH" "$BIN_DIR/BUILD-INFO.txt"
 
 hash -r
 for command_name in node npm pnpm; do
@@ -64,13 +103,33 @@ run_binary() {
     "$BIN" "$@"
 }
 
-run_binary --help >"$WORK/help.txt"
-"$GREP" -qF "Crewlight v$VERSION" "$WORK/help.txt"
+if ! run_binary --help >"$WORK/help.txt"; then
+  echo "Standalone --help exited unsuccessfully." >&2
+  exit 1
+fi
+if ! "$GREP" -qF "Crewlight v$VERSION" "$WORK/help.txt"; then
+  echo "Standalone --help did not execute the embedded Crewlight entry point. First 40 output lines:" >&2
+  line_count=0
+  while IFS= read -r line; do
+    printf '%s\n' "$line" >&2
+    line_count=$((line_count + 1))
+    if [[ "$line_count" -ge 40 ]]; then
+      break
+    fi
+  done <"$WORK/help.txt"
+  exit 1
+fi
 run_binary setup claude-code --print >"$WORK/claude-setup.txt" 2>"$WORK/claude-guidance.txt"
 "$GREP" -qF '"hooks"' "$WORK/claude-setup.txt"
 "$GREP" -qF "$BIN ingest claude-code" "$WORK/claude-setup.txt"
 run_binary setup codex --print >"$WORK/codex-setup.txt" 2>"$WORK/codex-guidance.txt"
-"$GREP" -qF "\"$BIN\", \"ingest\", \"codex\"" "$WORK/codex-setup.txt"
+if ! "$GREP" -qF "\"$BIN\", \"ingest\", \"codex\"" "$WORK/codex-setup.txt"; then
+  echo "Codex setup did not contain the canonical standalone command:" >&2
+  while IFS= read -r line; do
+    printf '%s\n' "$line" >&2
+  done <"$WORK/codex-setup.txt"
+  exit 1
+fi
 run_binary setup codex-hooks --print >"$WORK/codex-hooks-setup.txt" 2>"$WORK/codex-hooks-guidance.txt"
 "$GREP" -qF "$BIN ingest codex-hook --hook Stop" "$WORK/codex-hooks-setup.txt"
 "$GREP" -qF "$BIN ingest codex-hook --hook PreToolUse" "$WORK/codex-hooks-setup.txt"

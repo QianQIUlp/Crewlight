@@ -148,7 +148,18 @@ if (platform === "win32") {
 
 await inject(binaryPath, "NODE_SEA_BLOB", await readFile(seaBlobPath), {
   sentinelFuse: "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2",
+  ...(platform === "darwin" ? { machoSegmentName: "NODE_SEA" } : {}),
 });
+if (platform === "darwin") {
+  execFileSync("codesign", ["--sign", "-", binaryPath], {
+    cwd: root,
+    stdio: "inherit",
+  });
+  execFileSync("codesign", ["--verify", binaryPath], {
+    cwd: root,
+    stdio: "inherit",
+  });
+}
 if (platform !== "win32") {
   await chmod(binaryPath, 0o755);
 }

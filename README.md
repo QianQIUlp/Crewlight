@@ -160,11 +160,12 @@ git remote set-url origin https://github.com/QianQIUlp/Crewlight.git
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm validate
 ```
+
+`pnpm validate` runs formatting, type checking, all tests, and the source build.
+`pnpm test` is also self-contained on a clean install; it builds the workspace
+project references before starting Vitest.
 
 Desktop development:
 
@@ -172,16 +173,19 @@ Desktop development:
 pnpm desktop:dev
 ```
 
-Windows desktop packaging:
+Build and smoke-test release artifacts for the current supported host:
 
 ```bash
-pnpm package:desktop:portable
-pnpm package:desktop:installer
+pnpm release:verify
 ```
+
+This artifact command does not replace GUI, installer, native-notification,
+signing, or notarization checks on real desktop systems.
 
 Related docs:
 
 - [Install without Node](docs/install-without-node.md)
+- [Source and release validation](docs/release-validation.md)
 - [Desktop companion surface](docs/companion-surface.md)
 - [Browser dashboard](docs/dashboard.md)
 - [Product positioning](docs/product/positioning.md)

@@ -2,6 +2,7 @@
   "name": "@crewlight/companion",
   "version": "0.5.0",
   "description": "Crewlight is a local-first companion surface for multi-agent coding workflows.",
+  "desktopName": "Crewlight.desktop",
   "author": "QianQIUlp <qianqiulp@example.com>",
   "homepage": "https://github.com/QianQIUlp/Crewlight",
   "private": true,

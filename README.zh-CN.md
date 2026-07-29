@@ -160,11 +160,12 @@ git remote set-url origin https://github.com/QianQIUlp/Crewlight.git
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm validate
 ```
+
+`pnpm validate` 会依次执行格式检查、类型检查、全部测试和源码构建。
+`pnpm test` 也可以在干净安装后独立运行；它会先构建 workspace project
+references，再启动 Vitest。
 
 桌面端开发：
 
@@ -172,16 +173,18 @@ pnpm build
 pnpm desktop:dev
 ```
 
-Windows 桌面打包：
+为当前受支持的宿主平台构建并 smoke-test 发布产物：
 
 ```bash
-pnpm package:desktop:portable
-pnpm package:desktop:installer
+pnpm release:verify
 ```
+
+该命令不替代真实桌面环境中的 GUI、安装器、原生通知、签名或公证验证。
 
 相关文档：
 
 - [无需 Node 安装](docs/install-without-node.md)
+- [源码与发布验证](docs/release-validation.md)
 - [Companion surface 指南](docs/companion-surface.md)
 - [Browser dashboard 指南](docs/dashboard.md)
 - [产品定位](docs/product/positioning.md)

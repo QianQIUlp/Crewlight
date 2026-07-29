@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -76,7 +78,7 @@ describe("HermesAgent adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "hermes-agent-session",
-      projectPath: "/tmp/hermes-agent-project",
+      projectPath: resolve("/tmp/hermes-agent-project"),
       title: "pre_tool_call",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

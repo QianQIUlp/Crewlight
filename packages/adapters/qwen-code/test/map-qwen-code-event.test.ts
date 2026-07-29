@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
@@ -57,7 +59,7 @@ describe("QwenCode adapter", () => {
       surface: "cli",
       status: "using_tool",
       sessionId: "qwen-code-session",
-      projectPath: "/tmp/qwen-code-project",
+      projectPath: resolve("/tmp/qwen-code-project"),
       title: "PreToolUse",
       ...(normalized.message ? { message: normalized.message } : {}),
     });

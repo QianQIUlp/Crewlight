@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { normalizeAgentEvent } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
@@ -39,7 +40,7 @@ describe("Claude Code adapter", () => {
       surface: "cli",
       status: "completed",
       sessionId: "fixture-claude-session",
-      projectPath: "/workspace/sanitized-project",
+      projectPath: resolve("/workspace/sanitized-project"),
       title: "Stop",
     });
     expect(event).not.toHaveProperty("message");

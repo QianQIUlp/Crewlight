@@ -48,16 +48,15 @@ function sendJsonAndClose(
   statusCode: number,
   body: unknown,
 ): void {
+  // Drain any bytes that are already in flight so closing the response does
+  // not reset the connection before clients can read the fixed error body.
+  request.resume();
   response.shouldKeepAlive = false;
   response.writeHead(statusCode, {
     connection: "close",
     "content-type": "application/json; charset=utf-8",
   });
-  response.end(JSON.stringify(body), () => {
-    if (!request.destroyed) {
-      request.destroy();
-    }
-  });
+  response.end(JSON.stringify(body));
 }
 
 function declaredBodyTooLarge(request: IncomingMessage): boolean {

@@ -12,7 +12,7 @@ const packageJson = JSON.parse(
 const version = packageJson.version;
 const mode = process.argv[2];
 
-const allowedModes = ["portable", "installer", "dmg", "linux"];
+const allowedModes = ["portable", "installer", "windows", "dmg", "linux"];
 if (!allowedModes.includes(mode)) {
   throw new Error(
     `Usage: node scripts/package-desktop.mjs <${allowedModes.join("|")}>`,
@@ -29,8 +29,13 @@ if (mode === "dmg" && platform !== "darwin") {
 if (mode === "linux" && platform !== "linux") {
   throw new Error("linux mode is only supported on Linux.");
 }
-if ((mode === "portable" || mode === "installer") && platform !== "win32") {
-  throw new Error("portable/installer modes are only supported on Windows.");
+if (
+  (mode === "portable" || mode === "installer" || mode === "windows") &&
+  platform !== "win32"
+) {
+  throw new Error(
+    "portable/installer/windows modes are only supported on Windows.",
+  );
 }
 
 const targetPlatform =
@@ -41,6 +46,11 @@ if (arch !== "x64" && arch !== "arm64") {
   );
 }
 const targetArch = arch;
+if (platform === "win32" && targetArch !== "x64") {
+  throw new Error(
+    `Windows desktop packages are currently defined only for x64; received ${targetArch}.`,
+  );
+}
 
 const standaloneFolderName = `crewlight-v${version}-${targetPlatform}-${targetArch}`;
 const standaloneFolder = join(releaseRoot, standaloneFolderName);
@@ -65,9 +75,15 @@ function runPnpm(args, cwd = root, env) {
   run("pnpm", args, cwd, env);
 }
 
-// Clean and recreate resources folder
-await rm(desktopResources, { force: true, recursive: true });
-await mkdir(desktopResources, { recursive: true });
+// Clean target-specific generated state so stale artifacts cannot satisfy checks.
+await Promise.all([
+  rm(desktopResources, { force: true, recursive: true }),
+  rm(builderOutput, { force: true, recursive: true }),
+]);
+await Promise.all([
+  mkdir(desktopResources, { recursive: true }),
+  mkdir(builderOutput, { recursive: true }),
+]);
 
 // Build standalone binary first
 runPnpm(["build:standalone"]);
@@ -75,7 +91,7 @@ runPnpm(["build:standalone"]);
 // Copy the standalone binary to extra resources
 await cp(standaloneBinary, join(desktopResources, binaryName));
 
-if (mode === "portable") {
+if (mode === "portable" || mode === "windows") {
   const portableFolderName = `crewlight-v${version}-windows-x64-desktop`;
   const portableFolder = join(releaseRoot, portableFolderName);
   const portableArchive = join(releaseRoot, `${portableFolderName}.zip`);
@@ -115,7 +131,9 @@ if (mode === "portable") {
     },
   );
   console.log(`Archive: ${portableArchive}`);
-} else if (mode === "installer") {
+}
+
+if (mode === "installer" || mode === "windows") {
   const installerArtifact = join(
     builderOutput,
     `Crewlight-Setup-v${version}.exe`,
@@ -135,7 +153,9 @@ if (mode === "portable") {
     companionRoot,
   );
   console.log(`Installer: ${installerArtifact}`);
-} else if (mode === "dmg") {
+}
+
+if (mode === "dmg") {
   const dmgTargetArch = targetArch;
   const dmgArtifact = join(
     builderOutput,
@@ -156,7 +176,9 @@ if (mode === "portable") {
     companionRoot,
   );
   console.log(`macOS DMG: ${dmgArtifact}`);
-} else if (mode === "linux") {
+}
+
+if (mode === "linux") {
   const linuxTargetArch = targetArch;
   runPnpm(
     [
