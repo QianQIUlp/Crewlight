@@ -187,4 +187,5 @@ pnpm release:verify
 - [源码与发布验证](docs/release-validation.md)
 - [Companion surface 指南](docs/companion-surface.md)
 - [Browser dashboard 指南](docs/dashboard.md)
+- [产品网站与 Cloudflare Pages](docs/site-deployment.md)
 - [产品定位](docs/product/positioning.md)

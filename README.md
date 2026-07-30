@@ -188,4 +188,5 @@ Related docs:
 - [Source and release validation](docs/release-validation.md)
 - [Desktop companion surface](docs/companion-surface.md)
 - [Browser dashboard](docs/dashboard.md)
+- [Product site and Cloudflare Pages](docs/site-deployment.md)
 - [Product positioning](docs/product/positioning.md)

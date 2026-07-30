@@ -1,0 +1,35 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  locale="en"
+  title="Page not found — Crewlight"
+  description="The requested Crewlight page could not be found."
+  robots="noindex, nofollow"
+>
+  <main class="not-found">
+    <section class="not-found__panel" aria-labelledby="not-found-title">
+      <a class="wordmark" href="/" aria-label="Crewlight home">
+        <img src="/favicon.svg" width="38" height="38" alt="" />
+        <span>Crewlight</span>
+      </a>
+
+      <p class="eyebrow"><span aria-hidden="true"></span>404 / SIGNAL LOST</p>
+      <h1 id="not-found-title">This page is off the radar.</h1>
+      <p>
+        The address does not point to a Crewlight page. 这个地址没有对应的
+        Crewlight 页面。
+      </p>
+
+      <div class="hero-actions">
+        <a class="button button--primary" href="/">Return home</a>
+        <a class="button button--quiet" href="/zh/">返回中文首页</a>
+      </div>
+    </section>
+
+    <div class="not-found__radar" aria-hidden="true">
+      <span></span><i></i><b></b>
+    </div>
+  </main>
+</BaseLayout>
