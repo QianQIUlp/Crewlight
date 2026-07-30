@@ -15,6 +15,9 @@
     "clean": "tsc -b --clean",
     "companion:dev": "pnpm --filter @crewlight/companion dev",
     "desktop:dev": "pnpm --filter @crewlight/companion dev",
+    "site:dev": "pnpm --filter @crewlight/site dev",
+    "site:check": "pnpm --filter @crewlight/site check",
+    "site:build": "pnpm --filter @crewlight/site build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "package:desktop:installer": "node scripts/package-desktop.mjs installer",
@@ -35,6 +38,7 @@
     "esbuild": "^0.27.7",
     "postject": "1.0.0-alpha.6",
     "prettier": "^3.5.3",
+    "prettier-plugin-astro": "^0.14.1",
     "typescript": "^5.8.3",
     "vitest": "^3.2.1"
   }

@@ -1,0 +1,65 @@
+---
+import "../styles/global.css";
+
+import type { Locale } from "../content";
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  robots?: string;
+}
+
+const { locale, title, description, robots = "index, follow" } = Astro.props;
+const site = Astro.site ?? new URL("https://crewlight.qiu.works");
+const canonical = new URL(Astro.url.pathname, site);
+const englishUrl = new URL("/", site);
+const chineseUrl = new URL("/zh/", site);
+const socialImage = new URL("/og.png", site);
+const socialImageAlt =
+  locale === "zh"
+    ? "Crewlight 英文社交预览图：AI 编程代理的本地活动雷达"
+    : "Crewlight local activity radar for AI coding agents";
+---
+
+<!doctype html>
+<html lang={locale === "zh" ? "zh-CN" : "en"}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#080d12" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content={description} />
+    <meta name="application-name" content="Crewlight" />
+    <meta name="robots" content={robots} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en" href={englishUrl} />
+    <link rel="alternate" hreflang="zh-CN" href={chineseUrl} />
+    <link rel="alternate" hreflang="x-default" href={englishUrl} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Crewlight" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={socialImage} />
+    <meta property="og:image:width" content="1731" />
+    <meta property="og:image:height" content="909" />
+    <meta property="og:image:alt" content={socialImageAlt} />
+    <meta property="og:locale" content={locale === "zh" ? "zh_CN" : "en_US"} />
+    <meta
+      property="og:locale:alternate"
+      content={locale === "zh" ? "en_US" : "zh_CN"}
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage} />
+    <meta name="twitter:image:alt" content={socialImageAlt} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
