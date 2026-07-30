@@ -88,7 +88,8 @@ The Windows desktop outputs are exposed as two separate downloads:
 
 - `crewlight-v0.5.0-windows-x64-desktop.zip` downloads as the ready-to-extract
   portable archive.
-- `Crewlight-Setup-v0.5.0.exe` downloads directly as the installer.
+- `crewlight-v0.5.0-windows-x64-installer.exe` downloads directly as the
+  installer.
 
 The same files are ready for direct publication as GitHub Release assets. Each
 macOS architecture runs in its own native job, so one job cannot upload the

@@ -298,7 +298,11 @@ if (platform === "windows") {
   const portableArchive = join(releaseRoot, `${portableName}.zip`);
   requiredArtifacts.push(
     portableArchive,
-    join(releaseRoot, "desktop-builder", `Crewlight-Setup-v${version}.exe`),
+    join(
+      releaseRoot,
+      "desktop-builder",
+      `crewlight-v${version}-windows-x64-installer.exe`,
+    ),
   );
 
   await verifyWindowsPortableArchive(portableArchive, portableName);

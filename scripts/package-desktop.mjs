@@ -140,7 +140,7 @@ if (mode === "portable" || mode === "windows") {
 if (mode === "installer" || mode === "windows") {
   const installerArtifact = join(
     builderOutput,
-    `Crewlight-Setup-v${version}.exe`,
+    `crewlight-v${version}-windows-x64-installer.exe`,
   );
   runPnpm(
     [

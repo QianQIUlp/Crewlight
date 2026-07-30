@@ -145,7 +145,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           if-no-files-found: error
-          path: release/desktop-builder/Crewlight-Setup-v0.5.0.exe
+          path: release/desktop-builder/crewlight-v0.5.0-windows-x64-installer.exe
           archive: false
 
   release-macos:

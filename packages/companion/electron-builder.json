@@ -22,7 +22,7 @@
     "files": ["!node_modules/node-notifier/vendor/mac.noindex/**/*"]
   },
   "nsis": {
-    "artifactName": "Crewlight-Setup-v${version}.${ext}",
+    "artifactName": "crewlight-v${version}-windows-x64-installer.${ext}",
     "oneClick": true,
     "perMachine": false,
     "allowToChangeInstallationDirectory": false
