@@ -12,9 +12,15 @@ Status: **Linux x64 verified locally; Windows and macOS release verification pen
 - [ ] Release packages compile and package successfully on all three platforms:
   - `Crewlight-0.5.0-x86_64.AppImage` (Linux x64)
   - `Crewlight-0.5.0-amd64.deb` (Linux deb)
-  - `Crewlight-Setup-v0.5.0.exe` (Windows Installer)
+  - `crewlight-v0.5.0-windows-x64-desktop.zip` (Windows Portable)
+  - `crewlight-v0.5.0-windows-x64-installer.exe` (Windows Installer)
   - `Crewlight-0.5.0-arm64.dmg` (macOS Apple Silicon)
   - `Crewlight-0.5.0-x64.dmg` (macOS Intel)
+- [ ] The Windows portable zip extracts once with `Crewlight.exe` at its root
+      and without macOS-only notifier helpers
+- [x] Linux AppImage/deb payloads use portable modes and exclude the macOS-only
+      notifier bundle
+- [ ] The macOS arm64 notification path does not depend on an x64-only helper
 
 ## Adapters
 

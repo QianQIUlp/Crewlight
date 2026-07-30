@@ -14,6 +14,10 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import postject from "postject";
 
+if (process.platform !== "win32") {
+  process.umask(0o022);
+}
+
 const { inject } = postject;
 const root = fileURLToPath(new URL("..", import.meta.url));
 const packageJson = JSON.parse(
@@ -63,6 +67,8 @@ const seaConfigPath = join(workDirectory, "sea-config.json");
 const seaBlobPath = join(workDirectory, "crewlight.blob");
 const binaryName = platform === "win32" ? "crewlight.exe" : "crewlight";
 const binaryPath = join(stagingDirectory, binaryName);
+const licensePath = join(stagingDirectory, "LICENSE");
+const buildInfoPath = join(stagingDirectory, "BUILD-INFO.txt");
 const archiveExtension = platform === "win32" ? ".zip" : ".tar.gz";
 const archivePath = join(
   releaseDirectory,
@@ -164,9 +170,9 @@ if (platform !== "win32") {
   await chmod(binaryPath, 0o755);
 }
 
-await copyFile(join(root, "LICENSE"), join(stagingDirectory, "LICENSE"));
+await copyFile(join(root, "LICENSE"), licensePath);
 await writeFile(
-  join(stagingDirectory, "BUILD-INFO.txt"),
+  buildInfoPath,
   [
     `Crewlight version: ${version}`,
     `Node version: ${process.version}`,
@@ -176,6 +182,15 @@ await writeFile(
     "",
   ].join("\n"),
 );
+
+if (platform !== "win32") {
+  await Promise.all([
+    chmod(stagingDirectory, 0o755),
+    chmod(binaryPath, 0o755),
+    chmod(licensePath, 0o644),
+    chmod(buildInfoPath, 0o644),
+  ]);
+}
 
 if (platform === "win32") {
   execFileSync(
@@ -216,4 +231,4 @@ await rm(workDirectory, { force: true, recursive: true });
 
 console.log(`Archive: ${archivePath}`);
 console.log(`Checksum: ${checksumPath}`);
-console.log(`Build info: ${join(stagingDirectory, "BUILD-INFO.txt")}`);
+console.log(`Build info: ${buildInfoPath}`);

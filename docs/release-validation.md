@@ -14,6 +14,9 @@ corepack enable
 pnpm install --frozen-lockfile
 ```
 
+Linux release verification also requires `dpkg-deb` so it can extract and
+inspect the generated Debian package.
+
 ## Source validation
 
 Run the complete developer gate from the repository root:
@@ -69,10 +72,33 @@ runtime `PATH`, and rejects missing or empty expected artifacts. The Unix smoke
 path supports both Linux and macOS and uses either `sha256sum` or the macOS
 `shasum` implementation.
 
+Release jobs upload every distributable and checksum as a direct single-file
+artifact. An Actions download is therefore the actual `.zip`, `.tar.gz`,
+`.AppImage`, `.deb`, `.exe`, `.dmg`, or `.sha256` file rather than another zip
+containing it, and internal staging directories are not exposed.
+
+HTTP downloads do not preserve the executable bit. After downloading the Linux
+AppImage, run `chmod +x Crewlight-*.AppImage` before launching it.
+
 On Windows, the combined desktop packaging mode creates the portable archive
-and installer after a single standalone build. CI uploads standalone and
-desktop outputs under distinct artifact names; each macOS architecture runs in
-its own native job, so one job cannot upload the other architecture's DMG.
+and installer after a single standalone build. The portable archive stores the
+app files at its root, so extracting it once exposes `Crewlight.exe` directly.
+
+The Windows desktop outputs are exposed as two separate downloads:
+
+- `crewlight-v0.5.0-windows-x64-desktop.zip` downloads as the ready-to-extract
+  portable archive.
+- `crewlight-v0.5.0-windows-x64-installer.exe` downloads directly as the
+  installer.
+
+The same files are ready for direct publication as GitHub Release assets. Each
+macOS architecture runs in its own native job, so one job cannot upload the
+other architecture's DMG.
+
+Release verification also extracts the Windows portable archive under a deep
+path, checks the Windows notifier helper allowlist, expands Linux AppImage/deb
+payloads to validate modes and reject macOS helpers, and checks executable/data
+modes in the retained macOS app bundle.
 
 ## What remains manual
 
