@@ -1,5 +1,6 @@
 {
   "appId": "com.qianqiulp.crewlight.desktop",
+  "afterPack": "./scripts/normalize-package-permissions.mjs",
   "asar": true,
   "directories": {
     "output": "../../release/desktop-builder"
@@ -17,7 +18,8 @@
   "productName": "Crewlight",
   "win": {
     "artifactName": "Crewlight-${version}.${ext}",
-    "icon": "./assets/crewlight-icon.ico"
+    "icon": "./assets/crewlight-icon.ico",
+    "files": ["!node_modules/node-notifier/vendor/mac.noindex/**/*"]
   },
   "nsis": {
     "artifactName": "Crewlight-Setup-v${version}.${ext}",
@@ -43,6 +45,7 @@
     "artifactName": "Crewlight-${version}-${arch}.${ext}",
     "icon": "./assets/crewlight-icon.png",
     "category": "Development",
+    "files": ["!node_modules/node-notifier/vendor/mac.noindex/**/*"],
     "syncDesktopName": true,
     "target": [
       {

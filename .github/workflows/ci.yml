@@ -80,20 +80,26 @@ jobs:
             cat release/crewlight-v0.5.0-linux-x64/BUILD-INFO.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-linux-x64
           if-no-files-found: error
-          path: |
-            release/crewlight-v0.5.0-linux-x64.tar.gz
-            release/crewlight-v0.5.0-linux-x64.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
+          path: release/crewlight-v0.5.0-linux-x64.tar.gz
+          archive: false
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-linux-x64-desktop
           if-no-files-found: error
-          path: |
-            release/desktop-builder/Crewlight-*.AppImage
-            release/desktop-builder/Crewlight-*.deb
+          path: release/crewlight-v0.5.0-linux-x64.tar.gz.sha256
+          archive: false
+      - uses: actions/upload-artifact@v7
+        with:
+          if-no-files-found: error
+          path: release/desktop-builder/Crewlight-0.5.0-x86_64.AppImage
+          archive: false
+      - uses: actions/upload-artifact@v7
+        with:
+          if-no-files-found: error
+          path: release/desktop-builder/Crewlight-0.5.0-amd64.deb
+          archive: false
 
   release-windows-x64:
     name: Release artifacts (windows-x64)
@@ -121,20 +127,26 @@ jobs:
             (Get-Content release/crewlight-v0.5.0-windows-x64/BUILD-INFO.txt -Raw)
             '```'
           ) | Add-Content $env:GITHUB_STEP_SUMMARY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-windows-x64
           if-no-files-found: error
-          path: |
-            release/crewlight-v0.5.0-windows-x64.zip
-            release/crewlight-v0.5.0-windows-x64.zip.sha256
-      - uses: actions/upload-artifact@v4
+          path: release/crewlight-v0.5.0-windows-x64.zip
+          archive: false
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-windows-x64-desktop
           if-no-files-found: error
-          path: |
-            release/crewlight-v0.5.0-windows-x64-desktop.zip
-            release/desktop-builder/Crewlight-Setup-v0.5.0.exe
+          path: release/crewlight-v0.5.0-windows-x64.zip.sha256
+          archive: false
+      - uses: actions/upload-artifact@v7
+        with:
+          if-no-files-found: error
+          path: release/crewlight-v0.5.0-windows-x64-desktop.zip
+          archive: false
+      - uses: actions/upload-artifact@v7
+        with:
+          if-no-files-found: error
+          path: release/desktop-builder/Crewlight-Setup-v0.5.0.exe
+          archive: false
 
   release-macos:
     name: Release artifacts (${{ matrix.target }})
@@ -173,15 +185,18 @@ jobs:
             cat release/crewlight-v0.5.0-${{ matrix.target }}/BUILD-INFO.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-${{ matrix.target }}
           if-no-files-found: error
-          path: |
-            release/crewlight-v0.5.0-${{ matrix.target }}.tar.gz
-            release/crewlight-v0.5.0-${{ matrix.target }}.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
+          path: release/crewlight-v0.5.0-${{ matrix.target }}.tar.gz
+          archive: false
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-${{ matrix.target }}-desktop
+          if-no-files-found: error
+          path: release/crewlight-v0.5.0-${{ matrix.target }}.tar.gz.sha256
+          archive: false
+      - uses: actions/upload-artifact@v7
+        with:
           if-no-files-found: error
           path: release/desktop-builder/Crewlight-0.5.0-${{ matrix.architecture }}.dmg
+          archive: false

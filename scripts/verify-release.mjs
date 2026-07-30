@@ -1,7 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { readFile, readdir, stat } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+if (process.platform !== "win32") {
+  process.umask(0o022);
+}
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const packageJson = JSON.parse(
@@ -56,24 +60,253 @@ function runPnpm(script) {
   execFileSync("pnpm", [script], { cwd: root, stdio: "inherit" });
 }
 
+async function pathExists(path) {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function assertMode(path, expectedMode) {
+  const actualMode = (await stat(path)).mode & 0o777;
+  if (actualMode !== expectedMode) {
+    throw new Error(
+      `Expected ${relative(root, path)} mode ${expectedMode.toString(8)}, received ${actualMode.toString(8)}.`,
+    );
+  }
+}
+
+async function verifyUnixStandalonePermissions(standaloneDirectory) {
+  await Promise.all([
+    assertMode(standaloneDirectory, 0o755),
+    assertMode(join(standaloneDirectory, "crewlight"), 0o755),
+    assertMode(join(standaloneDirectory, "LICENSE"), 0o644),
+    assertMode(join(standaloneDirectory, "BUILD-INFO.txt"), 0o644),
+  ]);
+}
+
+async function verifyLinuxPackageTree(
+  packageRoot,
+  desktopEntry,
+  verifyDirectoryModes,
+) {
+  const resources = join(packageRoot, "resources");
+  const modeChecks = [
+    assertMode(join(packageRoot, "Crewlight"), 0o755),
+    assertMode(join(resources, "app.asar"), 0o644),
+    assertMode(join(resources, "crewlight-cli", "crewlight"), 0o755),
+    assertMode(desktopEntry, 0o644),
+  ];
+  if (verifyDirectoryModes) {
+    modeChecks.push(
+      assertMode(packageRoot, 0o755),
+      assertMode(resources, 0o755),
+      assertMode(join(resources, "crewlight-cli"), 0o755),
+    );
+  }
+  await Promise.all(modeChecks);
+
+  const macNotifier = join(
+    resources,
+    "app.asar.unpacked",
+    "node_modules",
+    "node-notifier",
+    "vendor",
+    "mac.noindex",
+  );
+  if (await pathExists(macNotifier)) {
+    throw new Error(
+      `${relative(root, packageRoot)} contains the macOS-only terminal-notifier bundle.`,
+    );
+  }
+}
+
+async function verifyLinuxDesktopPackages(appImage, deb) {
+  const verificationRoot = join(releaseRoot, ".verify-linux-desktop");
+  const appImageExtractionRoot = join(verificationRoot, "appimage");
+  const debExtractionRoot = join(verificationRoot, "deb");
+
+  await rm(verificationRoot, { force: true, recursive: true });
+  await Promise.all([
+    mkdir(appImageExtractionRoot, { recursive: true }),
+    mkdir(debExtractionRoot, { recursive: true }),
+  ]);
+
+  try {
+    execFileSync(appImage, ["--appimage-extract"], {
+      cwd: appImageExtractionRoot,
+      stdio: "ignore",
+    });
+    execFileSync("dpkg-deb", ["--extract", deb, debExtractionRoot], {
+      cwd: root,
+      stdio: "inherit",
+    });
+
+    await verifyLinuxPackageTree(
+      join(appImageExtractionRoot, "squashfs-root"),
+      join(appImageExtractionRoot, "squashfs-root", "Crewlight.desktop"),
+      false,
+    );
+    await verifyLinuxPackageTree(
+      join(debExtractionRoot, "opt", "Crewlight"),
+      join(
+        debExtractionRoot,
+        "usr",
+        "share",
+        "applications",
+        "Crewlight.desktop",
+      ),
+      true,
+    );
+  } finally {
+    await rm(verificationRoot, { force: true, recursive: true });
+  }
+}
+
+async function verifyMacDesktopPermissions(appBundle) {
+  const contents = join(appBundle, "Contents");
+  const resources = join(contents, "Resources");
+  await Promise.all([
+    assertMode(appBundle, 0o755),
+    assertMode(contents, 0o755),
+    assertMode(join(contents, "MacOS", "Crewlight"), 0o755),
+    assertMode(resources, 0o755),
+    assertMode(join(resources, "app.asar"), 0o644),
+    assertMode(join(resources, "crewlight-cli"), 0o755),
+    assertMode(join(resources, "crewlight-cli", "crewlight"), 0o755),
+  ]);
+
+  const terminalNotifier = join(
+    resources,
+    "app.asar.unpacked",
+    "node_modules",
+    "node-notifier",
+    "vendor",
+    "mac.noindex",
+    "terminal-notifier.app",
+    "Contents",
+    "MacOS",
+    "terminal-notifier",
+  );
+  if (await pathExists(terminalNotifier)) {
+    await assertMode(terminalNotifier, 0o755);
+  }
+}
+
+async function verifyWindowsPortableArchive(portableArchive, portableName) {
+  const verificationRoot = join(
+    releaseRoot,
+    ".verify-windows-portable",
+    portableName,
+    portableName,
+  );
+
+  await rm(join(releaseRoot, ".verify-windows-portable"), {
+    force: true,
+    recursive: true,
+  });
+  await mkdir(verificationRoot, { recursive: true });
+
+  try {
+    execFileSync(
+      "powershell.exe",
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Expand-Archive -LiteralPath $env:CREWLIGHT_ARCHIVE -DestinationPath $env:CREWLIGHT_EXTRACT -Force",
+      ],
+      {
+        cwd: root,
+        env: {
+          ...process.env,
+          CREWLIGHT_ARCHIVE: portableArchive,
+          CREWLIGHT_EXTRACT: verificationRoot,
+        },
+        stdio: "inherit",
+      },
+    );
+
+    const requiredWindowsFiles = [
+      join(verificationRoot, "Crewlight.exe"),
+      join(
+        verificationRoot,
+        "resources",
+        "app.asar.unpacked",
+        "node_modules",
+        "node-notifier",
+        "vendor",
+        "snoreToast",
+        "snoretoast-x64.exe",
+      ),
+    ];
+    for (const requiredFile of requiredWindowsFiles) {
+      if (!(await pathExists(requiredFile))) {
+        throw new Error(
+          `Windows portable archive is missing ${relative(verificationRoot, requiredFile)} at its expected path.`,
+        );
+      }
+    }
+
+    const macNotifier = join(
+      verificationRoot,
+      "resources",
+      "app.asar.unpacked",
+      "node_modules",
+      "node-notifier",
+      "vendor",
+      "mac.noindex",
+    );
+    if (await pathExists(macNotifier)) {
+      throw new Error(
+        "Windows portable archive contains the macOS-only terminal-notifier bundle.",
+      );
+    }
+  } finally {
+    await rm(join(releaseRoot, ".verify-windows-portable"), {
+      force: true,
+      recursive: true,
+    });
+  }
+}
+
 runPnpm(plan.packageScript);
 runPnpm(plan.smokeScript);
 
 const releaseRoot = join(root, "release");
 const standaloneName = `crewlight-v${version}-${target}`;
 const standaloneExtension = platform === "windows" ? ".zip" : ".tar.gz";
+const standaloneDirectory = join(releaseRoot, standaloneName);
 const requiredArtifacts = [
   join(releaseRoot, `${standaloneName}${standaloneExtension}`),
   join(releaseRoot, `${standaloneName}${standaloneExtension}.sha256`),
-  join(releaseRoot, standaloneName, "BUILD-INFO.txt"),
+  join(standaloneDirectory, "BUILD-INFO.txt"),
 ];
 
+if (platform !== "windows") {
+  await verifyUnixStandalonePermissions(standaloneDirectory);
+}
+
 if (platform === "windows") {
+  const portableName = `${standaloneName}-desktop`;
+  const portableArchive = join(releaseRoot, `${portableName}.zip`);
   requiredArtifacts.push(
-    join(releaseRoot, `${standaloneName}-desktop.zip`),
+    portableArchive,
     join(releaseRoot, "desktop-builder", `Crewlight-Setup-v${version}.exe`),
   );
+
+  await verifyWindowsPortableArchive(portableArchive, portableName);
 } else if (platform === "macos") {
+  const macOutput = process.arch === "arm64" ? "mac-arm64" : "mac";
+  await verifyMacDesktopPermissions(
+    join(releaseRoot, "desktop-builder", macOutput, "Crewlight.app"),
+  );
   requiredArtifacts.push(
     join(
       releaseRoot,
@@ -97,10 +330,10 @@ if (platform === "windows") {
       `Expected exactly one Linux AppImage and one deb, found ${appImages.length} AppImage and ${debs.length} deb artifacts.`,
     );
   }
-  requiredArtifacts.push(
-    join(desktopOutput, appImages[0]),
-    join(desktopOutput, debs[0]),
-  );
+  const appImage = join(desktopOutput, appImages[0]);
+  const deb = join(desktopOutput, debs[0]);
+  requiredArtifacts.push(appImage, deb);
+  await verifyLinuxDesktopPackages(appImage, deb);
 }
 
 for (const artifact of requiredArtifacts) {
