@@ -13,7 +13,6 @@ import {
   type Rectangle,
 } from "electron";
 import { existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -22,6 +21,7 @@ import {
   createAntigravityProbeCommand,
   createMultiAgentDemoEvents,
   createSetupSnippets,
+  detectPnpmVersion,
   formatCodexHooksSetup,
   runDoctor,
   type DoctorReport,
@@ -32,6 +32,7 @@ import { formatDaemonUrl } from "@crewlight/daemon";
 import {
   isNotifierKind,
   probeOsNotifier,
+  resolveWindowsToasterPath,
   type NotifierKind,
 } from "@crewlight/notifier";
 import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
@@ -104,6 +105,7 @@ const cliContext = resolveCrewlightCliContext({
   isPackaged: app.isPackaged,
   nodeExecutable: process.env.npm_node_execpath,
 });
+const windowsToasterPath = resolveWindowsToasterPath(cliContext.setupRuntime);
 
 let mainWindow: BrowserWindow | undefined;
 let companionWindow: BrowserWindow | undefined;
@@ -348,18 +350,15 @@ function createDoctorRuntime(): DoctorRuntime {
       if (app.isPackaged) {
         return undefined;
       }
-      const result = spawnSync("pnpm", ["--version"], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      });
-      return result.status === 0 ? result.stdout.trim() : undefined;
+      return detectPnpmVersion();
     },
     cliBuilt: async () => {
       if (app.isPackaged) {
         return existsSync(cliContext.cliPath);
       }
       return (
-        existsSync(cliContext.cliPath) && cliContext.cliPath.includes("/dist/")
+        existsSync(cliContext.cliPath) &&
+        /[\\/]dist[\\/]/u.test(cliContext.cliPath)
       );
     },
     daemonReachable: async () => {
@@ -383,7 +382,7 @@ function createDoctorRuntime(): DoctorRuntime {
       host: connectionSettings.host,
       port: connectionSettings.port,
     }),
-    osNotifier: probeOsNotifier,
+    osNotifier: () => probeOsNotifier(undefined, undefined, windowsToasterPath),
     claudeSnippet: () => setupBase.claudeCode,
     codexSnippet: () => setupBase.codex,
     codexHooksSetup: () => setupBase.codexHooks,
@@ -1098,6 +1097,7 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
     try {
       proxy = await createLocalHttpProxy({
         alias: action.alias,
+        remotePort: 3768,
         targetHost: connectionSettings.host === "::1" ? "::1" : "127.0.0.1",
         targetPort: connectionSettings.port,
       });

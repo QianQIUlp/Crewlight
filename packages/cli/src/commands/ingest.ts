@@ -35,6 +35,7 @@ import type {
   AgentSource,
   AgentSurface,
 } from "@crewlight/core";
+import { DEFAULT_DAEMON_HOST } from "@crewlight/shared";
 
 import type { CrewlightClient } from "../daemon-client.js";
 import type { CommandIo, StdinReader } from "./types.js";
@@ -175,9 +176,13 @@ function hookEventNameFromJson(json: string): string | undefined {
 async function promptPreviewEnabled(
   client: CrewlightClient,
   hookEventName: string | undefined,
+  env: NodeJS.ProcessEnv,
 ): Promise<boolean> {
+  const daemonHost = env.CREWLIGHT_HOST ?? DEFAULT_DAEMON_HOST;
   if (
     hookEventName !== "UserPromptSubmit" ||
+    env.CREWLIGHT_PROMPT_PREVIEW !== "1" ||
+    (daemonHost !== "127.0.0.1" && daemonHost !== "::1") ||
     client.dashboardCapabilities === undefined
   ) {
     return false;
@@ -196,6 +201,7 @@ async function ingestCodexHook(
   platformArgs: readonly string[],
   client: CrewlightClient,
   readStdin: StdinReader,
+  env: NodeJS.ProcessEnv,
 ): Promise<number> {
   const options = parseUniqueOptions(platformArgs, ["--hook", "--surface"]);
   if (!options) {
@@ -232,7 +238,11 @@ async function ingestCodexHook(
       hookSelection.kind === "override"
         ? hookSelection.hook
         : hookEventNameFromJson(json);
-    const promptPreview = await promptPreviewEnabled(client, hookEventName);
+    const promptPreview = await promptPreviewEnabled(
+      client,
+      hookEventName,
+      env,
+    );
     const result = ingestCodexHookJson(
       json,
       hookSelection.kind === "override" ? hookSelection.hook : undefined,
@@ -433,6 +443,7 @@ async function ingest(
   client: CrewlightClient,
   io: CommandIo,
   readStdin: StdinReader,
+  env: NodeJS.ProcessEnv,
 ): Promise<number> {
   const [platform, ...platformArgs] = args;
 
@@ -449,6 +460,7 @@ async function ingest(
     const promptPreview = await promptPreviewEnabled(
       client,
       hookEventNameFromJson(json),
+      env,
     );
     return deliver(
       json,
@@ -472,7 +484,7 @@ async function ingest(
   }
 
   if (platform === "codex-hook") {
-    return ingestCodexHook(platformArgs, client, readStdin);
+    return ingestCodexHook(platformArgs, client, readStdin, env);
   }
 
   if (platform === "cursor") {
@@ -586,9 +598,10 @@ export async function executeIngestCommand(
   client: CrewlightClient,
   io: CommandIo,
   readStdin: StdinReader,
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<number> {
   try {
-    return await ingest(args, client, io, readStdin);
+    return await ingest(args, client, io, readStdin, env);
   } catch {
     warn(
       io,

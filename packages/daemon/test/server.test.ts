@@ -66,6 +66,10 @@ async function sendRawHttpRequest(
   });
 }
 
+function loopbackAuthority(daemon: DaemonInstance): string {
+  return new URL(daemon.url).host;
+}
+
 describe("daemon HTTP server", () => {
   it.each(["http://[::1", "http://%"])(
     "returns a safe error for malformed absolute request target %s and stays available",
@@ -73,7 +77,7 @@ describe("daemon HTTP server", () => {
       const daemon = await startTestDaemon();
       const response = await sendRawHttpRequest(
         daemon.port,
-        `GET ${requestTarget} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n`,
+        `GET ${requestTarget} HTTP/1.1\r\nHost: ${loopbackAuthority(daemon)}\r\nConnection: close\r\n\r\n`,
       );
 
       expect(response).toContain("HTTP/1.1 400 Bad Request");
@@ -83,6 +87,72 @@ describe("daemon HTTP server", () => {
       expect(sessionsResponse.status).toBe(200);
     },
   );
+
+  it("rejects a hostile Host header on the loopback API", async () => {
+    const daemon = await startTestDaemon();
+    const response = await sendRawHttpRequest(
+      daemon.port,
+      "GET /sessions HTTP/1.1\r\nHost: attacker.invalid\r\nConnection: close\r\n\r\n",
+    );
+
+    expect(response).toContain("HTTP/1.1 403 Forbidden");
+    expect(response).toContain('{"error":"Forbidden"}');
+    expect(response).not.toContain("sessions");
+  });
+
+  it.each(["//attacker.invalid/sessions", "http://attacker.invalid/sessions"])(
+    "rejects a non-origin-form request-target %s on the loopback API",
+    async (requestTarget) => {
+      const daemon = await startTestDaemon();
+      const response = await sendRawHttpRequest(
+        daemon.port,
+        `GET ${requestTarget} HTTP/1.1\r\nHost: ${loopbackAuthority(daemon)}\r\nConnection: close\r\n\r\n`,
+      );
+
+      expect(response).toContain("HTTP/1.1 403 Forbidden");
+      expect(response).not.toContain('"sessions"');
+    },
+  );
+
+  it("rejects hostile browser origins before event ingestion", async () => {
+    const daemon = await startTestDaemon();
+    const authority = loopbackAuthority(daemon);
+    const response = await sendRawHttpRequest(
+      daemon.port,
+      `POST /events HTTP/1.1\r\nHost: ${authority}\r\nOrigin: http://attacker.invalid\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`,
+    );
+
+    expect(response).toContain("HTTP/1.1 403 Forbidden");
+    const sessionsResponse = await fetch(`${daemon.url}/sessions`);
+    await expect(sessionsResponse.json()).resolves.toEqual({ sessions: [] });
+  });
+
+  it("accepts a matching loopback browser origin", async () => {
+    const daemon = await startTestDaemon();
+    const response = await fetch(`${daemon.url}/events`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: daemon.url,
+      },
+      body: JSON.stringify({
+        source: "custom",
+        surface: "manual",
+        status: "running",
+        title: "same-origin event",
+      }),
+    });
+
+    expect(response.status).toBe(202);
+  });
+
+  it("marks session responses as non-cacheable", async () => {
+    const daemon = await startTestDaemon();
+    const response = await fetch(`${daemon.url}/sessions`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
 
   it("requires an application/json content type for event ingestion", async () => {
     const daemon = await startTestDaemon();
@@ -131,7 +201,7 @@ describe("daemon HTTP server", () => {
     const startedAt = Date.now();
     const response = await sendRawHttpRequest(
       daemon.port,
-      "POST /events HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 999999\r\n\r\n",
+      `POST /events HTTP/1.1\r\nHost: ${loopbackAuthority(daemon)}\r\nContent-Type: application/json\r\nContent-Length: 999999\r\n\r\n`,
     );
 
     expect(response).toContain("HTTP/1.1 413 Payload Too Large");
@@ -144,7 +214,7 @@ describe("daemon HTTP server", () => {
     const oversizedChunk = "x".repeat(64 * 1_024 + 1);
     const response = await sendRawHttpRequest(
       daemon.port,
-      `POST /events HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n${oversizedChunk.length.toString(16)}\r\n${oversizedChunk}\r\n`,
+      `POST /events HTTP/1.1\r\nHost: ${loopbackAuthority(daemon)}\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n${oversizedChunk.length.toString(16)}\r\n${oversizedChunk}\r\n`,
     );
 
     expect(response).toContain("HTTP/1.1 413 Payload Too Large");
@@ -156,7 +226,7 @@ describe("daemon HTTP server", () => {
     const startedAt = Date.now();
     const response = await sendRawHttpRequest(
       daemon.port,
-      "POST /events HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 10\r\n\r\n{",
+      `POST /events HTTP/1.1\r\nHost: ${loopbackAuthority(daemon)}\r\nContent-Type: application/json\r\nContent-Length: 10\r\n\r\n{`,
       EVENT_BODY_TIMEOUT_MS * 3,
     );
 

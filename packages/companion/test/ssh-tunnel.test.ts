@@ -7,6 +7,7 @@ import { parseKnownHosts } from "../src/known-hosts.js";
 import {
   createSshTunnel,
   REMOTE_CLI_PROBE_TIMEOUT_MS,
+  resolveDefaultSshUsername,
 } from "../src/ssh-tunnel.js";
 
 // Setup global store for mock instances
@@ -94,15 +95,45 @@ vi.mock("ssh2", () => {
     }
   }
 
-  return {
+  const mockedSsh2 = {
     Client: MockClient,
     utils: {
       parseKey: () => ({ getPrivatePEM: () => "private-key" }),
     },
   };
+  return {
+    default: mockedSsh2,
+    ...mockedSsh2,
+  };
 });
 
 describe("ssh tunnel", () => {
+  it("uses the first non-empty local username before the OS fallback", () => {
+    expect(resolveDefaultSshUsername({ USERNAME: "windows-user" })).toBe(
+      "windows-user",
+    );
+    expect(
+      resolveDefaultSshUsername({
+        USER: "posix-user",
+        USERNAME: "windows-user",
+      }),
+    ).toBe("posix-user");
+    expect(
+      resolveDefaultSshUsername(
+        { USER: "", USERNAME: "windows-user" },
+        () => "local-user",
+      ),
+    ).toBe("windows-user");
+    expect(resolveDefaultSshUsername({}, () => "local-user")).toBe(
+      "local-user",
+    );
+    expect(
+      resolveDefaultSshUsername({}, () => {
+        throw new Error("userInfo unavailable");
+      }),
+    ).toBe("root");
+  });
+
   beforeEach(() => {
     (globalThis as any).mockClientInstances = [];
     (globalThis as any).mockRemotePlatform = "posix";
@@ -275,6 +306,25 @@ describe("ssh tunnel", () => {
       ?.connectConfigs[0];
     expect(config.hostVerifier(trustedKey)).toBe(true);
     expect(config.hostVerifier(Buffer.from("changed-key"))).toBe(false);
+    tunnel.disconnect();
+  });
+
+  it("does not trust an SSH config alias in place of the resolved hostname", async () => {
+    const staleAliasKey = Buffer.from("stale-alias-key");
+    const tunnel = createSshTunnel({
+      host: { alias: "dev-alias", hostname: "new-production.example" },
+      remotePort: 3768,
+      localPort: 12345,
+      knownHosts: parseKnownHosts(
+        `dev-alias ssh-ed25519 ${staleAliasKey.toString("base64")}\n`,
+      ),
+      onStateChange: () => {},
+    });
+
+    await vi.runAllTimersAsync();
+    const config = (globalThis as any).mockClientInstances[0]
+      ?.connectConfigs[0];
+    expect(config.hostVerifier(staleAliasKey)).toBe(false);
     tunnel.disconnect();
   });
 

@@ -12,12 +12,18 @@
       "filter": ["**/*"]
     }
   ],
-  "files": ["dist/**/*", "package.json"],
+  "files": ["dist/**/*", "package.json", "!**/.tsbuildinfo"],
   "npmRebuild": false,
   "productName": "Crewlight",
   "win": {
     "artifactName": "Crewlight-${version}.${ext}",
-    "icon": "./assets/crewlight-icon.ico"
+    "icon": "./assets/crewlight-icon.ico",
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!**/.tsbuildinfo",
+      "!**/node_modules/node-notifier/vendor/**/*"
+    ]
   },
   "nsis": {
     "artifactName": "Crewlight-Setup-v${version}.${ext}",

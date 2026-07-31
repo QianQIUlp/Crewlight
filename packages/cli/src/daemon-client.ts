@@ -15,9 +15,15 @@ function disabledDashboardCapabilities(): DashboardCapabilities {
 
 export interface CrewlightClient {
   dashboardCapabilities?(): Promise<DashboardCapabilities>;
-  emit(event: AgentEventInput): Promise<IngestResult>;
+  emit(event: AgentEventInput): Promise<IngestResponse>;
   sessions(): Promise<AgentSession[]>;
 }
+
+export interface IngestAcknowledgement {
+  accepted: true;
+}
+
+export type IngestResponse = IngestResult | IngestAcknowledgement;
 
 export interface DaemonClientOptions {
   baseUrl?: string;
@@ -51,8 +57,8 @@ export class DaemonClient implements CrewlightClient {
     );
   }
 
-  async emit(event: AgentEventInput): Promise<IngestResult> {
-    return this.#request<IngestResult>("/events", {
+  async emit(event: AgentEventInput): Promise<IngestResponse> {
+    return this.#request<IngestResponse>("/events", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(event),

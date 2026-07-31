@@ -84,18 +84,30 @@ messages, or the complete payload.
 
 ### Optional prompt-preview task titles
 
-Prompt-derived titles remain disabled unless the local daemon starts with:
+Prompt-derived titles remain disabled unless both the local daemon capability
+and the hook-process environment opt in. The daemon must use the literal
+loopback host `127.0.0.1` or `::1`. Set
+`CREWLIGHT_PROMPT_PREVIEW=1` in each shell that launches the daemon or Codex,
+then start the daemon with:
 
 ```bash
+CREWLIGHT_PROMPT_PREVIEW=1 crewlight daemon --dashboard --dashboard-task-titles prompt-preview
+```
+
+PowerShell:
+
+```powershell
+$env:CREWLIGHT_PROMPT_PREVIEW = "1"
 crewlight daemon --dashboard --dashboard-task-titles prompt-preview
 ```
 
 When enabled, only the documented `UserPromptSubmit.prompt` string is read in
 memory. Crewlight collapses whitespace and sends only a preview of at most 60
 Unicode code points as `taskTitle`; the complete prompt is never serialized
-into a Crewlight event, stored, logged, forwarded, or included in dashboard
-responses. Tool events, Stop, transcripts, tool input/output, assistant output,
-and Codex notify `input-messages` are not title sources.
+or retained. `crewlight setup` does not set this environment variable or
+modify Codex configuration automatically.
+Tool events, Stop, transcripts, tool input/output, assistant output, and Codex
+notify `input-messages` are not title sources.
 
 Existing hooks do not need regeneration when their command invokes the updated
 Crewlight binary or CLI. Capability lookup reuses the same daemon address as

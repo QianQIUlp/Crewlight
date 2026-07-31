@@ -1,3 +1,5 @@
+import { isSea } from "node:sea";
+import { createInterface } from "node:readline";
 import { parseArgs } from "node:util";
 
 import {
@@ -9,7 +11,7 @@ import {
   type DaemonConfig,
   type DashboardTaskTitleMode,
 } from "@crewlight/daemon";
-import { createNotifier } from "@crewlight/notifier";
+import { createNotifier, resolveWindowsToasterPath } from "@crewlight/notifier";
 import { DAEMON_READY_OUTPUT_PREFIX } from "@crewlight/shared";
 
 import { createDoctorRuntime, runDoctor } from "./doctor.js";
@@ -24,6 +26,7 @@ export interface DaemonCommandOptions {
   config: DaemonConfig;
   dashboard: boolean;
   dashboardTaskTitleMode: DashboardTaskTitleMode;
+  managedStdio: boolean;
 }
 
 export function resolveDaemonCommandOptions(
@@ -36,6 +39,7 @@ export function resolveDaemonCommandOptions(
       dashboard: { type: "boolean", default: false },
       "dashboard-task-titles": { type: "string" },
       host: { type: "string" },
+      "managed-stdio": { type: "boolean", default: false },
       notifier: { type: "string" },
       port: { type: "string" },
     },
@@ -77,6 +81,7 @@ export function resolveDaemonCommandOptions(
     config,
     dashboard: values.dashboard,
     dashboardTaskTitleMode,
+    managedStdio: values["managed-stdio"],
   };
 }
 
@@ -88,6 +93,11 @@ export async function executeDaemonCommand(
   const { config } = options;
   const service = new CrewlightService({
     notifier: createNotifier(config.notifier, {
+      osWindowsToasterPath: resolveWindowsToasterPath({
+        execPath: process.execPath,
+        isSea,
+        platform: process.platform,
+      }),
       warning: io.warn,
     }),
   });
@@ -150,15 +160,24 @@ export async function executeDaemonCommand(
       "OS notification failures will not stop ingestion. Fallback: restart with `crewlight daemon --notifier console`.",
     );
   }
+  if (!isLoopbackHost(config.host)) {
+    io.warn(
+      "Crewlight warning: the daemon is listening beyond loopback without authentication. Use only on a trusted development or container network; never expose this port publicly.",
+    );
+  }
 
   return new Promise<number>((resolve, reject) => {
     let closing = false;
+    const managedInput = options.managedStdio
+      ? createInterface({ input: process.stdin, terminal: false })
+      : undefined;
 
     const shutdown = () => {
       if (closing) {
         return;
       }
       closing = true;
+      managedInput?.close();
       void daemon.close().then(() => {
         removeSignalHandlers();
         io.write("Crewlight daemon stopped");
@@ -173,6 +192,12 @@ export async function executeDaemonCommand(
     for (const signal of signals) {
       process.on(signal, shutdown);
     }
+    managedInput?.on("line", (line) => {
+      if (line === "shutdown") {
+        shutdown();
+      }
+    });
+    managedInput?.once("close", shutdown);
 
     const removeSignalHandlers = () => {
       for (const signal of signals) {

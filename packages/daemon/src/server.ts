@@ -14,6 +14,8 @@ import { CrewlightService } from "./service.js";
 
 export interface DaemonServerOptions {
   dashboard?: DashboardOptions;
+  /** Internal bind context used to enforce the loopback browser boundary. */
+  loopbackHost?: "127.0.0.1" | "::1";
 }
 
 const MAX_EVENT_BODY_BYTES = 64 * 1_024;
@@ -37,6 +39,7 @@ function sendJson(
   body: unknown,
 ): void {
   response.writeHead(statusCode, {
+    "cache-control": "no-store",
     "content-type": "application/json; charset=utf-8",
   });
   response.end(JSON.stringify(body));
@@ -53,6 +56,7 @@ function sendJsonAndClose(
   request.resume();
   response.shouldKeepAlive = false;
   response.writeHead(statusCode, {
+    "cache-control": "no-store",
     connection: "close",
     "content-type": "application/json; charset=utf-8",
   });
@@ -147,6 +151,47 @@ function hasJsonContentType(request: IncomingMessage): boolean {
   );
 }
 
+function acceptsLoopbackRequest(
+  request: IncomingMessage,
+  loopbackHost: "127.0.0.1" | "::1",
+): boolean {
+  const port = request.socket.localPort;
+  if (!port) {
+    return false;
+  }
+  const expectedUrl = new URL(formatDaemonUrl(loopbackHost, port));
+  const expectedOrigin = expectedUrl.origin;
+  const expectedAuthority = expectedUrl.host;
+  if (request.headers.host?.toLowerCase() !== expectedAuthority.toLowerCase()) {
+    return false;
+  }
+
+  const origin = request.headers.origin;
+  if (origin !== undefined) {
+    try {
+      const originUrl = new URL(origin);
+      if (
+        originUrl.origin !== expectedOrigin ||
+        originUrl.username ||
+        originUrl.password ||
+        originUrl.pathname !== "/" ||
+        originUrl.search ||
+        originUrl.hash
+      ) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  const requestTarget = request.url ?? "/";
+  if (!requestTarget.startsWith("/") || requestTarget.startsWith("//")) {
+    return false;
+  }
+  return true;
+}
+
 async function handleRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -160,6 +205,14 @@ async function handleRequest(
     url = new URL(request.url ?? "/", "http://localhost");
   } catch {
     sendJson(response, 400, { error: "Invalid request target" });
+    return;
+  }
+
+  if (
+    options.loopbackHost &&
+    !acceptsLoopbackRequest(request, options.loopbackHost)
+  ) {
+    sendJsonAndClose(request, response, 403, { error: "Forbidden" });
     return;
   }
 
@@ -277,7 +330,12 @@ export async function startDaemon(
     );
   }
 
-  const server = createDaemonServer(service, options);
+  const server = createDaemonServer(service, {
+    ...options,
+    ...(isLoopbackHost(config.host)
+      ? { loopbackHost: config.host as "127.0.0.1" | "::1" }
+      : {}),
+  });
 
   await new Promise<void>((resolve, reject) => {
     const onError = (error: Error) => reject(error);

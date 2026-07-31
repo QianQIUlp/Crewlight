@@ -2,6 +2,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { resolveWindowsToasterPath } from "@crewlight/notifier";
+
 import { resolveCrewlightCliContext } from "../src/runtime.js";
 
 describe("desktop CLI runtime resolution", () => {
@@ -31,5 +33,8 @@ describe("desktop CLI runtime resolution", () => {
     );
     expect(context.args).toEqual([]);
     expect(context.setupRuntime.isSea()).toBe(true);
+    expect(resolveWindowsToasterPath(context.setupRuntime)).toBe(
+      "C:\\Crewlight\\resources\\crewlight-cli\\resources\\snoretoast-x64.exe",
+    );
   });
 });

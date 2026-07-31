@@ -1,4 +1,6 @@
 import { normalizeAgentEvent, SessionStore } from "@crewlight/core";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,6 +13,9 @@ import {
   OS_NOTIFIER_WARNINGS,
   OsNotifier,
   probeOsNotifier,
+  isUsableWindowsToasterAsset,
+  resolveWindowsToasterPath,
+  WINDOWS_TOASTER_SHA256,
 } from "../src/index.js";
 
 function completedEvent(message = "done") {
@@ -30,6 +35,98 @@ function sessionFor(message = "done") {
 }
 
 describe("OS notifier", () => {
+  it("resolves the packaged Windows helper beside the standalone binary", () => {
+    expect(
+      resolveWindowsToasterPath({
+        execPath: "C:\\Program Files\\Crewlight\\crewlight.exe",
+        isSea: () => true,
+        platform: "win32",
+      }),
+    ).toBe("C:\\Program Files\\Crewlight\\resources\\snoretoast-x64.exe");
+    expect(
+      resolveWindowsToasterPath({
+        execPath: "/opt/crewlight",
+        isSea: () => true,
+        platform: "linux",
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveWindowsToasterPath({
+        execPath: "C:\\workspace\\node.exe",
+        isSea: () => false,
+        platform: "win32",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("constructs WindowsToaster with the packaged helper path", async () => {
+    const constructors: unknown[] = [];
+    const sent: unknown[] = [];
+    class WindowsToaster {
+      readonly notify = (
+        notification: unknown,
+        callback: (error?: Error | null) => void,
+      ) => {
+        sent.push(notification);
+        callback();
+      };
+
+      constructor(options: unknown) {
+        constructors.push(options);
+      }
+    }
+    const { event, session } = sessionFor();
+    const notifier = new OsNotifier({
+      assetVerifier: async () => true,
+      loader: async () => ({ default: { WindowsToaster } }),
+      windowsToasterPath: process.execPath,
+    });
+
+    await notifier.notify(event, session);
+
+    expect(constructors).toEqual([
+      { customPath: process.execPath, withFallback: false },
+    ]);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("reports a missing packaged Windows helper without loading the module", async () => {
+    let loads = 0;
+    const path = `${process.execPath}.missing-crewlight-snoretoast`;
+    const result = await probeOsNotifier(
+      async () => {
+        loads += 1;
+        return { notify: () => {} };
+      },
+      undefined,
+      path,
+    );
+
+    expect(result).toEqual({ available: false, reason: "asset" });
+    expect(loads).toBe(0);
+  });
+
+  it("accepts only the pinned packaged helper hash", async () => {
+    const require = createRequire(import.meta.url);
+    const notifierRoot = dirname(require.resolve("node-notifier/package.json"));
+    const helperPath = join(
+      notifierRoot,
+      "vendor",
+      "snoreToast",
+      "snoretoast-x64.exe",
+    );
+    const mismatchedBytes = {
+      readFile: async () => Buffer.from("unexpected helper"),
+      stat: async () => ({ isFile: () => true, size: 17 }),
+    };
+
+    expect(WINDOWS_TOASTER_SHA256).toMatch(/^[a-f\d]{64}$/u);
+    await expect(isUsableWindowsToasterAsset(helperPath)).resolves.toBe(true);
+    await expect(
+      isUsableWindowsToasterAsset("helper.exe", mismatchedBytes),
+    ).resolves.toBe(false);
+  });
+
   it("probes module availability without sending a notification", async () => {
     let sends = 0;
     const available = await probeOsNotifier(async () => ({

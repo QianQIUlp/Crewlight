@@ -80,6 +80,21 @@ describe("normalizeAgentEvent", () => {
     expect(remoteA.sessionKey).not.toBe(remoteB.sessionKey);
   });
 
+  it("treats Windows project path casing as the same session identity", () => {
+    const first = deriveSessionKey({
+      ...baseInput,
+      projectPath: String.raw`C:\Users\Crewlight\Project`,
+      remoteAlias: "windows-host",
+    });
+    const second = deriveSessionKey({
+      ...baseInput,
+      projectPath: String.raw`c:\users\crewlight\project`,
+      remoteAlias: "windows-host",
+    });
+
+    expect(first).toBe(second);
+  });
+
   it.each([
     {
       label: "POSIX",

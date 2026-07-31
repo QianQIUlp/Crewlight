@@ -13,7 +13,7 @@
       content="Crewlight — Local activity radar for AI coding agents"
     />
     <link rel="stylesheet" href="./desktop.css" />
-    <script src="./desktop-renderer.js" defer></script>
+    <script type="module" src="./desktop-renderer.js"></script>
   </head>
   <body data-theme="system" data-accent="teal" data-density="comfortable">
     <!--
@@ -23,15 +23,9 @@
     -->
     <svg
       id="lg-svg-defs"
+      class="svg-filter-definitions"
       aria-hidden="true"
       focusable="false"
-      style="
-        position: absolute;
-        width: 0;
-        height: 0;
-        overflow: hidden;
-        pointer-events: none;
-      "
     >
       <defs>
         <!-- Sidebar liquid glass: gentle slow flow, scale=10 -->

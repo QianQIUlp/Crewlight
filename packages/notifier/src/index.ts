@@ -28,3 +28,11 @@ export {
   type OsNotifierProbeResult,
   type OsNotifierWarningWriter,
 } from "./os-notifier.js";
+export {
+  isUsableWindowsToasterAsset,
+  resolveWindowsToasterPath,
+  WINDOWS_TOASTER_RESOURCE_PATH,
+  WINDOWS_TOASTER_SHA256,
+  type WindowsNotifierAssetRuntime,
+  type WindowsNotifierRuntime,
+} from "./windows-notifier.js";

@@ -11,6 +11,26 @@ const sourceDirectory = join(
 );
 
 describe("desktop accessibility regressions", () => {
+  it("loads both ESM renderers without violating the strict style policy", async () => {
+    const desktopHtml = await readFile(
+      join(sourceDirectory, "desktop.html"),
+      "utf8",
+    );
+    const companionHtml = await readFile(
+      join(sourceDirectory, "index.html"),
+      "utf8",
+    );
+
+    expect(desktopHtml).toContain(
+      '<script type="module" src="./desktop-renderer.js"></script>',
+    );
+    expect(companionHtml).toContain(
+      '<script type="module" src="./renderer.js"></script>',
+    );
+    expect(desktopHtml).not.toMatch(/\sstyle=/u);
+    expect(companionHtml).not.toMatch(/\sstyle=/u);
+  });
+
   it("uses a labelled modal dialog and no dead npm install command", async () => {
     const html = await readFile(join(sourceDirectory, "desktop.html"), "utf8");
     expect(html).toContain('role="dialog"');

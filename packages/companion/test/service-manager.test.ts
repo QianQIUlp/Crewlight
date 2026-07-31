@@ -19,7 +19,14 @@ class FakeStream extends EventEmitter {
   setEncoding(): void {}
 }
 
+class FakeStdin extends EventEmitter {
+  readonly destroyed = false;
+  readonly writable = true;
+  readonly write = vi.fn(() => true);
+}
+
 class FakeChild extends EventEmitter {
+  readonly stdin = new FakeStdin();
   readonly stdout = new FakeStream();
   readonly stderr = new FakeStream();
   readonly pid = 4321;
@@ -89,6 +96,27 @@ describe("desktop daemon service manager", () => {
       managed: true,
       pid: 4321,
     });
+    expect(childProcessMocks.spawn).toHaveBeenCalledWith(
+      cli.command,
+      expect.arrayContaining(["daemon", "--dashboard", "--managed-stdio"]),
+      expect.objectContaining({ windowsHide: true }),
+    );
+  });
+
+  it("requests a graceful managed-service stop over the control pipe", async () => {
+    const child = new FakeChild();
+    childProcessMocks.spawn.mockReturnValue(child);
+    const manager = createDaemonServiceManager(cli, settings);
+    const started = manager.start(settings);
+    emitReady(child);
+    await expect(started).resolves.toBe(true);
+
+    const stopped = manager.stop();
+    expect(child.stdin.write).toHaveBeenCalledWith("shutdown\n", "utf8");
+    expect(child.kill).not.toHaveBeenCalled();
+    child.emit("exit", 0, null);
+
+    await expect(stopped).resolves.toBe(true);
   });
 
   it("fails startup when the child reports a spawn error", async () => {
@@ -135,7 +163,8 @@ describe("desktop daemon service manager", () => {
     const stopped = manager.stop();
 
     await expect(started).resolves.toBe(false);
-    child.emit("exit", 0, "SIGTERM");
+    expect(child.stdin.write).toHaveBeenCalledWith("shutdown\n", "utf8");
+    child.emit("exit", 0, null);
     await expect(stopped).resolves.toBe(true);
     expect(manager.snapshot()).toMatchObject({
       phase: "stopped",
@@ -153,7 +182,8 @@ describe("desktop daemon service manager", () => {
     await vi.advanceTimersByTimeAsync(DAEMON_START_TIMEOUT_MS);
 
     await expect(started).resolves.toBe(false);
-    expect(child.kill).toHaveBeenNthCalledWith(1, "SIGTERM");
+    expect(child.stdin.write).toHaveBeenCalledTimes(1);
+    expect(child.kill).not.toHaveBeenCalled();
     expect(manager.snapshot()).toMatchObject({
       phase: "error",
       managed: true,
@@ -161,7 +191,7 @@ describe("desktop daemon service manager", () => {
     });
 
     await vi.advanceTimersByTimeAsync(7_000);
-    expect(child.kill).toHaveBeenNthCalledWith(2, "SIGKILL");
+    expect(child.kill).toHaveBeenNthCalledWith(1, "SIGKILL");
     expect(manager.snapshot()).toMatchObject({
       phase: "error",
       managed: true,
@@ -172,8 +202,8 @@ describe("desktop daemon service manager", () => {
     const stopped = manager.stop();
     await vi.advanceTimersByTimeAsync(7_000);
     await expect(stopped).resolves.toBe(false);
-    expect(child.kill).toHaveBeenNthCalledWith(3, "SIGTERM");
-    expect(child.kill).toHaveBeenNthCalledWith(4, "SIGKILL");
+    expect(child.stdin.write).toHaveBeenCalledTimes(2);
+    expect(child.kill).toHaveBeenNthCalledWith(2, "SIGKILL");
     expect(manager.snapshot()).toMatchObject({
       phase: "error",
       managed: true,
@@ -184,8 +214,8 @@ describe("desktop daemon service manager", () => {
     const disposed = manager.dispose();
     await vi.advanceTimersByTimeAsync(7_000);
     await expect(disposed).resolves.toBeUndefined();
-    expect(child.kill).toHaveBeenNthCalledWith(5, "SIGTERM");
-    expect(child.kill).toHaveBeenNthCalledWith(6, "SIGKILL");
+    expect(child.stdin.write).toHaveBeenCalledTimes(3);
+    expect(child.kill).toHaveBeenNthCalledWith(3, "SIGKILL");
     expect(manager.snapshot()).toMatchObject({
       phase: "error",
       managed: true,
@@ -205,8 +235,8 @@ describe("desktop daemon service manager", () => {
     void manager.dispose().then(disposed);
     await vi.advanceTimersByTimeAsync(7_000);
 
-    expect(child.kill).toHaveBeenNthCalledWith(1, "SIGTERM");
-    expect(child.kill).toHaveBeenNthCalledWith(2, "SIGKILL");
+    expect(child.stdin.write).toHaveBeenCalledTimes(1);
+    expect(child.kill).toHaveBeenNthCalledWith(1, "SIGKILL");
     expect(disposed).toHaveBeenCalledOnce();
     expect(manager.snapshot()).toMatchObject({
       phase: "error",
@@ -237,8 +267,8 @@ describe("desktop daemon service manager", () => {
     await vi.advanceTimersByTimeAsync(7_000);
     await expect(stopped).resolves.toBe(false);
     await expect(disposed).resolves.toBeUndefined();
-    expect(child.kill).toHaveBeenNthCalledWith(1, "SIGTERM");
-    expect(child.kill).toHaveBeenNthCalledWith(2, "SIGKILL");
+    expect(child.stdin.write).toHaveBeenCalledTimes(1);
+    expect(child.kill).toHaveBeenNthCalledWith(1, "SIGKILL");
     expect(manager.snapshot()).toMatchObject({
       phase: "error",
       managed: true,
@@ -256,6 +286,7 @@ describe("desktop daemon service manager", () => {
     await expect(started).resolves.toBe(true);
 
     const stopped = manager.stop();
+    expect(child.stdin.write).toHaveBeenCalledWith("shutdown\n", "utf8");
     child.emit("error", new Error("transient stop error"));
     expect(manager.snapshot()).toMatchObject({
       phase: "error",
@@ -263,7 +294,7 @@ describe("desktop daemon service manager", () => {
       lastError: "transient stop error",
     });
 
-    child.emit("exit", 0, "SIGTERM");
+    child.emit("exit", 0, null);
     await expect(stopped).resolves.toBe(true);
     expect(manager.snapshot()).toMatchObject({
       phase: "stopped",
@@ -282,12 +313,34 @@ describe("desktop daemon service manager", () => {
     await started;
 
     const stopped = manager.stop();
-    child.emit("exit", 0, "SIGTERM");
+    expect(child.stdin.write).toHaveBeenCalledWith("shutdown\n", "utf8");
+    child.emit("exit", 0, null);
 
     await expect(stopped).resolves.toBe(true);
     expect(manager.snapshot()).toMatchObject({
       managed: false,
       phase: "stopped",
     });
+  });
+
+  it("forces a stop when the managed control pipe cannot be written", async () => {
+    const child = new FakeChild();
+    child.stdin.write.mockImplementation(() => {
+      throw new Error("EPIPE");
+    });
+    childProcessMocks.spawn.mockReturnValue(child);
+    const manager = createDaemonServiceManager(cli, settings);
+    const started = manager.start(settings);
+    emitReady(child);
+    await expect(started).resolves.toBe(true);
+
+    const stopped = manager.stop();
+    expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(() => {
+      child.stdin.emit("error", new Error("EPIPE"));
+    }).not.toThrow();
+    child.emit("exit", null, "SIGKILL");
+
+    await expect(stopped).resolves.toBe(true);
   });
 });

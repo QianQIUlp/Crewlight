@@ -65,17 +65,29 @@ change its permission behavior.
 
 ## Optional prompt-preview task titles
 
-Task titles derived from prompts are disabled by default. To opt in for the
-local browser dashboard, start the daemon with:
+Task titles derived from prompts are disabled by default. Opt-in requires both
+the daemon capability and `CREWLIGHT_PROMPT_PREVIEW=1` in the Claude Code hook
+process. The daemon must use the literal loopback host `127.0.0.1` or `::1`.
+For example, set the variable in each shell that starts the daemon or Claude
+Code, then start the daemon with:
 
 ```bash
+CREWLIGHT_PROMPT_PREVIEW=1 crewlight daemon --dashboard --dashboard-task-titles prompt-preview
+```
+
+PowerShell:
+
+```powershell
+$env:CREWLIGHT_PROMPT_PREVIEW = "1"
 crewlight daemon --dashboard --dashboard-task-titles prompt-preview
 ```
 
 On `UserPromptSubmit`, the updated ingest command reads the documented `prompt`
 field in memory, collapses whitespace, and emits only a preview of at most 60
 Unicode code points as `taskTitle`. It does not emit, store, log, forward, or
-return the complete prompt. Other hook events do not inspect the prompt.
+retain the complete prompt. `crewlight setup` does not set this environment
+variable or mutate Claude Code configuration automatically.
+Other hook events do not inspect the prompt.
 
 The existing hook snippet does not need regeneration when it already invokes
 the updated Crewlight binary or CLI. Ingest discovers the opt-in mode from the

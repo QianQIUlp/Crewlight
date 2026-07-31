@@ -38,11 +38,13 @@ export {
 } from "./commands/setup.js";
 export {
   createDoctorRuntime,
+  detectPnpmVersion,
   runDoctor,
   type DoctorCheck,
   type DoctorReport,
   type DoctorRuntime,
   type DoctorRuntimeOptions,
+  type PnpmVersionRunner,
 } from "./commands/doctor.js";
 export {
   DAEMON_REQUEST_TIMEOUT_MS,

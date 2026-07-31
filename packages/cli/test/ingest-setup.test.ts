@@ -101,9 +101,9 @@ describe("platform ingest commands", () => {
     expect(capture.warnings).toEqual([]);
   });
 
-  it("keeps Claude prompt titles disabled by default", async () => {
+  it("keeps Claude prompt titles disabled without the local environment opt-in", async () => {
     const capture = captureIo();
-    const target = captureClient("off");
+    const target = captureClient("prompt-preview");
 
     await executeIngestCommand(
       ["claude-code"],
@@ -127,7 +127,7 @@ describe("platform ingest commands", () => {
       },
     ]);
     expect(JSON.stringify(target.events)).not.toContain("private prompt");
-    expect(target.capabilityRequests).toEqual(["dashboard"]);
+    expect(target.capabilityRequests).toEqual([]);
   });
 
   it("derives and refreshes Claude prompt titles only when opted in", async () => {
@@ -149,6 +149,7 @@ describe("platform ingest commands", () => {
             prompt,
             timestamp,
           }),
+        { CREWLIGHT_PROMPT_PREVIEW: "1" },
       );
     }
     await executeIngestCommand(
@@ -161,6 +162,7 @@ describe("platform ingest commands", () => {
           hook_event_name: "Stop",
           prompt: "must not be used",
         }),
+      { CREWLIGHT_PROMPT_PREVIEW: "1" },
     );
 
     expect(target.events).toMatchObject([
@@ -387,6 +389,7 @@ describe("platform ingest commands", () => {
           transcript_path: "/private/transcript",
           rawEvent: { secret: true },
         }),
+      { CREWLIGHT_PROMPT_PREVIEW: "1" },
     );
 
     expect(target.events).toEqual([
@@ -402,6 +405,36 @@ describe("platform ingest commands", () => {
     expect(target.capabilityRequests).toEqual(["dashboard"]);
     expect(JSON.stringify(target.events)).not.toContain("secret");
     expect(JSON.stringify(target.events)).not.toContain("transcript");
+  });
+
+  it("does not request or emit prompt previews for a non-loopback daemon", async () => {
+    const capture = captureIo();
+    const target = captureClient("prompt-preview");
+
+    await executeIngestCommand(
+      ["codex-hook", "--hook", "UserPromptSubmit", "--surface", "cli"],
+      target.client,
+      capture.io,
+      async () =>
+        JSON.stringify({
+          session_id: "codex-remote-prompt",
+          prompt: "must remain private",
+        }),
+      {
+        CREWLIGHT_HOST: "192.0.2.10",
+        CREWLIGHT_PROMPT_PREVIEW: "1",
+      },
+    );
+
+    expect(target.events).toEqual([
+      expect.objectContaining({
+        title: "UserPromptSubmit",
+        sessionId: "codex-remote-prompt",
+      }),
+    ]);
+    expect(target.events[0]).not.toHaveProperty("taskTitle");
+    expect(target.capabilityRequests).toEqual([]);
+    expect(JSON.stringify(target.events)).not.toContain("must remain private");
   });
 
   it.each([
@@ -1526,6 +1559,26 @@ describe("setup snippet commands", () => {
     expect(() =>
       resolveCrewlightCommand("./crewlight", setupRuntime()),
     ).toThrow("absolute path");
+  });
+
+  it("rejects Windows paths rooted only on the current drive", () => {
+    const runtime = setupRuntime({ platform: "win32" });
+
+    expect(
+      resolveCrewlightCommand("C:\\Tools\\Crewlight\\crewlight.exe", runtime),
+    ).toEqual(["C:\\Tools\\Crewlight\\crewlight.exe"]);
+    expect(() =>
+      resolveCrewlightCommand("\\Tools\\Crewlight\\crewlight.exe", runtime),
+    ).toThrow("absolute path");
+    expect(() =>
+      resolveCrewlightCommand("/Tools/Crewlight/crewlight.exe", runtime),
+    ).toThrow("absolute path");
+    expect(() =>
+      resolveCrewlightCommand("C:Tools\\Crewlight\\crewlight.exe", runtime),
+    ).toThrow("absolute path");
+    expect(() => resolveCrewlightCommand("C:", runtime)).toThrow(
+      "absolute path",
+    );
   });
 
   it("renders a simple Windows commandWindows without quotes", () => {

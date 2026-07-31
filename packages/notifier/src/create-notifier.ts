@@ -12,6 +12,7 @@ export interface CreateNotifierOptions {
   consoleWriter?: ConsoleWriter;
   osLoader?: OsNotifierModuleLoader;
   osTimeoutMs?: number;
+  osWindowsToasterPath?: string;
   warning?: OsNotifierWarningWriter;
 }
 
@@ -27,6 +28,9 @@ export function createNotifier(
         ...(options.osLoader ? { loader: options.osLoader } : {}),
         ...(options.osTimeoutMs !== undefined
           ? { timeoutMs: options.osTimeoutMs }
+          : {}),
+        ...(options.osWindowsToasterPath
+          ? { windowsToasterPath: options.osWindowsToasterPath }
           : {}),
         ...(options.warning ? { warning: options.warning } : {}),
       });

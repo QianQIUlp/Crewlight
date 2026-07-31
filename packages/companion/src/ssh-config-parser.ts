@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 
 export interface SshConfigHost {
   alias: string;
@@ -52,8 +52,9 @@ export async function parseCrewlightRemoteHosts(
     if (identityFile === "~") {
       return homedir();
     }
-    if (identityFile.startsWith("~/")) {
-      return join(homedir(), identityFile.slice(2));
+    if (/^~[\\/]/u.test(identityFile)) {
+      const homeRelativePath = identityFile.slice(2).replace(/[\\/]+/gu, sep);
+      return join(homedir(), homeRelativePath);
     }
     if (!isAbsolute(identityFile)) {
       identityFile = resolve(dirname(path), identityFile);

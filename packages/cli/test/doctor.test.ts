@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { dirname, win32 } from "node:path";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
+  detectPnpmVersion,
   executeDoctorCommand,
   type DoctorRuntime,
 } from "../src/commands/doctor.js";
@@ -39,6 +44,98 @@ function runtime(overrides: Partial<DoctorRuntime> = {}): DoctorRuntime {
 }
 
 describe("doctor command", () => {
+  it("checks pnpm through cmd.exe on Windows so pnpm.cmd is discoverable", () => {
+    const calls: Array<{
+      command: string;
+      args: string[];
+      options: unknown;
+    }> = [];
+    const version = detectPnpmVersion(
+      "win32",
+      (command, args, options) => {
+        calls.push({ command, args, options });
+        return { status: 0, stdout: "10.11.0\r\n" };
+      },
+      () => "C:\\Tools\\pnpm.cmd",
+    );
+
+    expect(version).toBe("10.11.0");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.command).toBe(
+      win32.join(
+        process.env.SystemRoot ?? "C:\\Windows",
+        "System32",
+        "cmd.exe",
+      ),
+    );
+    expect(calls[0]?.args.slice(0, 4)).toEqual(["/d", "/s", "/v:off", "/c"]);
+    expect(calls[0]?.args[4]).toContain("pnpm.cmd");
+    expect(calls[0]?.options).toMatchObject({
+      cwd: dirname(process.execPath),
+      windowsVerbatimArguments: true,
+    });
+  });
+
+  it("keeps direct pnpm execution on non-Windows platforms", () => {
+    const calls: Array<{ command: string; args: string[] }> = [];
+    const version = detectPnpmVersion("linux", (command, args) => {
+      calls.push({ command, args });
+      return { status: 0, stdout: "10.11.0\n" };
+    });
+
+    expect(version).toBe("10.11.0");
+    expect(calls).toEqual([{ command: "pnpm", args: ["--version"] }]);
+  });
+
+  it.runIf(process.platform === "win32")(
+    "does not execute a repository-local pnpm.cmd while checking the version",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "crewlight-doctor-pnpm-"));
+      const untrustedCwd = join(root, "untrusted");
+      const safePath = join(root, "safe-path");
+      const marker = join(root, "repo-pnpm-ran.txt");
+      const previousCwd = process.cwd();
+      const previousPath = process.env.PATH;
+      const previousPathCase = process.env.Path;
+      await Promise.all([
+        mkdir(untrustedCwd, { recursive: true }),
+        mkdir(safePath, { recursive: true }),
+      ]);
+      await writeFile(
+        join(untrustedCwd, "pnpm.cmd"),
+        `@echo off\r\n>"${marker}" echo executed\r\necho 0.0.0\r\n`,
+        "utf8",
+      );
+      await writeFile(
+        join(safePath, "pnpm.cmd"),
+        "@echo off\r\necho 10.11.0\r\n",
+        "utf8",
+      );
+
+      try {
+        process.chdir(untrustedCwd);
+        process.env.PATH = safePath;
+        process.env.Path = safePath;
+
+        expect(detectPnpmVersion()).toBe("10.11.0");
+        await expect(access(marker)).rejects.toBeTruthy();
+      } finally {
+        process.chdir(previousCwd);
+        if (previousPath === undefined) {
+          delete process.env.PATH;
+        } else {
+          process.env.PATH = previousPath;
+        }
+        if (previousPathCase === undefined) {
+          delete process.env.Path;
+        } else {
+          process.env.Path = previousPathCase;
+        }
+        await rm(root, { force: true, recursive: true });
+      }
+    },
+  );
+
   it("passes when required checks pass and warnings are absent", async () => {
     const capture = captureIo();
 
@@ -53,6 +150,26 @@ describe("doctor command", () => {
     expect(capture.output.join("\n")).toContain("[ok] daemon");
     expect(capture.output.join("\n")).toContain("[ok] setup-codex");
   });
+
+  it.each(["localhost", "0.0.0.0"])(
+    "warns when daemon host %s is outside the literal loopback boundary",
+    async (host) => {
+      const capture = captureIo();
+
+      const code = await executeDoctorCommand(
+        ["--notifier", "console"],
+        capture.io,
+        runtime({ daemonEnv: () => ({ host, port: 3768 }) }),
+      );
+
+      expect(code).toBe(0);
+      expect(capture.warnings.join("\n")).toContain("[warning] daemon-host");
+      expect(capture.warnings.join("\n")).toContain(
+        "has no client authentication",
+      );
+      expect(capture.warnings.join("\n")).toContain("CREWLIGHT_HOST=127.0.0.1");
+    },
+  );
 
   it("returns non-zero when the daemon is unreachable", async () => {
     const capture = captureIo();
@@ -131,6 +248,24 @@ describe("doctor command", () => {
     expect(capture.warnings.join("\n")).toContain(
       "crewlight daemon --notifier console",
     );
+  });
+
+  it("identifies a missing packaged Windows notifier asset", async () => {
+    const capture = captureIo();
+
+    const code = await executeDoctorCommand(
+      ["--notifier", "os"],
+      capture.io,
+      runtime({
+        osNotifier: async () => ({ available: false, reason: "asset" }),
+      }),
+    );
+
+    expect(code).toBe(0);
+    expect(capture.warnings.join("\n")).toContain(
+      "packaged Windows notification helper is missing",
+    );
+    expect(capture.warnings.join("\n")).toContain("Reinstall Crewlight");
   });
 
   it("emits one machine-readable report for --json", async () => {

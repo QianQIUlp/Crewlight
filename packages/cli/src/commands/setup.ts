@@ -146,7 +146,19 @@ function isAbsoluteForPlatform(
   path: string,
   platform: RuntimePlatform,
 ): boolean {
-  return platform === "win32" ? win32.isAbsolute(path) : posix.isAbsolute(path);
+  if (platform !== "win32") {
+    return posix.isAbsolute(path);
+  }
+
+  if (!win32.isAbsolute(path)) {
+    return false;
+  }
+
+  // A leading slash or backslash is rooted only on the current drive. Hook
+  // configuration must keep pointing at the same binary regardless of the
+  // drive from which the host application starts.
+  const root = win32.parse(path).root;
+  return root !== "\\" && root !== "/";
 }
 
 function validateToken(token: string): void {
