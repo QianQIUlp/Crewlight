@@ -73,6 +73,22 @@ describe("desktop accessibility regressions", () => {
     expect(companionRenderer).toContain("replacement?.focus()");
   });
 
+  it("restores keyboard focus after integration configuration rerenders", async () => {
+    const desktopRenderer = await readFile(
+      join(sourceDirectory, "desktop-renderer.ts"),
+      "utf8",
+    );
+
+    expect(desktopRenderer).toContain("focusAfterIntegrationConfiguration");
+    expect(desktopRenderer).toContain("window.requestAnimationFrame");
+    expect(desktopRenderer).toContain('"#onboarding-body"');
+    expect(desktopRenderer).toContain('"#agent-cards"');
+    expect(desktopRenderer).toContain(
+      'byId<HTMLButtonElement>("onboarding-primary").focus()',
+    );
+    expect(desktopRenderer).toContain('"#agents-section .card-heading h3"');
+  });
+
   it("enforces single-instance and managed-service desktop lifecycle policy", async () => {
     const main = await readFile(join(sourceDirectory, "main.ts"), "utf8");
     expect(main).toContain("app.requestSingleInstanceLock()");

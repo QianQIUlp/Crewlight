@@ -15,6 +15,7 @@ import type { ManagedServiceState } from "./service-manager.js";
 import {
   deriveCompanionViewModel,
   getCompanionSurfaceLabel,
+  isSyntheticDemoSession,
   sortSessions,
 } from "./state.js";
 import type { SanitizedSession } from "./sanitize.js";
@@ -121,6 +122,7 @@ export interface DesktopSessionCard {
   id: string;
   activity: string;
   ageLabel: string;
+  demoLabel?: string;
   diagnosticHint?: string;
   needsAction: boolean;
   source: string;
@@ -135,7 +137,7 @@ export interface DesktopSessionCard {
 }
 
 export interface DesktopActionCard {
-  action: "run-demo" | "show-companion" | "start-service";
+  action: "show-companion" | "start-service";
   description: string;
   label: string;
 }
@@ -146,7 +148,6 @@ export interface DesktopOnboardingStep {
   id:
     | "welcome"
     | "start-service"
-    | "run-demo"
     | "show-companion"
     | "choose-integration"
     | "finish";
@@ -155,6 +156,8 @@ export interface DesktopOnboardingStep {
 
 export interface DesktopIntegrationCard {
   boundary: string;
+  configureDisabled?: boolean;
+  configureLabel?: string;
   copySetupLabel: string;
   copyVerificationLabel?: string;
   highlight: boolean;
@@ -262,6 +265,12 @@ export interface DesktopViewModelInput {
   snapshot: DesktopDashboardResult;
   version: string;
   remoteHosts: DesktopRemoteHost[];
+  integrationInstallations?: Partial<
+    Record<
+      "claude-code" | "codex",
+      "configured" | "not-configured" | "conflict" | "unavailable" | "error"
+    >
+  >;
 }
 
 function formatRelativeAge(
@@ -303,6 +312,24 @@ function formatTimestamp(
   });
 }
 
+export function formatDesktopDuration(
+  milliseconds: number,
+  locale: DesktopLocale,
+): string {
+  const seconds = Math.floor(milliseconds / 1000);
+  if (seconds < 60) {
+    return pick(locale, `${seconds}s`, `${seconds} 秒`);
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return pick(
+    locale,
+    `${minutes}m ${remainingSeconds}s`,
+    `${minutes} 分 ${remainingSeconds} 秒`,
+  );
+}
+
 function platformLabel(): string {
   if (process.platform === "win32") {
     return "Windows";
@@ -328,11 +355,87 @@ function isError(session: SanitizedSession): boolean {
   return session.status === "failed" || session.status === "rate_limited";
 }
 
-function isDemoSession(session: SanitizedSession): boolean {
-  return (
-    session.taskTitle?.startsWith("[Demo]") === true ||
-    session.activityLabel?.startsWith("[Demo]") === true
-  );
+const DEMO_TEXT: Record<string, { en: string; "zh-CN": string }> = {
+  "[Demo] Running Crewlight tests": {
+    en: "Running Crewlight tests",
+    "zh-CN": "运行 Crewlight 测试",
+  },
+  "[Demo] Updating README": {
+    en: "Updating README",
+    "zh-CN": "更新 README",
+  },
+  "[Demo] Reviewing companion UI": {
+    en: "Reviewing companion UI",
+    "zh-CN": "检查悬浮伴侣界面",
+  },
+  "[Demo] Adapter smoke check": {
+    en: "Adapter smoke check",
+    "zh-CN": "适配器冒烟检查",
+  },
+  "[Demo] Local setup validation": {
+    en: "Local setup validation",
+    "zh-CN": "本地配置验证",
+  },
+  "[Demo] Background dependency scan": {
+    en: "Background dependency scan",
+    "zh-CN": "后台依赖扫描",
+  },
+  "[Demo] Running tests": {
+    en: "Running tests",
+    "zh-CN": "正在运行测试",
+  },
+  "[Demo] Permission to edit README": {
+    en: "Permission to edit README",
+    "zh-CN": "请求编辑 README 的权限",
+  },
+  "[Demo] Companion review requested": {
+    en: "Companion review requested",
+    "zh-CN": "等待确认悬浮伴侣界面",
+  },
+  "[Demo] Adapter smoke completed": {
+    en: "Adapter smoke completed",
+    "zh-CN": "适配器冒烟检查已完成",
+  },
+  "[Demo] Local setup failed": {
+    en: "Local setup failed",
+    "zh-CN": "本地配置验证失败",
+  },
+  "[Demo] Background scan last reported": {
+    en: "Background scan last reported",
+    "zh-CN": "后台扫描最后一次上报",
+  },
+  "Crewlight Demo": {
+    en: "Crewlight Demo",
+    "zh-CN": "Crewlight 演示",
+  },
+};
+
+const ZH_SURFACE_LABELS: Record<string, string> = {
+  unknown: "未知",
+  cli: "命令行",
+  "ide-extension": "IDE 扩展",
+  desktop: "桌面",
+  cloud: "云端",
+  manual: "手动",
+};
+
+function localizeDemoText(value: string, locale: DesktopLocale): string {
+  const known = DEMO_TEXT[value];
+  if (known) {
+    return known[locale];
+  }
+  if (!value.startsWith("[Demo]")) {
+    return value;
+  }
+  const withoutMarker = value.slice("[Demo]".length).trimStart();
+  return locale === "zh-CN" ? `演示：${withoutMarker}` : withoutMarker;
+}
+
+function desktopSurfaceLabel(surface: string, locale: DesktopLocale): string {
+  if (locale === "zh-CN") {
+    return ZH_SURFACE_LABELS[surface] ?? surface;
+  }
+  return getCompanionSurfaceLabel(surface);
 }
 
 function sessionTone(session: SanitizedSession): DesktopSessionCard["tone"] {
@@ -368,14 +471,9 @@ function diagnosticHint(
     return pick(locale, "Rate limit reported", "代理报告了限流");
   }
   if (session.isStale && isRunning(session)) {
-    return (
-      session.staleReason ??
-      pick(
-        locale,
-        "No recent event; session may be stale",
-        "长时间没有新事件，任务可能已停滞",
-      )
-    );
+    return locale === "zh-CN"
+      ? `最近一次事件在 ${formatRelativeAge(session.lastEventAgeMs, locale)}，任务可能已停滞`
+      : (session.staleReason ?? "No recent event; session may be stale");
   }
   return undefined;
 }
@@ -385,18 +483,25 @@ function toSessionCard(
   locale: DesktopLocale,
 ): DesktopSessionCard {
   const hint = diagnosticHint(session, locale);
+  const demo = isSyntheticDemoSession(session);
+  const activity =
+    session.activityLabel ?? STATUS_LABELS[locale][session.status];
+  const title = session.taskTitle ?? session.displayWorkspace;
   return {
     id: session.viewId,
-    activity: session.activityLabel ?? STATUS_LABELS[locale][session.status],
+    activity: demo ? localizeDemoText(activity, locale) : activity,
     ageLabel: formatRelativeAge(session.lastEventAgeMs, locale),
+    ...(demo ? { demoLabel: pick(locale, "Demo", "演示") } : {}),
     ...(hint ? { diagnosticHint: hint } : {}),
     needsAction: needsAction(session),
     source: session.displayName,
     statusLabel: STATUS_LABELS[locale][session.status],
-    surface: getCompanionSurfaceLabel(session.surface),
-    title: session.taskTitle ?? session.displayWorkspace,
+    surface: desktopSurfaceLabel(session.surface, locale),
+    title: demo ? localizeDemoText(title, locale) : title,
     tone: sessionTone(session),
-    workspace: session.displayWorkspace,
+    workspace: demo
+      ? localizeDemoText(session.displayWorkspace, locale)
+      : session.displayWorkspace,
     elapsedMs: session.durationMs,
     stuckWarning: isRunning(session) && session.lastEventAgeMs >= 5 * 60 * 1000,
     ...(session.remoteAlias ? { remoteAlias: session.remoteAlias } : {}),
@@ -413,46 +518,106 @@ function integrationCards(
   sessions: readonly SanitizedSession[],
   preferredIntegration: PreferredIntegration | undefined,
   setup: DesktopSetupSnippets,
+  locale: DesktopLocale,
+  installations: DesktopViewModelInput["integrationInstallations"] = {},
 ): DesktopIntegrationCard[] {
   const observedSources = new Set(sessions.map((session) => session.source));
+  const setupLabel = (
+    status: NonNullable<
+      DesktopViewModelInput["integrationInstallations"]
+    >["codex"],
+  ): string => {
+    if (status === "configured") {
+      return pick(locale, "Configured", "已配置");
+    }
+    if (status === "conflict") {
+      return pick(locale, "Existing settings need review", "已有配置需要确认");
+    }
+    if (status === "unavailable") {
+      return pick(
+        locale,
+        "Current app path is not supported",
+        "当前应用路径无法安全配置",
+      );
+    }
+    if (status === "error") {
+      return pick(locale, "Configuration could not be checked", "无法检查配置");
+    }
+    return pick(locale, "One-click setup ready", "可以一键配置");
+  };
+  const configureDisabled = (
+    status: NonNullable<
+      DesktopViewModelInput["integrationInstallations"]
+    >["codex"],
+  ): boolean =>
+    status === "configured" ||
+    status === "conflict" ||
+    status === "unavailable" ||
+    status === "error";
+  const configureLabel = (
+    status: NonNullable<
+      DesktopViewModelInput["integrationInstallations"]
+    >["codex"],
+  ): string =>
+    status === "configured"
+      ? pick(locale, "Configured", "已配置")
+      : pick(locale, "Configure", "配置接入");
+  const claudeStatus = installations["claude-code"] ?? "not-configured";
+  const codexStatus = installations.codex ?? "not-configured";
   return [
     {
-      boundary:
-        "Observes documented Claude Code lifecycle hooks without modifying Claude settings.",
-      copySetupLabel: "Copy setup snippet",
-      copyVerificationLabel: "Copy verification command",
+      boundary: pick(
+        locale,
+        "Crewlight adds only its own entries to your user settings and creates a backup first.",
+        "Crewlight 只会向用户配置中合并自己的条目，并且会先创建备份。",
+      ),
+      configureDisabled: configureDisabled(claudeStatus),
+      configureLabel: configureLabel(claudeStatus),
+      copySetupLabel: pick(locale, "Copy manual setup", "复制手动配置"),
+      copyVerificationLabel: pick(locale, "Copy test command", "复制测试命令"),
       highlight: preferredIntegration === "claude-code",
       id: "claude-code",
-      maturity: "Precise",
+      maturity: pick(locale, "Recommended", "推荐"),
       observed: observedSources.has("claude-code")
-        ? "Observed in current daemon"
-        : "Ready to configure",
-      observes:
-        "Session start, prompts, notifications, permissions, tools, stop, and failures.",
+        ? pick(locale, "Receiving activity", "正在接收状态")
+        : pick(locale, "Ready", "可以接入"),
+      observes: pick(
+        locale,
+        "Shows when Claude Code is working, waiting for you, finished, or failed.",
+        "显示 Claude Code 何时工作、等待你处理、完成或失败。",
+      ),
       setupCommand: setup.claudeCode,
       setupStatus: observedSources.has("claude-code")
-        ? "Live activity detected"
-        : "Mergeable snippet ready",
+        ? pick(locale, "Live activity detected", "已检测到实时活动")
+        : setupLabel(claudeStatus),
       title: "Claude Code",
       verificationCommand: setup.verification.claudeCode,
     },
     {
-      boundary:
-        "Observes Codex notify and hooks only. Crewlight does not approve permissions or return turn-control output.",
-      copySetupLabel: "Copy setup snippet",
-      copyVerificationLabel: "Copy verification command",
+      boundary: pick(
+        locale,
+        "Crewlight observes status only. It never approves permissions or controls Codex for you.",
+        "Crewlight 只观察状态，不会替你批准权限，也不会控制 Codex。",
+      ),
+      configureDisabled: configureDisabled(codexStatus),
+      configureLabel: configureLabel(codexStatus),
+      copySetupLabel: pick(locale, "Copy manual setup", "复制手动配置"),
+      copyVerificationLabel: pick(locale, "Copy test command", "复制测试命令"),
       highlight: preferredIntegration === "codex",
       id: "codex",
-      maturity: "Precise lifecycle",
+      maturity: pick(locale, "Recommended", "推荐"),
       observed: observedSources.has("codex")
-        ? "Observed in current daemon"
-        : "Ready to configure",
-      observes:
-        "Session, prompt, tool, permission, and stop events after trust review.",
+        ? pick(locale, "Receiving activity", "正在接收状态")
+        : pick(locale, "Ready", "可以接入"),
+      observes: pick(
+        locale,
+        "Shows when Codex is working, using tools, waiting for permission, or finished.",
+        "显示 Codex 何时工作、使用工具、等待授权或完成。",
+      ),
       setupCommand: setup.codexHooks,
       setupStatus: observedSources.has("codex")
-        ? "Live activity detected"
-        : "Hooks snippet ready",
+        ? pick(locale, "Live activity detected", "已检测到实时活动")
+        : setupLabel(codexStatus),
       title: "Codex",
       verificationCommand: setup.verification.codex,
     },
@@ -567,7 +732,6 @@ function primaryAction(
   serviceState: ManagedServiceState,
   snapshot: DesktopDashboardResult,
   companion: DesktopCompanionState,
-  demoSessions: readonly SanitizedSession[],
   locale: DesktopLocale,
 ): DesktopActionCard {
   if (serviceState.phase !== "running" && snapshot.kind !== "online") {
@@ -579,17 +743,6 @@ function primaryAction(
         "启动本地服务，让 Crewlight 开始汇总实时代理会话。",
       ),
       label: pick(locale, "Start local service", "启动本地服务"),
-    };
-  }
-  if (demoSessions.length === 0) {
-    return {
-      action: "run-demo",
-      description: pick(
-        locale,
-        "Load the deterministic multi-agent scenario to populate Home, Demo, and Companion instantly.",
-        "载入可重复的多代理场景，立即查看首页、演示和悬浮伴侣的完整体验。",
-      ),
-      label: pick(locale, "Run multi-agent demo", "运行多代理演示"),
     };
   }
   return {
@@ -641,16 +794,22 @@ export function deriveDesktopViewModel(
   const liveSessions =
     input.snapshot.kind === "online" ? input.snapshot.data.sessions : [];
   const sortedSessions = sortSessions(liveSessions);
-  const demoSessions = sortedSessions.filter(isDemoSession);
+  const demoSessions = sortedSessions.filter(isSyntheticDemoSession);
+  const realSessions = sortedSessions.filter(
+    (session) => !isSyntheticDemoSession(session),
+  );
   const companionView = deriveCompanionViewModel(
     input.snapshot.kind === "online"
-      ? { kind: "online", data: { sessions: liveSessions } }
+      ? { kind: "online", data: { sessions: realSessions } }
       : input.snapshot,
+    Date.now(),
+    undefined,
+    { locale },
   );
-  const previewSessions = sortedSessions
+  const previewSessions = realSessions
     .slice(0, 4)
     .map((session) => toSessionCard(session, locale));
-  const failedOrStale = sortedSessions.filter(
+  const failedOrStale = realSessions.filter(
     (session) => isError(session) || (session.isStale && isRunning(session)),
   ).length;
   const sections = Object.entries(SECTION_LABELS[locale]).map(
@@ -684,26 +843,6 @@ export function deriveDesktopViewModel(
         input.snapshot.kind === "online",
     },
     {
-      id: "run-demo",
-      title: pick(locale, "Run demo", "运行演示"),
-      description: pick(
-        locale,
-        "Load six deterministic local sessions to see the product loop.",
-        "载入六个可重复的本地会话，快速了解产品闭环。",
-      ),
-      complete: demoSessions.length > 0,
-    },
-    {
-      id: "show-companion",
-      title: pick(locale, "Show companion", "显示悬浮伴侣"),
-      description: pick(
-        locale,
-        "Open the floating companion so live status stays nearby.",
-        "打开悬浮伴侣，让实时状态始终近在眼前。",
-      ),
-      complete: input.companion.visible,
-    },
-    {
       id: "choose-integration",
       title: pick(locale, "Choose an integration path", "选择接入方式"),
       description: pick(
@@ -711,7 +850,20 @@ export function deriveDesktopViewModel(
         "Pick the first setup path you want Crewlight to highlight.",
         "选择希望 Crewlight 优先引导的接入方式。",
       ),
-      complete: input.preferences.preferredIntegration !== undefined,
+      complete:
+        input.preferences.preferredIntegration !== undefined ||
+        input.integrationInstallations?.["claude-code"] === "configured" ||
+        input.integrationInstallations?.codex === "configured",
+    },
+    {
+      id: "show-companion",
+      title: pick(locale, "Show companion", "显示悬浮伴侣"),
+      description: pick(
+        locale,
+        "Open the floating companion so real status stays nearby.",
+        "打开悬浮伴侣，让真实状态始终近在眼前。",
+      ),
+      complete: input.companion.visible,
     },
     {
       id: "finish",
@@ -725,9 +877,11 @@ export function deriveDesktopViewModel(
     },
   ];
   const integrations = integrationCards(
-    sortedSessions,
+    realSessions,
     input.preferences.preferredIntegration,
     setup,
+    locale,
+    input.integrationInstallations,
   );
 
   return {
@@ -794,8 +948,8 @@ export function deriveDesktopViewModel(
             )
           : pick(
               locale,
-              "Run the local multi-agent demo to populate Home, Demo, and Companion with synthetic sessions.",
-              "运行本地多代理演示，用合成会话填充首页、演示和悬浮伴侣。",
+              "Run the local multi-agent demo to populate the Demo view with synthetic sessions.",
+              "运行本地多代理演示，在演示页面中载入合成会话。",
             ),
     },
     doctor: {
@@ -826,26 +980,19 @@ export function deriveDesktopViewModel(
       summary:
         input.snapshot.kind !== "online"
           ? pick(locale, "Daemon offline", "本地服务离线")
-          : pick(
-              locale,
-              companionView.summary,
-              companionView.counts.action > 0
-                ? `${companionView.counts.action} 个会话需要你处理`
-                : `${companionView.counts.running} 个会话正在运行`,
-            ),
+          : companionView.summary,
     },
     home: {
       counts: {
         attention: companionView.counts.action,
         failedOrStale,
         running: companionView.counts.running,
-        total: sortedSessions.length,
+        total: realSessions.length,
       },
       primaryAction: primaryAction(
         input.serviceState,
         input.snapshot,
         input.companion,
-        demoSessions,
         locale,
       ),
       previewSessions,

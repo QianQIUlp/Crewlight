@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   deriveCompanionViewModel,
   filterSessionViews,
+  formatCompanionAge,
+  formatCompanionDuration,
+  getCompanionCopy,
   getSessionPriority,
+  isSyntheticDemoSession,
   RECENT_COMPLETION_MS,
   sortSessions,
 } from "../src/state.js";
@@ -92,6 +96,94 @@ describe("companion state derivation", () => {
     expect(view.counts).toEqual({ running: 2, action: 2, failed: 2 });
     expect(view.state).toBe("needs-you");
     expect(view.summary).toBe("Needs you");
+  });
+
+  it("excludes synthetic demo sessions from real counts, state, and rows", () => {
+    const realSession = session("running", {
+      viewId: "real-codex",
+      displayName: "Codex",
+      displayWorkspace: "Crewlight",
+      taskTitle: "Implement setup flow",
+    });
+    const demoByTitle = session("waiting_permission", {
+      viewId: "demo-title",
+      displayWorkspace: "Crewlight Demo",
+      taskTitle: "[Demo] Updating README",
+    });
+    const demoByActivity = session("failed", {
+      viewId: "demo-activity",
+      displayWorkspace: "Crewlight Demo",
+      activityLabel: "[Demo] Local setup failed",
+    });
+    const demoByWorkspace = session("using_tool", {
+      viewId: "demo-workspace",
+      displayWorkspace: "Crewlight Demo",
+      taskTitle: "[Demo] Running Crewlight tests",
+    });
+    const demoPrefixOnRealWork = session("running", {
+      displayWorkspace: "Customer project",
+      taskTitle: "[Demo] is part of the real task name",
+    });
+    const demoWorkspaceWithRealWork = session("running", {
+      displayWorkspace: "Crewlight Demo",
+      taskTitle: "Real work in a similarly named workspace",
+    });
+
+    expect(isSyntheticDemoSession(demoByTitle)).toBe(true);
+    expect(isSyntheticDemoSession(demoByActivity)).toBe(true);
+    expect(isSyntheticDemoSession(demoByWorkspace)).toBe(true);
+    expect(isSyntheticDemoSession(realSession)).toBe(false);
+    expect(isSyntheticDemoSession(demoPrefixOnRealWork)).toBe(false);
+    expect(isSyntheticDemoSession(demoWorkspaceWithRealWork)).toBe(false);
+
+    const view = deriveCompanionViewModel(
+      online([demoByTitle, demoByActivity, demoByWorkspace, realSession]),
+    );
+
+    expect(view.counts).toEqual({ running: 1, action: 0, failed: 0 });
+    expect(view.state).toBe("running");
+    expect(view.sessions.map((item) => item.id)).toEqual(["real-codex"]);
+    expect(view.mostImportant?.id).toBe("real-codex");
+  });
+
+  it("does not let an all-demo snapshot claim that real work needs attention", () => {
+    const view = deriveCompanionViewModel(
+      online([
+        session("waiting_input", {
+          displayWorkspace: "Crewlight Demo",
+          taskTitle: "[Demo] Reviewing companion UI",
+        }),
+        session("failed", {
+          displayWorkspace: "Crewlight Demo",
+          activityLabel: "[Demo] Local setup failed",
+        }),
+      ]),
+    );
+
+    expect(view).toMatchObject({
+      state: "quiet",
+      summary: "All quiet",
+      counts: { running: 0, action: 0, failed: 0 },
+      sessions: [],
+    });
+    expect(view.mostImportant).toBeUndefined();
+  });
+
+  it("can include synthetic demo sessions only when explicitly requested", () => {
+    const view = deriveCompanionViewModel(
+      online([
+        session("waiting_permission", {
+          displayWorkspace: "Crewlight Demo",
+          taskTitle: "[Demo] Updating README",
+        }),
+      ]),
+      5_000,
+      { expanded: false, alwaysOnTop: true },
+      { includeSyntheticDemoSessions: true },
+    );
+
+    expect(view.state).toBe("needs-you");
+    expect(view.sessions).toHaveLength(1);
   });
 
   it("treats five minutes as the inclusive recent-completion boundary", () => {
@@ -285,5 +377,60 @@ describe("companion state derivation", () => {
       },
     });
     expect(filterSessionViews(view.sessions, "attention")).toHaveLength(1);
+  });
+
+  it("derives Simplified Chinese companion labels from one locale option", () => {
+    const view = deriveCompanionViewModel(
+      online([
+        session("waiting_permission", {
+          displayName: "Codex",
+          surface: "ide-extension",
+          taskTitle: "更新说明文档",
+          lastEventAgeMs: 125_000,
+          durationMs: 168_000,
+        }),
+      ]),
+      5_000,
+      { expanded: true, alwaysOnTop: false },
+      { locale: "zh-CN" },
+    );
+
+    expect(view).toMatchObject({
+      locale: "zh-CN",
+      state: "needs-you",
+      summary: "需要你处理",
+      diagnostic: "Codex 需要授权",
+      mostImportant: {
+        surface: "IDE 扩展",
+        statusLabel: "需要授权",
+        lastEventLabel: "2 分钟前",
+        diagnosticHint: "需要你的授权",
+      },
+    });
+    expect(formatCompanionAge(2_000, "zh-CN")).toBe("刚刚");
+    expect(formatCompanionDuration(168_000, "zh-CN")).toBe("2分 48秒");
+    expect(getCompanionCopy("zh-CN").sessions(6)).toBe("6 个会话");
+    expect(getCompanionCopy("zh-CN").needsAttentionFilter).toBe("需要处理");
+  });
+
+  it("does not expose the daemon's English stale reason in Chinese", () => {
+    const view = deriveCompanionViewModel(
+      online([
+        session("running", {
+          displayName: "Codex",
+          isStale: true,
+          lastEventAgeMs: 5 * 60 * 1000,
+          staleReason: "No event for at least 5 minutes.",
+        }),
+      ]),
+      5_000,
+      { expanded: true, alwaysOnTop: false },
+      { locale: "zh-CN" },
+    );
+
+    expect(view.diagnostic).toBe("Codex 最近一次事件在 5 分钟前，可能已停滞");
+    expect(view.sessions[0]?.diagnosticHint).toBe(
+      "最近一次事件在 5 分钟前，会话可能已停滞",
+    );
   });
 });

@@ -16,8 +16,12 @@ notify = ["/absolute/path/to/crewlight", "ingest", "codex"]
 ```
 
 This is a snippet for the user-level `~/.codex/config.toml`. Codex does not
-honor `notify` from project-local configuration. Crewlight never reads or
-modifies the config file.
+honor `notify` from project-local configuration. The CLI remains print-only.
+Crewlight Desktop can install the same entry after an explicit **Configure**
+click: it checks only `$CODEX_HOME/config.toml` (or `~/.codex/config.toml`),
+backs up an existing file, and preserves unrelated top-level settings. It
+refuses to replace a different existing `notify` command because Codex accepts
+only one notify array.
 
 Codex stores configuration under `CODEX_HOME`, which defaults to `~/.codex`.
 On native Windows the default is `%USERPROFILE%\.codex`; a Codex CLI running

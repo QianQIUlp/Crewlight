@@ -1,5 +1,9 @@
 import {
   filterSessionViews,
+  formatCompanionDuration,
+  getCompanionCopy,
+  type CompanionCopy,
+  type CompanionLocale,
   type CompanionSessionFilter,
   type CompanionSessionView,
   type CompanionViewModel,
@@ -25,6 +29,14 @@ function setText(id: string, value: string): void {
   byId(id).textContent = value;
 }
 
+function queryElement<T extends HTMLElement>(selector: string): T {
+  const element = document.querySelector<T>(selector);
+  if (!element) {
+    throw new Error(`Missing companion element: ${selector}`);
+  }
+  return element;
+}
+
 function createElement<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
@@ -47,25 +59,20 @@ function isConnectionState(viewModel: CompanionViewModel): boolean {
 function renderPrimaryDetail(
   session: CompanionSessionView | undefined,
   diagnostic: string | undefined,
+  copy: CompanionCopy,
 ): void {
   if (!session) {
-    setText("primary-session", diagnostic ?? "No current sessions");
+    setText("primary-session", diagnostic ?? copy.noCurrentSessions);
     return;
   }
   setText("primary-session", `${session.source} · ${session.title}`);
 }
 
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
-}
-
-function createSessionCard(session: CompanionSessionView): HTMLElement {
+function createSessionCard(
+  session: CompanionSessionView,
+  locale: CompanionLocale,
+): HTMLElement {
+  const copy = getCompanionCopy(locale);
   const card = createElement("article", `session-card tone-${session.tone}`);
   card.setAttribute(
     "aria-label",
@@ -75,7 +82,9 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
   const topLine = createElement("div", "session-topline");
   const identity = createElement("div", "source-identity");
   const elapsedText =
-    session.elapsedMs > 0 ? ` (${formatDuration(session.elapsedMs)})` : "";
+    session.elapsedMs > 0
+      ? ` (${formatCompanionDuration(session.elapsedMs, locale)})`
+      : "";
   identity.append(
     createElement("span", "source-dot"),
     createElement("span", "source-name", session.source),
@@ -94,7 +103,7 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
   const titleLine = createElement("div", "session-titleline");
   titleLine.append(createElement("p", "session-title", session.title));
   if (session.needsAction) {
-    titleLine.append(createElement("span", "attention-badge", "Needs you"));
+    titleLine.append(createElement("span", "attention-badge", copy.needsYou));
   }
 
   const footer = createElement("div", "session-footer");
@@ -105,7 +114,7 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
       "span",
       "age-label",
       session.isStale
-        ? `Stale · ${session.lastEventLabel}`
+        ? `${copy.stale} · ${session.lastEventLabel}`
         : session.lastEventLabel,
     ),
   );
@@ -116,7 +125,7 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
       createElement(
         "p",
         "session-diagnostic stuck-warning",
-        "⚠️ Possibly stuck (no events for 5m)",
+        copy.possiblyStuck,
       ),
     );
   } else if (session.diagnosticHint) {
@@ -135,11 +144,11 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
     detail.append(line);
   };
 
-  addDetailLine("Workspace", session.workspace);
-  addDetailLine("Status", session.statusLabel);
-  addDetailLine("Activity", session.activity);
+  addDetailLine(copy.workspace, session.workspace);
+  addDetailLine(copy.status, session.statusLabel);
+  addDetailLine(copy.activity, session.activity);
   if (session.diagnosticHint) {
-    addDetailLine("Diagnostic", session.diagnosticHint);
+    addDetailLine(copy.diagnostic, session.diagnosticHint);
   }
 
   const toggle = createElement(
@@ -151,10 +160,10 @@ function createSessionCard(session: CompanionSessionView): HTMLElement {
   toggle.setAttribute("aria-controls", detail.id);
   const applyExpanded = (isExpanded: boolean) => {
     toggle.setAttribute("aria-expanded", String(isExpanded));
-    toggle.textContent = isExpanded ? "Hide details" : "Show details";
+    toggle.textContent = isExpanded ? copy.hideDetails : copy.showDetails;
     toggle.setAttribute(
       "aria-label",
-      `${isExpanded ? "Hide" : "Show"} details for ${session.title}`,
+      copy.detailFor(isExpanded, session.title),
     );
     detail.hidden = !isExpanded;
   };
@@ -185,7 +194,69 @@ function renderFilters(viewModel: CompanionViewModel): void {
     });
 }
 
+function applyStaticLocale(locale: CompanionLocale): void {
+  const copy = getCompanionCopy(locale);
+  document.documentElement.lang = locale;
+  document.title =
+    locale === "zh-CN" ? "Crewlight 本地伴侣" : "Crewlight Companion";
+
+  queryElement(".product-mode").textContent = copy.productMode;
+  queryElement(".compact-overview .eyebrow").textContent = copy.overallState;
+
+  const counts = queryElement(".counts");
+  counts.setAttribute("aria-label", copy.sessionCounts);
+  const countLabels = counts.querySelectorAll<HTMLElement>("div > span");
+  const translatedCountLabels = [
+    copy.runningCount,
+    copy.needsActionCount,
+    copy.failedCount,
+  ];
+  countLabels.forEach((label, index) => {
+    label.textContent = translatedCountLabels[index] ?? "";
+  });
+
+  queryElement(".section-heading .eyebrow").textContent = copy.currentActivity;
+  queryElement(".section-heading h2").textContent = copy.sessionRadar;
+
+  const filters = queryElement(".filters");
+  filters.setAttribute("aria-label", copy.filterSessions);
+  const filterLabels: Record<CompanionSessionFilter, string> = {
+    all: copy.allFilter,
+    attention: copy.needsAttentionFilter,
+    running: copy.runningFilter,
+    done: copy.doneFilter,
+    "failed-stale": copy.failedStaleFilter,
+  };
+  filters
+    .querySelectorAll<HTMLButtonElement>(".filter-chip")
+    .forEach((button) => {
+      const filter = button.dataset.filter;
+      if (isSessionFilter(filter)) {
+        button.textContent = filterLabels[filter];
+      }
+    });
+
+  queryElement("#connection-state > .eyebrow").textContent =
+    copy.localConnection;
+  if (copyFeedbackTimer === undefined) {
+    setText("copy-command", copy.copyDaemonCommand);
+  }
+  document
+    .querySelectorAll<HTMLButtonElement>(".open-dashboard")
+    .forEach((button) => {
+      button.textContent = copy.openDashboard;
+      button.setAttribute("aria-label", copy.openDashboard);
+    });
+  setText("quit", copy.quit);
+  queryElement(".panel-footer > span").textContent = copy.localOnly;
+
+  const hideButton = byId<HTMLButtonElement>("hide");
+  hideButton.setAttribute("aria-label", copy.hide);
+  hideButton.title = copy.hide;
+}
+
 function renderSessions(viewModel: CompanionViewModel): void {
+  const copy = getCompanionCopy(viewModel.locale);
   const connectionUnavailable = isConnectionState(viewModel);
   const filteredSessions = filterSessionViews(
     viewModel.sessions,
@@ -201,7 +272,9 @@ function renderSessions(viewModel: CompanionViewModel): void {
       : undefined;
   sessionList.hidden = connectionUnavailable;
   sessionList.replaceChildren(
-    ...filteredSessions.map((session) => createSessionCard(session)),
+    ...filteredSessions.map((session) =>
+      createSessionCard(session, viewModel.locale),
+    ),
   );
   if (focusedDisclosureId) {
     const replacement = Array.from(
@@ -216,21 +289,16 @@ function renderSessions(viewModel: CompanionViewModel): void {
   const showEmpty = !connectionUnavailable && filteredSessions.length === 0;
   emptyState.hidden = !showEmpty;
   if (showEmpty && selectedFilter === "all") {
-    setText("empty-title", "Watching for agents");
-    setText(
-      "empty-detail",
-      "Sessions will appear here as supported coding agents report local activity.",
-    );
+    setText("empty-title", copy.emptyTitle);
+    setText("empty-detail", copy.emptyDetail);
   } else if (showEmpty) {
-    setText("empty-title", "No matching sessions");
-    setText(
-      "empty-detail",
-      "Current activity does not match this filter. Choose All to see every observed session.",
-    );
+    setText("empty-title", copy.noMatchingTitle);
+    setText("empty-detail", copy.noMatchingDetail);
   }
 }
 
 function renderConnectionState(viewModel: CompanionViewModel): void {
+  const copy = getCompanionCopy(viewModel.locale);
   const connectionState = byId("connection-state");
   const unavailable = isConnectionState(viewModel);
   connectionState.hidden = !unavailable;
@@ -239,15 +307,13 @@ function renderConnectionState(viewModel: CompanionViewModel): void {
   }
 
   setText("connection-title", viewModel.summary);
-  setText(
-    "connection-detail",
-    viewModel.diagnostic ??
-      "Start the dashboard-enabled daemon. Crewlight will reconnect automatically.",
-  );
+  setText("connection-detail", viewModel.diagnostic ?? copy.startDaemon);
 }
 
 function render(viewModel: CompanionViewModel): void {
   latestViewModel = viewModel;
+  const copy = getCompanionCopy(viewModel.locale);
+  applyStaticLocale(viewModel.locale);
   expanded = viewModel.expanded;
   document.body.dataset.state = viewModel.state;
   document.body.classList.toggle("expanded", expanded);
@@ -256,29 +322,27 @@ function render(viewModel: CompanionViewModel): void {
   setText("running-count", String(viewModel.counts.running));
   setText("action-count", String(viewModel.counts.action));
   setText("failed-count", String(viewModel.counts.failed));
-  setText(
-    "session-total",
-    `${viewModel.sessions.length} ${
-      viewModel.sessions.length === 1 ? "session" : "sessions"
-    }`,
-  );
-  renderPrimaryDetail(viewModel.mostImportant, viewModel.diagnostic);
+  setText("session-total", copy.sessions(viewModel.sessions.length));
+  renderPrimaryDetail(viewModel.mostImportant, viewModel.diagnostic, copy);
 
   const expandButton = byId<HTMLButtonElement>("expand");
-  expandButton.setAttribute("aria-label", expanded ? "Collapse" : "Expand");
+  expandButton.setAttribute(
+    "aria-label",
+    expanded ? copy.collapse : copy.expand,
+  );
   expandButton.setAttribute("aria-expanded", String(expanded));
-  expandButton.title = expanded ? "Collapse" : "Expand";
+  expandButton.title = expanded ? copy.collapse : copy.expand;
   setText("expand-icon", expanded ? "⌃" : "⌄");
 
   const alwaysOnTopButton = byId<HTMLButtonElement>("always-on-top");
   alwaysOnTopButton.setAttribute("aria-pressed", String(viewModel.alwaysOnTop));
   alwaysOnTopButton.setAttribute(
     "aria-label",
-    viewModel.alwaysOnTop ? "Unpin window" : "Pin window",
+    viewModel.alwaysOnTop ? copy.unpinWindow : copy.pinWindow,
   );
   alwaysOnTopButton.title = viewModel.alwaysOnTop
-    ? "Disable always on top"
-    : "Keep always on top";
+    ? copy.disableAlwaysOnTop
+    : copy.keepAlwaysOnTop;
 
   const diagnostic = byId("diagnostic");
   diagnostic.textContent = viewModel.diagnostic ?? "";
@@ -322,14 +386,19 @@ byId("quit").addEventListener("click", () => {
 });
 byId("copy-command").addEventListener("click", async () => {
   const button = byId<HTMLButtonElement>("copy-command");
+  const locale = latestViewModel?.locale ?? "en";
+  const copy = getCompanionCopy(locale);
   if (copyFeedbackTimer !== undefined) {
     window.clearTimeout(copyFeedbackTimer);
   }
   button.textContent = (await window.crewlight.copyDaemonCommand())
-    ? "Copied"
-    : "Copy failed";
+    ? copy.copied
+    : copy.copyFailed;
   copyFeedbackTimer = window.setTimeout(() => {
-    button.textContent = "Copy daemon command";
+    button.textContent = getCompanionCopy(
+      latestViewModel?.locale ?? locale,
+    ).copyDaemonCommand;
+    copyFeedbackTimer = undefined;
   }, 1_800);
 });
 document

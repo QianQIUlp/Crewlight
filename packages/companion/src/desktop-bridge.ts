@@ -17,6 +17,10 @@ export type DesktopAction =
   | { type: "copy:diagnostic-summary" }
   | { type: "copy:text"; text: string }
   | { type: "demo:run" }
+  | {
+      type: "integration:configure";
+      integration: "claude-code" | "codex";
+    }
   | { type: "onboarding:complete" }
   | { type: "onboarding:skip-step" }
   | { type: "onboarding:start-over" }

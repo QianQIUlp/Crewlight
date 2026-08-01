@@ -55,8 +55,17 @@ import {
   type DesktopNotice,
   type DesktopRuntimeSettings,
   type DesktopSetupSnippets,
+  type DesktopViewModelInput,
 } from "./desktop-state.js";
 import { createCompanionEndpoint, isAllowedDashboardUrl } from "./endpoint.js";
+import {
+  inspectClaudeCodeIntegration,
+  inspectCodexIntegration,
+  installIntegration,
+  type InstallableIntegration,
+  type IntegrationInspectionResult,
+  type IntegrationInstallerOptions,
+} from "./integration-installer.js";
 import {
   canStopManagedService,
   getCompanionDismissAction,
@@ -117,6 +126,9 @@ let companionExpanded = false;
 let pollTimer: NodeJS.Timeout | undefined;
 let polling = false;
 let preferences: DesktopPreferences = { ...DEFAULT_DESKTOP_PREFERENCES };
+let integrationInspections: Partial<
+  Record<InstallableIntegration, IntegrationInspectionResult>
+> = {};
 let desiredRuntimeSettings: DesktopRuntimeSettings = {
   host: DEFAULT_DAEMON_HOST,
   port: DEFAULT_DAEMON_PORT,
@@ -218,7 +230,36 @@ let latestCompanionViewModel: CompanionViewModel = deriveCompanionViewModel(
     expanded: false,
     alwaysOnTop: true,
   },
+  { locale: preferences.locale },
 );
+
+function integrationInstallerOptions(): IntegrationInstallerOptions {
+  const codexHome = process.env.CODEX_HOME?.trim();
+  return {
+    homeDirectory: app.getPath("home"),
+    ...(codexHome ? { codexHome } : {}),
+    platform: process.platform,
+    snippets: setupBase,
+  };
+}
+
+function integrationInstallationStatuses(): DesktopViewModelInput["integrationInstallations"] {
+  return {
+    "claude-code":
+      integrationInspections["claude-code"]?.status ?? "not-configured",
+    codex: integrationInspections.codex?.status ?? "not-configured",
+  };
+}
+
+async function refreshIntegrationInspections(): Promise<void> {
+  const options = integrationInstallerOptions();
+  const [claudeCode, codex] = await Promise.all([
+    inspectClaudeCodeIntegration(options),
+    inspectCodexIntegration(options),
+  ]);
+  integrationInspections = { "claude-code": claudeCode, codex };
+  refreshViewModels();
+}
 
 function buildDesktopSetupSnippets(base: SetupSnippets): DesktopSetupSnippets {
   return {
@@ -330,7 +371,7 @@ async function updatePreferences(
     ...partial,
   });
   await savePreferences();
-  publishDesktopState();
+  refreshViewModels();
 }
 
 function dashboardClient(
@@ -458,6 +499,7 @@ function publishDesktopState(): void {
       doctorReport: latestDoctorReport,
       ...(latestNotice ? { notice: latestNotice } : {}),
       preferences,
+      integrationInstallations: integrationInstallationStatuses(),
       runtimeSettings: desiredRuntimeSettings,
       serviceState,
       snapshot: latestSnapshot,
@@ -476,6 +518,7 @@ function refreshViewModels(): void {
       : latestSnapshot,
     Date.now(),
     currentCompanionWindowState(),
+    { locale: preferences.locale },
   );
   publishCompanionState();
   publishDesktopState();
@@ -915,6 +958,85 @@ async function runDemo(): Promise<boolean> {
   return true;
 }
 
+function localizeMain(english: string, chinese: string): string {
+  return preferences.locale === "zh-CN" ? chinese : english;
+}
+
+async function configureIntegration(
+  integration: InstallableIntegration,
+): Promise<boolean> {
+  clearNotice();
+  let result;
+  try {
+    result = await installIntegration(
+      integration,
+      integrationInstallerOptions(),
+    );
+  } catch {
+    setNotice(
+      "error",
+      localizeMain(
+        "Crewlight could not check the standard user configuration path. No files were changed.",
+        "Crewlight 无法检查标准用户配置路径，未修改任何文件。",
+      ),
+    );
+    return false;
+  }
+
+  await refreshIntegrationInspections();
+  if (!result.ok) {
+    const partiallyInstalled = result.files.some(
+      (file) => file.status === "installed",
+    );
+    const backupPaths = result.files.flatMap((file) =>
+      file.backupPath ? [file.backupPath] : [],
+    );
+    const backupDetails =
+      backupPaths.length > 0
+        ? localizeMain(
+            ` Backup: ${backupPaths.join(", ")}`,
+            ` 备份位置：${backupPaths.join("，")}`,
+          )
+        : "";
+    const message = partiallyInstalled
+      ? `${localizeMain(
+          "Only part of the configuration was installed. Crewlight stopped without overwriting the remaining file; use the created backup if you need to restore it.",
+          "只有部分配置写入成功。Crewlight 已停止操作，没有覆盖剩余文件；如需恢复，请使用已创建的备份。",
+        )}${backupDetails}`
+      : result.status === "unavailable"
+        ? localizeMain(
+            "This Crewlight location cannot be used safely by Codex. Move the portable folder to a path without spaces or special characters, then try again.",
+            "Codex 无法安全使用当前 Crewlight 路径。请把便携版文件夹移到不含空格或特殊字符的路径后重试。",
+          )
+        : result.status === "refused"
+          ? localizeMain(
+              "Existing settings need review, so Crewlight left them unchanged. Use Copy manual setup if you need to combine them.",
+              "发现需要人工确认的已有配置，因此 Crewlight 没有改动它。需要合并时可使用“复制手动配置”。",
+            )
+          : localizeMain(
+              "Crewlight could not finish the configuration. Existing files were left intact or backed up.",
+              "Crewlight 未能完成配置；已有文件保持不变，或已创建备份。",
+            );
+    setNotice("error", message);
+    return false;
+  }
+
+  await updatePreferences({ preferredIntegration: integration });
+  setNotice(
+    "success",
+    integration === "codex"
+      ? localizeMain(
+          "Codex is configured. Restart Codex; if it asks for trust, approve only when the displayed command points to Crewlight.",
+          "Codex 接入已配置。请重启 Codex；如果它弹出安全确认，请仅在显示的命令指向 Crewlight 时允许。",
+        )
+      : localizeMain(
+          "Claude Code is configured. Restart Claude Code to load the connection. Existing settings were backed up when needed.",
+          "Claude Code 接入已配置。请重启 Claude Code 以加载接入；需要时已自动备份原配置。",
+        ),
+  );
+  return true;
+}
+
 async function applyServiceSettingUpdate(
   partial: Partial<DesktopRuntimeSettings>,
 ): Promise<boolean> {
@@ -951,6 +1073,15 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
   }
   if (action.type === "demo:run") {
     return await runDemo();
+  }
+  if (action.type === "integration:configure") {
+    if (
+      action.integration !== "claude-code" &&
+      action.integration !== "codex"
+    ) {
+      return false;
+    }
+    return await configureIntegration(action.integration);
   }
   if (action.type === "companion:show") {
     await showCompanion();
@@ -1315,6 +1446,7 @@ function registerIpc(): void {
         doctorReport: latestDoctorReport,
         ...(latestNotice ? { notice: latestNotice } : {}),
         preferences,
+        integrationInstallations: integrationInstallationStatuses(),
         runtimeSettings: desiredRuntimeSettings,
         serviceState,
         snapshot: latestSnapshot,
@@ -1424,6 +1556,7 @@ if (!ownsSingleInstance) {
     host: desiredRuntimeSettings.host,
     port: desiredRuntimeSettings.port,
   };
+  await refreshIntegrationInspections();
   Menu.setApplicationMenu(null);
   registerIpc();
   mainWindow = createDesktopWindow();

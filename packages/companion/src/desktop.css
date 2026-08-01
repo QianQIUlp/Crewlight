@@ -595,6 +595,17 @@ input:focus-visible {
   color: var(--accent);
 }
 
+.chip.demo-chip {
+  background: var(--accent-glow);
+  border-color: var(--line-accent);
+  color: var(--accent);
+}
+
+.chip.demo-chip::before {
+  border-radius: 2px;
+  background: currentColor;
+}
+
 .last-updated {
   color: var(--quiet);
   font-size: 0.8rem;
@@ -959,6 +970,13 @@ input:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.session-identity-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 

@@ -8,9 +8,12 @@ Claude Code command hooks send JSON to Crewlight through stdin.
 crewlight setup claude-code --print
 ```
 
-The command prints a JSON snippet. It does not inspect or modify
-`~/.claude/settings.json`, `.claude/settings.json`, or any other Claude
-configuration.
+The CLI command prints a JSON snippet and does not inspect or modify Claude
+configuration. Crewlight Desktop also offers an explicit **Configure** action:
+it checks only the fixed user path `~/.claude/settings.json`, creates a
+timestamped backup when the file exists, and merges Crewlight handlers without
+replacing unrelated settings. Invalid JSON or incompatible hook structures are
+left unchanged.
 
 The generated hook command uses the absolute current Crewlight standalone
 binary. When invoked through `node packages/cli/dist/index.js`, it instead uses

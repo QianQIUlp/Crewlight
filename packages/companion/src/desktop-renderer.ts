@@ -5,6 +5,7 @@ import type {
   DesktopSessionCard,
   DesktopViewModel,
 } from "./desktop-state.js";
+import { formatDesktopDuration } from "./desktop-state.js";
 import type {
   DesktopLocale,
   PreferredIntegration,
@@ -245,16 +246,6 @@ function setHidden(id: string, hidden: boolean): void {
   byId(id).hidden = hidden;
 }
 
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
-}
-
 function renderSessionCard(
   session: DesktopSessionCard,
   disclosures: DisclosureState,
@@ -264,28 +255,34 @@ function renderSessionCard(
 
   const topLine = createElement("div", "session-topline");
   const elapsedText =
-    session.elapsedMs > 0 ? ` (${formatDuration(session.elapsedMs)})` : "";
+    session.elapsedMs > 0
+      ? ` (${formatDesktopDuration(session.elapsedMs, currentLocale())})`
+      : "";
   const sourceChip = createElement(
     "span",
     "chip",
     `${session.source} · ${session.surface}${elapsedText}`,
   );
+  const identityChips = createElement("div", "session-identity-chips");
+  identityChips.append(sourceChip);
+  if (session.demoLabel) {
+    identityChips.append(
+      createElement("span", "chip demo-chip", session.demoLabel),
+    );
+  }
   if (session.remoteAlias) {
-    topLine.append(
-      sourceChip,
+    identityChips.append(
       createElement(
         "span",
         "chip remote-chip",
         `Remote · ${session.remoteAlias}`,
       ),
-      createElement("span", "chip", session.statusLabel),
-    );
-  } else {
-    topLine.append(
-      sourceChip,
-      createElement("span", "chip", session.statusLabel),
     );
   }
+  topLine.append(
+    identityChips,
+    createElement("span", "chip", session.statusLabel),
+  );
 
   const title = createElement("h4", "session-title", session.title);
   const activity = createElement("p", "session-meta", session.activity);
@@ -449,6 +446,14 @@ function renderNotice(state: DesktopViewModel): void {
     return;
   }
   notice.dataset.tone = state.notice.tone;
+  notice.setAttribute(
+    "role",
+    state.notice.tone === "error" ? "alert" : "status",
+  );
+  notice.setAttribute(
+    "aria-live",
+    state.notice.tone === "error" ? "assertive" : "polite",
+  );
   notice.textContent = localized(state.notice.message);
 }
 
@@ -482,6 +487,13 @@ function renderHome(state: DesktopViewModel): void {
     state.home.previewSessions,
     homeSessionDisclosures,
   );
+  const emptyCopy = byId("home-preview-empty").querySelector("p");
+  if (emptyCopy) {
+    emptyCopy.textContent = tr(
+      "Start the local service and configure an integration to see real agent activity here.",
+      "启动本地服务并配置接入后，即可在这里查看真实的代理活动。",
+    );
+  }
   setHidden("home-preview-empty", state.home.previewSessions.length > 0);
 }
 
@@ -535,33 +547,39 @@ function renderDoctor(state: DesktopViewModel): void {
 
 function integrationButton(
   card: DesktopIntegrationCard,
-  kind: "setup" | "verification" | "select",
+  kind: "configure" | "setup" | "verification" | "select",
 ): HTMLButtonElement {
   const button = createElement(
     "button",
-    kind === "select" ? "primary-button" : "secondary-button",
+    kind === "configure" || kind === "select"
+      ? "primary-button"
+      : "secondary-button",
   ) as HTMLButtonElement;
   button.type = "button";
   button.dataset.integration = card.id;
   button.dataset.copyKind = kind;
   button.textContent =
-    kind === "setup"
-      ? localized(card.copySetupLabel)
-      : kind === "verification"
-        ? localized(
-            card.copyVerificationLabel ??
-              tr("Copy verification command", "复制验证命令"),
-          )
-        : card.highlight
-          ? tr("Selected", "已选择")
-          : tr("Choose this path", "选择此方式");
-  button.disabled = kind === "verification" && !card.verificationCommand;
+    kind === "configure"
+      ? (card.configureLabel ?? tr("Configure", "配置接入"))
+      : kind === "setup"
+        ? localized(card.copySetupLabel)
+        : kind === "verification"
+          ? localized(
+              card.copyVerificationLabel ??
+                tr("Copy verification command", "复制验证命令"),
+            )
+          : card.highlight
+            ? tr("Selected", "已选择")
+            : tr("Choose this path", "选择此方式");
+  button.disabled =
+    (kind === "configure" && card.configureDisabled === true) ||
+    (kind === "verification" && !card.verificationCommand);
   return button;
 }
 
 function renderIntegrationCard(
   card: DesktopIntegrationCard,
-  options: { includeSelectButton: boolean },
+  options: { includeSelectButton: boolean; onboarding?: boolean },
 ): HTMLElement {
   const article = createElement("article", "integration-card");
   article.classList.toggle("highlight", card.highlight);
@@ -581,12 +599,17 @@ function renderIntegrationCard(
   );
 
   const actions = createElement("div", "integration-actions");
-  actions.append(integrationButton(card, "setup"));
-  if (card.verificationCommand) {
-    actions.append(integrationButton(card, "verification"));
+  if (card.configureLabel) {
+    actions.append(integrationButton(card, "configure"));
   }
-  if (options.includeSelectButton) {
-    actions.append(integrationButton(card, "select"));
+  if (!options.onboarding) {
+    actions.append(integrationButton(card, "setup"));
+    if (card.verificationCommand) {
+      actions.append(integrationButton(card, "verification"));
+    }
+    if (options.includeSelectButton) {
+      actions.append(integrationButton(card, "select"));
+    }
   }
   article.append(actions);
   return article;
@@ -658,6 +681,13 @@ function renderDemo(state: DesktopViewModel): void {
   setText("demo-summary", state.demo.summary);
   const sessions = byId("demo-sessions");
   replaceSessionCards(sessions, state.demo.sessions, demoSessionDisclosures);
+  const emptyCopy = byId("demo-empty").querySelector("p");
+  if (emptyCopy) {
+    emptyCopy.textContent = tr(
+      "Run the scenario to load synthetic sessions in this Demo view.",
+      "运行场景后，合成会话会显示在这个演示页面中。",
+    );
+  }
   setHidden("demo-empty", state.demo.sessions.length > 0);
 }
 
@@ -888,8 +918,8 @@ function onboardingBody(
         "p",
         "section-copy",
         tr(
-          "Crewlight Desktop packages the main control surface, floating companion, local service control, and demo flow into one local-first Windows app.",
-          "Crewlight 桌面版把主控制界面、悬浮伴侣、本地服务控制和演示流程整合在一个本地优先的 Windows 应用中。",
+          "Crewlight Desktop brings local service control, one-click agent setup, and the floating companion into one local-first Windows app.",
+          "Crewlight 桌面版把本地服务控制、代理一键接入和悬浮伴侣整合在一个本地优先的 Windows 应用中。",
         ),
       ),
     );
@@ -901,15 +931,20 @@ function onboardingBody(
       "p",
       "section-copy",
       tr(
-        "Choose the integration path you want Crewlight to highlight first. You can change this later in Settings.",
-        "选择希望 Crewlight 优先引导的接入方式，稍后可在设置中更改。",
+        "Choose Codex or Claude Code, then use Configure. Crewlight checks only the standard user configuration path and creates a backup before changing anything.",
+        "选择 Codex 或 Claude Code，然后点击“配置接入”。Crewlight 只检查标准用户配置路径，并会在修改前创建备份。",
       ),
     );
     const grid = createElement("div", "integration-grid");
     grid.append(
-      ...state.integrations.map((card) =>
-        renderIntegrationCard(card, { includeSelectButton: true }),
-      ),
+      ...state.integrations
+        .filter((card) => card.id === "claude-code" || card.id === "codex")
+        .map((card) =>
+          renderIntegrationCard(card, {
+            includeSelectButton: false,
+            onboarding: true,
+          }),
+        ),
     );
     body.append(intro, grid);
     return;
@@ -921,8 +956,8 @@ function onboardingBody(
         "p",
         "section-copy",
         tr(
-          "Finish into Home with your current local state intact. If you already ran the demo, the desktop and companion stay populated.",
-          "完成后进入首页并保留当前本地状态；如果已经运行演示，桌面界面和悬浮伴侣会继续显示这些会话。",
+          "Finish into Home with your current local state intact. Synthetic sessions remain confined to the Demo page.",
+          "完成后进入首页并保留当前本地状态；合成会话只会留在演示页面中。",
         ),
       ),
     );
@@ -937,12 +972,10 @@ function onboardingBody(
       "section-copy",
       step.id === "start-service"
         ? state.header.serviceBadge.label
-        : step.id === "run-demo"
-          ? state.demo.summary
-          : tr(
-              "The floating companion mirrors the same safe session model as Home.",
-              "悬浮伴侣与首页使用同一套安全会话模型。",
-            ),
+        : tr(
+            "The floating companion mirrors the same real session model as Home.",
+            "悬浮伴侣与首页使用同一套真实会话模型。",
+          ),
     ),
   );
   body.append(info);
@@ -978,8 +1011,7 @@ function renderOnboarding(state: DesktopViewModel): void {
 
   const primary = byId<HTMLButtonElement>("onboarding-primary");
   const secondary = byId<HTMLButtonElement>("onboarding-secondary");
-  primary.disabled =
-    current.id === "choose-integration" && !state.settings.preferredIntegration;
+  primary.disabled = current.id === "choose-integration" && !current.complete;
   primary.textContent =
     current.id === "welcome"
       ? tr("Start onboarding", "开始引导")
@@ -991,9 +1023,7 @@ function renderOnboarding(state: DesktopViewModel): void {
             ? tr("Continue", "继续")
             : current.id === "start-service"
               ? tr("Start local service", "启动本地服务")
-              : current.id === "run-demo"
-                ? tr("Run demo", "运行演示")
-                : tr("Show companion", "显示悬浮伴侣");
+              : tr("Show companion", "显示悬浮伴侣");
   secondary.textContent =
     current.id === "finish"
       ? tr("Review later", "稍后再看")
@@ -1062,10 +1092,6 @@ async function performPrimaryHomeAction(): Promise<void> {
     await window.crewlightDesktop.perform({ type: "service:start" });
     return;
   }
-  if (action === "run-demo") {
-    await window.crewlightDesktop.perform({ type: "demo:run" });
-    return;
-  }
   await window.crewlightDesktop.perform({ type: "companion:show" });
   await window.crewlightDesktop.perform({ type: "companion:bring-to-front" });
 }
@@ -1088,15 +1114,6 @@ async function performOnboardingPrimary(): Promise<void> {
   if (step.id === "start-service") {
     if (!step.complete) {
       await window.crewlightDesktop.perform({ type: "service:start" });
-      return;
-    }
-    onboardingStepIndex += 1;
-    render(latestState);
-    return;
-  }
-  if (step.id === "run-demo") {
-    if (!step.complete) {
-      await window.crewlightDesktop.perform({ type: "demo:run" });
       return;
     }
     onboardingStepIndex += 1;
@@ -1135,6 +1152,52 @@ function integrationById(
   id: PreferredIntegration,
 ): DesktopIntegrationCard | undefined {
   return latestState?.integrations.find((card) => card.id === id);
+}
+
+type ConfigurableIntegration = Extract<
+  PreferredIntegration,
+  "claude-code" | "codex"
+>;
+
+function focusAfterIntegrationConfiguration(
+  integration: ConfigurableIntegration,
+  configured: boolean,
+  fromOnboarding: boolean,
+): void {
+  window.requestAnimationFrame(() => {
+    if (configured) {
+      if (fromOnboarding && latestState?.onboarding.active) {
+        byId<HTMLButtonElement>("onboarding-primary").focus();
+        return;
+      }
+
+      const heading = document.querySelector<HTMLElement>(
+        "#agents-section .card-heading h3",
+      );
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+      return;
+    }
+
+    const containerSelector = fromOnboarding
+      ? "#onboarding-body"
+      : "#agent-cards";
+    const replacement = document.querySelector<HTMLButtonElement>(
+      `${containerSelector} button[data-integration="${integration}"][data-copy-kind="configure"]`,
+    );
+    if (replacement && !replacement.disabled) {
+      replacement.focus();
+      return;
+    }
+
+    const notice = byId("notice");
+    if (!notice.hidden) {
+      notice.tabIndex = -1;
+      notice.focus();
+    }
+  });
 }
 
 document.addEventListener("click", async (event) => {
@@ -1219,6 +1282,28 @@ document.addEventListener("click", async (event) => {
       copyButton.dataset.integration as PreferredIntegration,
     );
     if (!card) {
+      return;
+    }
+    if (
+      copyButton.dataset.copyKind === "configure" &&
+      (card.id === "claude-code" || card.id === "codex")
+    ) {
+      const fromOnboarding = copyButton.closest("#onboarding-root") !== null;
+      let configured = false;
+      copyButton.disabled = true;
+      copyButton.setAttribute("aria-busy", "true");
+      try {
+        configured = await window.crewlightDesktop.perform({
+          type: "integration:configure",
+          integration: card.id,
+        });
+      } finally {
+        copyButton.removeAttribute("aria-busy");
+        if (copyButton.isConnected) {
+          copyButton.disabled = card.configureDisabled === true;
+        }
+        focusAfterIntegrationConfiguration(card.id, configured, fromOnboarding);
+      }
       return;
     }
     if (copyButton.dataset.copyKind === "setup") {
