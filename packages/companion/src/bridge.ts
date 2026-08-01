@@ -7,7 +7,7 @@ export interface CompanionBridge {
   hide(): void;
   toggleAlwaysOnTop(): void;
   copyDaemonCommand(): Promise<boolean>;
-  openDashboard(): void;
+  openCrewlight(): void;
   quit(): void;
 }
 

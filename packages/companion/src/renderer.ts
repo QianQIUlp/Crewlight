@@ -14,7 +14,6 @@ let expanded = false;
 let selectedFilter: CompanionSessionFilter = "all";
 let latestViewModel: CompanionViewModel | undefined;
 let sessionDetailId = 0;
-let copyFeedbackTimer: number | undefined;
 const sessionDisclosures = new DisclosureState();
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -35,6 +34,11 @@ function queryElement<T extends HTMLElement>(selector: string): T {
     throw new Error(`Missing companion element: ${selector}`);
   }
   return element;
+}
+
+function hideTechnicalRecoveryControls(): void {
+  byId("copy-command").hidden = true;
+  queryElement("#connection-state code").hidden = true;
 }
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
@@ -87,16 +91,13 @@ function createSessionCard(
       : "";
   identity.append(
     createElement("span", "source-dot"),
-    createElement("span", "source-name", session.source),
+    createElement("span", "source-name", `${session.source}${elapsedText}`),
   );
   if (session.remoteAlias) {
     identity.append(
       createElement("span", "remote-badge", `🌐 ${session.remoteAlias}`),
     );
   }
-  identity.append(
-    createElement("span", "surface-name", `· ${session.surface}${elapsedText}`),
-  );
   const status = createElement("span", "status-badge", session.statusLabel);
   topLine.append(identity, status);
 
@@ -237,15 +238,13 @@ function applyStaticLocale(locale: CompanionLocale): void {
     });
 
   queryElement("#connection-state > .eyebrow").textContent =
-    copy.localConnection;
-  if (copyFeedbackTimer === undefined) {
-    setText("copy-command", copy.copyDaemonCommand);
-  }
+    copy.crewlightService;
+  hideTechnicalRecoveryControls();
   document
     .querySelectorAll<HTMLButtonElement>(".open-dashboard")
     .forEach((button) => {
-      button.textContent = copy.openDashboard;
-      button.setAttribute("aria-label", copy.openDashboard);
+      button.textContent = copy.openCrewlight;
+      button.setAttribute("aria-label", copy.openCrewlight);
     });
   setText("quit", copy.quit);
   queryElement(".panel-footer > span").textContent = copy.localOnly;
@@ -307,7 +306,7 @@ function renderConnectionState(viewModel: CompanionViewModel): void {
   }
 
   setText("connection-title", viewModel.summary);
-  setText("connection-detail", viewModel.diagnostic ?? copy.startDaemon);
+  setText("connection-detail", viewModel.diagnostic ?? copy.startCrewlight);
 }
 
 function render(viewModel: CompanionViewModel): void {
@@ -365,6 +364,8 @@ function isSessionFilter(
   );
 }
 
+hideTechnicalRecoveryControls();
+
 byId("expand").addEventListener("click", () => {
   window.crewlight.setExpanded(!expanded);
 });
@@ -378,28 +379,11 @@ document
   .querySelectorAll<HTMLButtonElement>(".open-dashboard")
   .forEach((button) => {
     button.addEventListener("click", () => {
-      window.crewlight.openDashboard();
+      window.crewlight.openCrewlight();
     });
   });
 byId("quit").addEventListener("click", () => {
   window.crewlight.quit();
-});
-byId("copy-command").addEventListener("click", async () => {
-  const button = byId<HTMLButtonElement>("copy-command");
-  const locale = latestViewModel?.locale ?? "en";
-  const copy = getCompanionCopy(locale);
-  if (copyFeedbackTimer !== undefined) {
-    window.clearTimeout(copyFeedbackTimer);
-  }
-  button.textContent = (await window.crewlight.copyDaemonCommand())
-    ? copy.copied
-    : copy.copyFailed;
-  copyFeedbackTimer = window.setTimeout(() => {
-    button.textContent = getCompanionCopy(
-      latestViewModel?.locale ?? locale,
-    ).copyDaemonCommand;
-    copyFeedbackTimer = undefined;
-  }, 1_800);
 });
 document
   .querySelectorAll<HTMLButtonElement>(".filter-chip")

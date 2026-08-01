@@ -31,6 +31,10 @@ describe("desktop accessibility regressions", () => {
     expect(companionHtml).not.toMatch(/\sstyle=/u);
     expect(desktopHtml).toContain('id="locale-select"');
     expect(desktopHtml).toContain('src="./crewlight-icon.png"');
+    expect(desktopHtml).not.toContain("dashboard API");
+    expect(desktopHtml).not.toContain("raw payloads");
+    expect(desktopHtml).not.toContain("Synthetic data");
+    expect(desktopHtml).not.toContain("Desktop and daemon state");
   });
 
   it("uses a labelled modal dialog and no dead npm install command", async () => {
@@ -39,7 +43,7 @@ describe("desktop accessibility regressions", () => {
     expect(html).toContain('aria-modal="true"');
     expect(html).toContain('aria-labelledby="remote-install-title"');
     expect(html).not.toContain("npm install -g @crewlight/cli");
-    expect(html).toContain("same-version Crewlight release artifact");
+    expect(html).toContain("Set up Crewlight on a remote computer");
   });
 
   it("does not prefix an already-versioned label with a second v", async () => {
@@ -71,6 +75,9 @@ describe("desktop accessibility regressions", () => {
     }
     expect(desktopRenderer).toContain("replacement?.focus()");
     expect(companionRenderer).toContain("replacement?.focus()");
+    expect(desktopRenderer).not.toContain(
+      "`${session.source} · ${session.surface}",
+    );
   });
 
   it("restores keyboard focus after integration configuration rerenders", async () => {
@@ -95,5 +102,23 @@ describe("desktop accessibility regressions", () => {
     expect(main).toContain("await serviceManager.dispose()");
     expect(main).toContain("getCompanionDismissAction(trayAvailable)");
     expect(main).toContain("canStopManagedService(serviceState)");
+  });
+
+  it("opens the desktop window from the companion instead of an offline web view", async () => {
+    const preload = await readFile(
+      join(sourceDirectory, "preload.cts"),
+      "utf8",
+    );
+    const renderer = await readFile(
+      join(sourceDirectory, "renderer.ts"),
+      "utf8",
+    );
+    const main = await readFile(join(sourceDirectory, "main.ts"), "utf8");
+
+    expect(preload).toContain('ipcRenderer.send("companion:open-main-window")');
+    expect(renderer).toContain("window.crewlight.openCrewlight()");
+    expect(main).toContain('ipcMain.on("companion:open-main-window"');
+    expect(main).toContain("showMainWindow();");
+    expect(main).not.toContain('ipcMain.on("companion:open-dashboard"');
   });
 });

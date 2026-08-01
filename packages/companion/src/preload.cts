@@ -28,8 +28,8 @@ const bridge = {
   },
   copyDaemonCommand: () =>
     ipcRenderer.invoke("companion:copy-daemon-command") as Promise<boolean>,
-  openDashboard: () => {
-    ipcRenderer.send("companion:open-dashboard");
+  openCrewlight: () => {
+    ipcRenderer.send("companion:open-main-window");
   },
   quit: () => {
     ipcRenderer.send("companion:quit");

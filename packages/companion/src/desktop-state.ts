@@ -14,8 +14,9 @@ import type {
 import type { ManagedServiceState } from "./service-manager.js";
 import {
   deriveCompanionViewModel,
-  getCompanionSurfaceLabel,
   isSyntheticDemoSession,
+  localizeSessionActivity,
+  localizeSessionSource,
   sortSessions,
 } from "./state.js";
 import type { SanitizedSession } from "./sanitize.js";
@@ -52,8 +53,8 @@ const SECTION_LABELS: Record<DesktopLocale, Record<DesktopSection, string>> = {
   en: {
     home: "Home",
     remote: "Remote",
-    doctor: "Doctor",
-    agents: "Agents",
+    doctor: "Troubleshooting",
+    agents: "Connect",
     companion: "Companion",
     demo: "Demo",
     appearance: "Appearance",
@@ -127,7 +128,6 @@ export interface DesktopSessionCard {
   needsAction: boolean;
   source: string;
   statusLabel: string;
-  surface: string;
   title: string;
   tone: "active" | "attention" | "error" | "quiet" | "stale";
   workspace: string;
@@ -306,10 +306,13 @@ function formatTimestamp(
   if (timestamp === undefined) {
     return pick(locale, "Waiting for local status", "等待本地状态");
   }
-  return new Date(timestamp).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return new Date(timestamp).toLocaleTimeString(
+    locale === "zh-CN" ? "zh-CN" : "en",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  );
 }
 
 export function formatDesktopDuration(
@@ -357,66 +360,57 @@ function isError(session: SanitizedSession): boolean {
 
 const DEMO_TEXT: Record<string, { en: string; "zh-CN": string }> = {
   "[Demo] Running Crewlight tests": {
-    en: "Running Crewlight tests",
-    "zh-CN": "运行 Crewlight 测试",
+    en: "Checking the project",
+    "zh-CN": "检查项目",
   },
   "[Demo] Updating README": {
-    en: "Updating README",
-    "zh-CN": "更新 README",
+    en: "Updating a document",
+    "zh-CN": "更新文档",
   },
   "[Demo] Reviewing companion UI": {
-    en: "Reviewing companion UI",
-    "zh-CN": "检查悬浮伴侣界面",
+    en: "Reviewing the Crewlight window",
+    "zh-CN": "检查 Crewlight 界面",
   },
   "[Demo] Adapter smoke check": {
-    en: "Adapter smoke check",
-    "zh-CN": "适配器冒烟检查",
+    en: "Checking a connection",
+    "zh-CN": "检查接入状态",
   },
   "[Demo] Local setup validation": {
-    en: "Local setup validation",
-    "zh-CN": "本地配置验证",
+    en: "Checking local setup",
+    "zh-CN": "检查本机配置",
   },
   "[Demo] Background dependency scan": {
-    en: "Background dependency scan",
-    "zh-CN": "后台依赖扫描",
+    en: "Reviewing project files",
+    "zh-CN": "检查项目文件",
   },
   "[Demo] Running tests": {
-    en: "Running tests",
-    "zh-CN": "正在运行测试",
+    en: "Checking the project",
+    "zh-CN": "正在检查项目",
   },
   "[Demo] Permission to edit README": {
-    en: "Permission to edit README",
-    "zh-CN": "请求编辑 README 的权限",
+    en: "Permission to edit a file",
+    "zh-CN": "请求编辑文件",
   },
   "[Demo] Companion review requested": {
-    en: "Companion review requested",
-    "zh-CN": "等待确认悬浮伴侣界面",
+    en: "Waiting for UI feedback",
+    "zh-CN": "等待界面反馈",
   },
   "[Demo] Adapter smoke completed": {
-    en: "Adapter smoke completed",
-    "zh-CN": "适配器冒烟检查已完成",
+    en: "Connection check completed",
+    "zh-CN": "接入检查已完成",
   },
   "[Demo] Local setup failed": {
-    en: "Local setup failed",
-    "zh-CN": "本地配置验证失败",
+    en: "Setup check failed",
+    "zh-CN": "配置检查失败",
   },
   "[Demo] Background scan last reported": {
-    en: "Background scan last reported",
-    "zh-CN": "后台扫描最后一次上报",
+    en: "Project check last updated",
+    "zh-CN": "项目检查最后更新",
   },
   "Crewlight Demo": {
     en: "Crewlight Demo",
     "zh-CN": "Crewlight 演示",
   },
-};
-
-const ZH_SURFACE_LABELS: Record<string, string> = {
-  unknown: "未知",
-  cli: "命令行",
-  "ide-extension": "IDE 扩展",
-  desktop: "桌面",
-  cloud: "云端",
-  manual: "手动",
 };
 
 function localizeDemoText(value: string, locale: DesktopLocale): string {
@@ -429,13 +423,6 @@ function localizeDemoText(value: string, locale: DesktopLocale): string {
   }
   const withoutMarker = value.slice("[Demo]".length).trimStart();
   return locale === "zh-CN" ? `演示：${withoutMarker}` : withoutMarker;
-}
-
-function desktopSurfaceLabel(surface: string, locale: DesktopLocale): string {
-  if (locale === "zh-CN") {
-    return ZH_SURFACE_LABELS[surface] ?? surface;
-  }
-  return getCompanionSurfaceLabel(surface);
 }
 
 function sessionTone(session: SanitizedSession): DesktopSessionCard["tone"] {
@@ -472,8 +459,8 @@ function diagnosticHint(
   }
   if (session.isStale && isRunning(session)) {
     return locale === "zh-CN"
-      ? `最近一次事件在 ${formatRelativeAge(session.lastEventAgeMs, locale)}，任务可能已停滞`
-      : (session.staleReason ?? "No recent event; session may be stale");
+      ? `最近一次更新在 ${formatRelativeAge(session.lastEventAgeMs, locale)}，任务可能已停滞`
+      : `Last update ${formatRelativeAge(session.lastEventAgeMs, locale)}; this task may be stuck`;
   }
   return undefined;
 }
@@ -484,8 +471,7 @@ function toSessionCard(
 ): DesktopSessionCard {
   const hint = diagnosticHint(session, locale);
   const demo = isSyntheticDemoSession(session);
-  const activity =
-    session.activityLabel ?? STATUS_LABELS[locale][session.status];
+  const activity = localizeSessionActivity(session, locale);
   const title = session.taskTitle ?? session.displayWorkspace;
   return {
     id: session.viewId,
@@ -494,9 +480,8 @@ function toSessionCard(
     ...(demo ? { demoLabel: pick(locale, "Demo", "演示") } : {}),
     ...(hint ? { diagnosticHint: hint } : {}),
     needsAction: needsAction(session),
-    source: session.displayName,
+    source: localizeSessionSource(session, locale),
     statusLabel: STATUS_LABELS[locale][session.status],
-    surface: desktopSurfaceLabel(session.surface, locale),
     title: demo ? localizeDemoText(title, locale) : title,
     tone: sessionTone(session),
     workspace: demo
@@ -531,17 +516,17 @@ function integrationCards(
       return pick(locale, "Configured", "已配置");
     }
     if (status === "conflict") {
-      return pick(locale, "Existing settings need review", "已有配置需要确认");
+      return pick(locale, "Review existing setup", "请先检查现有配置");
     }
     if (status === "unavailable") {
       return pick(
         locale,
-        "Current app path is not supported",
-        "当前应用路径无法安全配置",
+        "Move Crewlight to a simpler folder",
+        "请将 Crewlight 移到更简单的路径",
       );
     }
     if (status === "error") {
-      return pick(locale, "Configuration could not be checked", "无法检查配置");
+      return pick(locale, "Setup check failed", "配置检查失败");
     }
     return pick(locale, "One-click setup ready", "可以一键配置");
   };
@@ -568,13 +553,13 @@ function integrationCards(
     {
       boundary: pick(
         locale,
-        "Crewlight adds only its own entries to your user settings and creates a backup first.",
-        "Crewlight 只会向用户配置中合并自己的条目，并且会先创建备份。",
+        "Crewlight changes only its own settings and backs up the file first.",
+        "Crewlight 只添加自己的配置，并会先备份原文件。",
       ),
       configureDisabled: configureDisabled(claudeStatus),
       configureLabel: configureLabel(claudeStatus),
-      copySetupLabel: pick(locale, "Copy manual setup", "复制手动配置"),
-      copyVerificationLabel: pick(locale, "Copy test command", "复制测试命令"),
+      copySetupLabel: pick(locale, "Copy setup text", "复制配置内容"),
+      copyVerificationLabel: pick(locale, "Copy check command", "复制检查命令"),
       highlight: preferredIntegration === "claude-code",
       id: "claude-code",
       maturity: pick(locale, "Recommended", "推荐"),
@@ -596,13 +581,13 @@ function integrationCards(
     {
       boundary: pick(
         locale,
-        "Crewlight automatically reads only status metadata from Codex's local session log. It never reads prompts into the dashboard, approves permissions, or controls Codex.",
-        "Crewlight 会自动从 Codex 本地会话日志中仅读取状态元数据，不会把提示词读入面板、替你批准权限或控制 Codex。",
+        "Crewlight reads local status only. It never reads prompts, approves permissions, or controls Codex.",
+        "Crewlight 只读取本机状态，不读取提示词，也不会替你授权或控制 Codex。",
       ),
       configureDisabled: configureDisabled(codexStatus),
       configureLabel: configureLabel(codexStatus),
-      copySetupLabel: pick(locale, "Copy manual setup", "复制手动配置"),
-      copyVerificationLabel: pick(locale, "Copy test command", "复制测试命令"),
+      copySetupLabel: pick(locale, "Copy setup text", "复制配置内容"),
+      copyVerificationLabel: pick(locale, "Copy check command", "复制检查命令"),
       highlight: preferredIntegration === "codex",
       id: "codex",
       maturity: pick(locale, "Recommended", "推荐"),
@@ -611,8 +596,8 @@ function integrationCards(
         : pick(locale, "Ready", "可以接入"),
       observes: pick(
         locale,
-        "Live status works without restarting Codex. One-click setup adds precise permission events.",
-        "无需重启 Codex 即可看到实时状态；一键配置后还能获得准确的权限等待事件。",
+        "See live Codex status immediately. Configure once to also see permission requests.",
+        "立即查看 Codex 状态；一键配置后还可显示授权提醒。",
       ),
       setupCommand: setup.codexHooks,
       setupStatus: observedSources.has("codex")
@@ -622,62 +607,81 @@ function integrationCards(
       verificationCommand: setup.verification.codex,
     },
     {
-      boundary:
-        "Manual / Experimental bridge. No automatic Cursor lifecycle hook or private API scraping is claimed.",
-      copySetupLabel: "Copy setup commands",
-      copyVerificationLabel: "Copy verification command",
+      boundary: pick(
+        locale,
+        "Automatic live updates are not available yet. Crewlight never reads private Cursor data.",
+        "暂不支持自动实时更新；Crewlight 不会读取 Cursor 的私有数据。",
+      ),
+      copySetupLabel: pick(locale, "Copy setup steps", "复制接入步骤"),
+      copyVerificationLabel: pick(locale, "Copy check command", "复制检查命令"),
       highlight: preferredIntegration === "cursor",
       id: "cursor",
-      maturity: "Manual / Experimental bridge",
+      maturity: pick(locale, "Manual setup", "手动接入"),
       observed: observedSources.has("cursor")
-        ? "Observed in current daemon"
-        : "Manual bridge available",
-      observes: "Explicit terminal or task-driven status updates only.",
+        ? pick(locale, "Activity detected", "已检测到活动")
+        : pick(locale, "Setup available", "可以接入"),
+      observes: pick(
+        locale,
+        "Shows status sent by Cursor tasks or its terminal.",
+        "显示 Cursor 任务或终端主动发送的状态。",
+      ),
       setupCommand: setup.cursor,
       setupStatus: observedSources.has("cursor")
-        ? "Live activity detected"
-        : "Manual commands ready",
+        ? pick(locale, "Live activity detected", "已检测到实时活动")
+        : pick(locale, "Setup text ready", "接入内容已就绪"),
       title: "Cursor",
       verificationCommand: setup.verification.cursor,
     },
     {
-      boundary:
-        "Uses documented local plugin events and keeps payload handling allowlisted and local.",
-      copySetupLabel: "Copy plugin file",
+      boundary: pick(
+        locale,
+        "Crewlight receives only local status updates from the OpenCode plugin.",
+        "Crewlight 只接收 OpenCode 插件在本机发送的状态。",
+      ),
+      copySetupLabel: pick(locale, "Copy plugin setup", "复制插件配置"),
       highlight: preferredIntegration === "opencode",
       id: "opencode",
-      maturity: "Implemented, verification pending",
+      maturity: pick(locale, "Preview", "预览"),
       observed: observedSources.has("opencode")
-        ? "Observed in current daemon"
-        : "Plugin scaffold ready",
-      observes:
-        "Session and permission lifecycle updates from the local OpenCode plugin.",
+        ? pick(locale, "Activity detected", "已检测到活动")
+        : pick(locale, "Plugin setup available", "可以配置插件"),
+      observes: pick(
+        locale,
+        "Shows work, permission requests, completion, and failures.",
+        "显示工作、授权提醒、完成和失败状态。",
+      ),
       setupCommand: setup.openCode,
       setupStatus: observedSources.has("opencode")
-        ? "Live activity detected"
-        : "Plugin scaffold ready",
+        ? pick(locale, "Live activity detected", "已检测到实时活动")
+        : pick(locale, "Plugin setup ready", "插件配置已就绪"),
       title: "OpenCode",
     },
     {
-      boundary:
-        "Use manual ingest or local probes only. No private API scraping, hidden permissions, or background control paths.",
-      copySetupLabel: "Copy ingest command",
-      copyVerificationLabel: "Copy verification command",
+      boundary: pick(
+        locale,
+        "Crewlight shows only the updates you explicitly send and never controls another app.",
+        "Crewlight 只显示你主动发送的状态，不会控制其他应用。",
+      ),
+      copySetupLabel: pick(locale, "Copy example command", "复制示例命令"),
+      copyVerificationLabel: pick(locale, "Copy check command", "复制检查命令"),
       highlight: preferredIntegration === "manual",
       id: "manual",
-      maturity: "Manual / Custom ingest",
+      maturity: pick(locale, "Advanced", "高级"),
       observed:
         observedSources.has("custom") || observedSources.has("generic-cli")
-          ? "Observed in current daemon"
-          : "Manual path available",
-      observes:
-        "Manual normalized events, generic CLI wrapping, and bounded local probes.",
+          ? pick(locale, "Activity detected", "已检测到活动")
+          : pick(locale, "Manual setup available", "可以手动接入"),
+      observes: pick(
+        locale,
+        "Connect another tool by sending its status to Crewlight.",
+        "让其他工具主动把状态发送给 Crewlight。",
+      ),
       setupCommand: setup.antigravityProbe,
       setupStatus:
         observedSources.has("custom") || observedSources.has("generic-cli")
-          ? "Live activity detected"
-          : "Manual path ready",
-      title: "Manual / Custom ingest",
+          ? pick(locale, "Live activity detected", "已检测到实时活动")
+          : pick(locale, "Example ready", "示例已就绪"),
+      title: pick(locale, "Other tools", "其他工具"),
       verificationCommand: setup.verification.antigravityProbe,
     },
   ];
@@ -690,40 +694,36 @@ function serviceBadge(
 ): DesktopStatusBadge {
   if (serviceState.phase === "starting") {
     return {
-      label: pick(locale, "Starting local service", "正在启动本地服务"),
+      label: pick(locale, "Starting Crewlight", "正在启动 Crewlight"),
       tone: "active",
     };
   }
   if (serviceState.phase === "stopping") {
     return {
-      label: pick(locale, "Stopping local service", "正在停止本地服务"),
+      label: pick(locale, "Stopping Crewlight", "正在停止 Crewlight"),
       tone: "warning",
     };
   }
   if (serviceState.phase === "running") {
     return {
-      label: pick(locale, "Managed local service", "本地服务运行中"),
+      label: pick(locale, "Crewlight is running", "Crewlight 运行中"),
       tone: "success",
     };
   }
   if (snapshot.kind === "online") {
     return {
-      label: pick(
-        locale,
-        "External local service detected",
-        "已检测到外部本地服务",
-      ),
+      label: pick(locale, "Crewlight is already running", "Crewlight 已在运行"),
       tone: "active",
     };
   }
   if (serviceState.phase === "error") {
     return {
-      label: pick(locale, "Local service needs attention", "本地服务需要处理"),
+      label: pick(locale, "Crewlight needs attention", "Crewlight 需要处理"),
       tone: "error",
     };
   }
   return {
-    label: pick(locale, "Local service stopped", "本地服务已停止"),
+    label: pick(locale, "Crewlight is off", "Crewlight 未启动"),
     tone: "neutral",
   };
 }
@@ -739,10 +739,10 @@ function primaryAction(
       action: "start-service",
       description: pick(
         locale,
-        "Start the local daemon and dashboard so Crewlight can watch live sessions.",
-        "启动本地服务，让 Crewlight 开始汇总实时代理会话。",
+        "Start Crewlight to see live agent activity.",
+        "启动 Crewlight，查看代理的实时状态。",
       ),
-      label: pick(locale, "Start local service", "启动本地服务"),
+      label: pick(locale, "Start Crewlight", "启动 Crewlight"),
     };
   }
   return {
@@ -825,18 +825,18 @@ export function deriveDesktopViewModel(
       title: pick(locale, "Welcome", "欢迎"),
       description: pick(
         locale,
-        "Meet Crewlight Desktop and the local-first workflow.",
-        "认识 Crewlight Desktop 和本地优先的工作方式。",
+        "See every agent's status in one place.",
+        "在一个地方看清所有代理的状态。",
       ),
       complete: true,
     },
     {
       id: "start-service",
-      title: pick(locale, "Start local service", "启动本地服务"),
+      title: pick(locale, "Start Crewlight", "启动 Crewlight"),
       description: pick(
         locale,
-        "Bring up the loopback daemon and dashboard API.",
-        "启动仅监听回环地址的守护进程和面板 API。",
+        "Start Crewlight on this computer.",
+        "在这台电脑上启动 Crewlight。",
       ),
       complete:
         input.serviceState.phase === "running" ||
@@ -844,11 +844,11 @@ export function deriveDesktopViewModel(
     },
     {
       id: "choose-integration",
-      title: pick(locale, "Choose an integration path", "选择接入方式"),
+      title: pick(locale, "Choose an agent", "选择代理"),
       description: pick(
         locale,
-        "Pick the first setup path you want Crewlight to highlight.",
-        "选择希望 Crewlight 优先引导的接入方式。",
+        "Choose the agent you want to connect first.",
+        "选择你想先接入的代理。",
       ),
       complete:
         input.preferences.preferredIntegration !== undefined ||
@@ -860,8 +860,8 @@ export function deriveDesktopViewModel(
       title: pick(locale, "Show companion", "显示悬浮伴侣"),
       description: pick(
         locale,
-        "Open the floating companion so real status stays nearby.",
-        "打开悬浮伴侣，让真实状态始终近在眼前。",
+        "Open the companion to keep status in view.",
+        "打开悬浮伴侣，让状态一直可见。",
       ),
       complete: input.companion.visible,
     },
@@ -870,8 +870,8 @@ export function deriveDesktopViewModel(
       title: pick(locale, "Finish", "完成"),
       description: pick(
         locale,
-        "Land in Home and keep the current local state intact.",
-        "进入首页，并保留当前本地状态。",
+        "Go to Home without changing what is already running.",
+        "进入首页，不打断正在运行的任务。",
       ),
       complete: input.preferences.onboardingCompleted,
     },
@@ -889,35 +889,35 @@ export function deriveDesktopViewModel(
       boundaries:
         locale === "zh-CN"
           ? [
-              "不依赖云端服务",
-              "不抓取私有 API",
-              "不自动批准权限",
-              "不保留提示词、对话或工具输入输出",
+              "状态只在本机处理",
+              "不会控制你的代理",
+              "不会替你批准权限",
+              "不会保存提示词或对话",
             ]
           : [
-              "No cloud service",
-              "No private API scraping",
-              "No automatic permission approval",
-              "No prompt, transcript, or tool I/O retention",
+              "Status stays on this computer",
+              "Doesn't control your agents",
+              "Doesn't approve permissions for you",
+              "Doesn't save prompts or conversations",
             ],
       license: "MIT",
       migrationSummary:
         locale === "zh-CN"
           ? [
               "AgentPulse 现已更名为 Crewlight。",
-              "桌面应用是 v0.5.0 的主要用户界面。",
-              "CLI 和浏览器面板仍可用于高级本地工作流。",
+              "Crewlight 桌面版是主要应用。",
+              "高级接入仍可通过命令行完成。",
             ]
           : [
               "AgentPulse is now Crewlight.",
-              "The desktop app is the primary user-facing v0.5.0 surface.",
-              "CLI and browser dashboard remain available for advanced local workflows.",
+              "Crewlight Desktop is the main app.",
+              "Advanced setup remains available from the command line.",
             ],
       repoUrl: "https://github.com/QianQIUlp/Crewlight",
       tagline: pick(
         locale,
-        "Local activity radar for AI coding agents.",
-        "面向 AI 编码代理的本地活动雷达。",
+        "See what your coding agents are doing, at a glance.",
+        "一眼看清 AI 编码代理正在做什么。",
       ),
       version: input.version,
     },
@@ -943,13 +943,13 @@ export function deriveDesktopViewModel(
         demoSessions.length > 0
           ? pick(
               locale,
-              `${demoSessions.length} synthetic local sessions are active. Rerun the demo to refresh the same identities.`,
-              `${demoSessions.length} 个合成本地会话正在运行。再次运行演示可刷新同一组会话。`,
+              `${demoSessions.length} sample sessions are active. Run the demo again to refresh them.`,
+              `${demoSessions.length} 个示例会话正在运行。再次运行演示即可刷新。`,
             )
           : pick(
               locale,
-              "Run the local multi-agent demo to populate the Demo view with synthetic sessions.",
-              "运行本地多代理演示，在演示页面中载入合成会话。",
+              "Run the demo to preview a few sample agent states.",
+              "运行演示，预览几种代理状态。",
             ),
     },
     doctor: {
@@ -958,14 +958,10 @@ export function deriveDesktopViewModel(
       summary: input.doctorReport.ok
         ? pick(
             locale,
-            "Doctor checks look healthy for the current local setup.",
-            "当前本地环境的诊断结果正常。",
+            "Everything Crewlight needs is ready.",
+            "Crewlight 所需项目均已就绪。",
           )
-        : pick(
-            locale,
-            "Doctor found follow-up items before release or daily use.",
-            "诊断发现了需要在发布或日常使用前处理的问题。",
-          ),
+        : pick(locale, "Some items need attention.", "有些项目需要处理。"),
     },
     header: {
       lastUpdatedLabel:
@@ -979,7 +975,7 @@ export function deriveDesktopViewModel(
       serviceBadge: serviceBadge(input.serviceState, input.snapshot, locale),
       summary:
         input.snapshot.kind !== "online"
-          ? pick(locale, "Daemon offline", "本地服务离线")
+          ? pick(locale, "Crewlight is off", "Crewlight 未启动")
           : companionView.summary,
     },
     home: {
@@ -996,7 +992,7 @@ export function deriveDesktopViewModel(
         locale,
       ),
       previewSessions,
-      tagline: pick(locale, "Command Center", "代理指挥台"),
+      tagline: pick(locale, "Activity overview", "工作状态"),
     },
     integrations,
     ...(input.notice ? { notice: input.notice } : {}),

@@ -1038,6 +1038,11 @@ input:focus-visible {
 }
 
 /* ── Doctor / check cards ────────────────────────────────────── */
+.check-card {
+  display: grid;
+  gap: 0.55rem;
+}
+
 .check-card[data-status="error"] {
   border-color: rgba(240, 112, 112, 0.26);
   background: linear-gradient(175deg, var(--error-soft), transparent 55%);
@@ -1057,6 +1062,23 @@ input:focus-visible {
   font-weight: 700;
   text-transform: capitalize;
   font-size: 0.82rem;
+}
+
+.check-details {
+  border-top: 1px solid var(--line);
+  padding-top: 0.55rem;
+}
+
+.check-details summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.check-details[open] {
+  display: grid;
+  gap: 0.45rem;
 }
 
 /* ── Fact list ───────────────────────────────────────────────── */
@@ -1214,7 +1236,7 @@ input:focus-visible {
 
 /* ── Onboarding ──────────────────────────────────────────────── */
 .onboarding-progress {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
@@ -1980,7 +2002,7 @@ body {
 }
 
 .onboarding-progress {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
   overflow: hidden;
   border: 1px solid var(--line);

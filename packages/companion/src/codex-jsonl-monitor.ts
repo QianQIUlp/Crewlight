@@ -115,27 +115,6 @@ function positiveNumber(value: number, label: string): number {
   return value;
 }
 
-function statusTitle(status: AgentStatus): string {
-  switch (status) {
-    case "idle":
-      return "Codex session detected";
-    case "running":
-      return "Codex is working";
-    case "using_tool":
-      return "Codex is using a tool";
-    case "waiting_input":
-      return "Codex needs input";
-    case "completed":
-      return "Codex turn completed";
-    case "failed":
-      return "Codex turn failed";
-    case "rate_limited":
-      return "Codex is rate limited";
-    default:
-      return "Codex activity";
-  }
-}
-
 function sessionIdFromFile(path: string): string | undefined {
   return ROLLOUT_FILE_PATTERN.exec(path.split(/[\\/]/u).at(-1) ?? "")?.[1];
 }
@@ -405,7 +384,6 @@ export function createCodexJsonlMonitor(
       sessionId: tracked.sessionId,
       status: candidate.status,
       timestamp: candidate.timestamp,
-      title: statusTitle(candidate.status),
       ...(tracked.projectPath ? { projectPath: tracked.projectPath } : {}),
     };
     tracked.lastStatus = candidate.status;

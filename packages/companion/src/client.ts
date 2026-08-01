@@ -15,8 +15,7 @@ export interface DashboardRequestOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 1_500;
-const OFFLINE_DIAGNOSTIC =
-  "Run crewlight daemon --dashboard. The companion will retry.";
+const OFFLINE_DIAGNOSTIC = "Crewlight service request failed.";
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException
@@ -49,13 +48,13 @@ export async function fetchCompanionSnapshot(
       if (response.status === 404) {
         return {
           kind: "api-unavailable",
-          diagnostic: "Restart with: crewlight daemon --dashboard.",
+          diagnostic: "Crewlight service endpoint was not found.",
         };
       }
       if (!response.ok) {
         return {
           kind: "api-unavailable",
-          diagnostic: `Dashboard API returned HTTP ${response.status}. Restart with --dashboard.`,
+          diagnostic: `Crewlight service returned status ${response.status}.`,
         };
       }
 
@@ -68,8 +67,7 @@ export async function fetchCompanionSnapshot(
         }
         return {
           kind: "api-unavailable",
-          diagnostic:
-            "Dashboard API returned invalid JSON. Restart with --dashboard.",
+          diagnostic: "Crewlight service returned invalid JSON.",
         };
       }
 
@@ -77,8 +75,7 @@ export async function fetchCompanionSnapshot(
       if (!data) {
         return {
           kind: "api-unavailable",
-          diagnostic:
-            "Dashboard API response is unsupported. Restart with --dashboard.",
+          diagnostic: "Crewlight service response is unsupported.",
         };
       }
 
@@ -90,7 +87,7 @@ export async function fetchCompanionSnapshot(
         controller.abort();
         resolve({
           kind: "offline",
-          diagnostic: `${OFFLINE_DIAGNOSTIC} Request timed out after ${timeoutMs}ms.`,
+          diagnostic: `Crewlight service request timed out after ${timeoutMs}ms.`,
         });
       }, timeoutMs);
     });
@@ -101,7 +98,7 @@ export async function fetchCompanionSnapshot(
       kind: "offline",
       diagnostic:
         timedOut || isAbortError(error)
-          ? `${OFFLINE_DIAGNOSTIC} Request timed out after ${timeoutMs}ms.`
+          ? `Crewlight service request timed out after ${timeoutMs}ms.`
           : OFFLINE_DIAGNOSTIC,
     };
   } finally {

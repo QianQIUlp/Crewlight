@@ -184,6 +184,57 @@ describe("desktop view-model derivation", () => {
     );
   });
 
+  it("keeps everyday setup copy free of backend terminology", () => {
+    const view = deriveDesktopViewModel(
+      {
+        companion: {
+          alwaysOnTop: true,
+          expanded: false,
+          visible: false,
+        },
+        doctorReport,
+        preferences: DEFAULT_DESKTOP_PREFERENCES,
+        runtimeSettings: {
+          host: "127.0.0.1",
+          port: 3768,
+          notifier: "none",
+        },
+        serviceState,
+        snapshot: { kind: "offline", diagnostic: "offline" },
+        version: "v0.5.0",
+        remoteHosts: [],
+      },
+      setup,
+    );
+    const everydayCopy = JSON.stringify({
+      header: view.header,
+      home: view.home,
+      onboarding: view.onboarding.steps,
+      integrations: view.integrations.map((card) => ({
+        boundary: card.boundary,
+        copySetupLabel: card.copySetupLabel,
+        copyVerificationLabel: card.copyVerificationLabel,
+        maturity: card.maturity,
+        observed: card.observed,
+        observes: card.observes,
+        setupStatus: card.setupStatus,
+        title: card.title,
+      })),
+    });
+
+    expect(everydayCopy).not.toMatch(
+      /\b(?:daemon|loopback|payload|ingest|surface|jsonl)\b|dashboard api|session log|status metadata/iu,
+    );
+    expect(view.integrations.find((card) => card.id === "codex")).toMatchObject(
+      {
+        boundary:
+          "Crewlight reads local status only. It never reads prompts, approves permissions, or controls Codex.",
+        observes:
+          "See live Codex status immediately. Configure once to also see permission requests.",
+      },
+    );
+  });
+
   it("detects deterministic demo sessions and highlights the preferred integration", () => {
     const view = deriveDesktopViewModel(
       {
@@ -238,7 +289,7 @@ describe("desktop view-model derivation", () => {
       expect.arrayContaining([
         expect.objectContaining({
           demoLabel: "Demo",
-          title: "Updating README",
+          title: "Updating a document",
         }),
         expect.objectContaining({
           demoLabel: "Demo",
@@ -259,7 +310,7 @@ describe("desktop view-model derivation", () => {
     ).toBe("Ready");
     expect(
       view.integrations.find((card) => card.id === "cursor")?.observed,
-    ).toBe("Manual bridge available");
+    ).toBe("Setup available");
     expect(
       view.integrations.find((card) => card.id === "cursor")?.highlight,
     ).toBe(true);
@@ -325,7 +376,13 @@ describe("desktop view-model derivation", () => {
           kind: "online",
           data: {
             health: { status: "ok" },
-            sessions: [session("waiting_permission")],
+            sessions: [
+              session("waiting_permission", {
+                activityLabel: "Permission requested",
+                displayName: "Generic CLI",
+                source: "generic-cli",
+              }),
+            ],
           },
         },
         version: "v0.5.0",
@@ -338,9 +395,13 @@ describe("desktop view-model derivation", () => {
     expect(view.sections.find((section) => section.id === "home")?.label).toBe(
       "首页",
     );
-    expect(view.header.serviceBadge.label).toBe("已检测到外部本地服务");
+    expect(view.header.serviceBadge.label).toBe("Crewlight 已在运行");
     expect(view.onboarding.steps[0]?.title).toBe("欢迎");
     expect(view.home.previewSessions[0]?.statusLabel).toBe("需要授权");
+    expect(view.home.previewSessions[0]).toMatchObject({
+      activity: "需要授权",
+      source: "其他工具",
+    });
   });
 
   it("fully localizes deterministic demo cards in Chinese", () => {
@@ -351,9 +412,8 @@ describe("desktop view-model derivation", () => {
         status: "using_tool" as const,
         surface: "cli",
         taskTitle: "[Demo] Running Crewlight tests",
-        title: "运行 Crewlight 测试",
-        activity: "正在运行测试",
-        surfaceLabel: "命令行",
+        title: "检查项目",
+        activity: "正在检查项目",
       },
       {
         activityLabel: "[Demo] Permission to edit README",
@@ -361,9 +421,8 @@ describe("desktop view-model derivation", () => {
         status: "waiting_permission" as const,
         surface: "cli",
         taskTitle: "[Demo] Updating README",
-        title: "更新 README",
-        activity: "请求编辑 README 的权限",
-        surfaceLabel: "命令行",
+        title: "更新文档",
+        activity: "请求编辑文件",
       },
       {
         activityLabel: "[Demo] Companion review requested",
@@ -371,9 +430,8 @@ describe("desktop view-model derivation", () => {
         status: "waiting_input" as const,
         surface: "ide-extension",
         taskTitle: "[Demo] Reviewing companion UI",
-        title: "检查悬浮伴侣界面",
-        activity: "等待确认悬浮伴侣界面",
-        surfaceLabel: "IDE 扩展",
+        title: "检查 Crewlight 界面",
+        activity: "等待界面反馈",
       },
       {
         activityLabel: "[Demo] Adapter smoke completed",
@@ -381,9 +439,8 @@ describe("desktop view-model derivation", () => {
         status: "completed" as const,
         surface: "cli",
         taskTitle: "[Demo] Adapter smoke check",
-        title: "适配器冒烟检查",
-        activity: "适配器冒烟检查已完成",
-        surfaceLabel: "命令行",
+        title: "检查接入状态",
+        activity: "接入检查已完成",
       },
       {
         activityLabel: "[Demo] Local setup failed",
@@ -391,9 +448,8 @@ describe("desktop view-model derivation", () => {
         status: "failed" as const,
         surface: "manual",
         taskTitle: "[Demo] Local setup validation",
-        title: "本地配置验证",
-        activity: "本地配置验证失败",
-        surfaceLabel: "手动",
+        title: "检查本机配置",
+        activity: "配置检查失败",
       },
       {
         activityLabel: "[Demo] Background scan last reported",
@@ -401,9 +457,8 @@ describe("desktop view-model derivation", () => {
         status: "running" as const,
         surface: "cli",
         taskTitle: "[Demo] Background dependency scan",
-        title: "后台依赖扫描",
-        activity: "后台扫描最后一次上报",
-        surfaceLabel: "命令行",
+        title: "检查项目文件",
+        activity: "项目检查最后更新",
       },
     ];
     const view = deriveDesktopViewModel(
@@ -456,7 +511,6 @@ describe("desktop view-model derivation", () => {
       expect(card).toMatchObject({
         activity: demoCase.activity,
         demoLabel: "演示",
-        surface: demoCase.surfaceLabel,
         workspace: "Crewlight 演示",
       });
     }
@@ -503,7 +557,7 @@ describe("desktop view-model derivation", () => {
     );
 
     expect(view.home.previewSessions[0]?.diagnosticHint).toBe(
-      "最近一次事件在 5 分钟前，任务可能已停滞",
+      "最近一次更新在 5 分钟前，任务可能已停滞",
     );
   });
 });

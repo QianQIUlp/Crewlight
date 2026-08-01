@@ -49,7 +49,6 @@ export interface CompanionCounts {
 export interface CompanionSessionView {
   id: string;
   source: string;
-  surface: string;
   title: string;
   workspace: string;
   status: CompanionStatus;
@@ -117,32 +116,61 @@ const STATUS_LABELS: Record<
   },
 };
 
-const SURFACE_LABELS: Record<CompanionLocale, Record<string, string>> = {
-  en: {
-    unknown: "Unknown",
-    cli: "CLI",
-    "ide-extension": "IDE extension",
-    desktop: "Desktop",
-    cloud: "Cloud",
-    manual: "Manual",
-  },
-  "zh-CN": {
-    unknown: "未知",
-    cli: "CLI",
-    "ide-extension": "IDE 扩展",
-    desktop: "桌面端",
-    cloud: "云端",
-    manual: "手动",
-  },
+const CHINESE_ACTIVITY_LABELS: Readonly<Record<string, string>> = {
+  "Session started": "会话已开始",
+  "Request submitted": "请求已提交",
+  "Using tool": "正在使用工具",
+  "Tool completed": "工具已完成",
+  "Permission requested": "需要授权",
+  "Attention requested": "需要处理",
+  "Session completed": "会话已完成",
+  "Session failed": "会话失败",
+  "Turn completed": "本轮已完成",
+  "Session updated": "会话已更新",
+  "Status updated": "状态已更新",
+  "Permission answered": "已完成授权",
+  "Activity updated": "状态已更新",
+  "Command running": "命令运行中",
+  "Command completed": "命令已完成",
+  "Command failed": "命令失败",
+  Idle: "空闲",
+  Running: "运行中",
+  "Input requested": "等待输入",
+  "Rate limited": "受到限流",
+  "Status unknown": "状态未知",
 };
+
+export function localizeSessionActivity(
+  session: SanitizedSession,
+  locale: CompanionLocale,
+): string {
+  const activity = session.activityLabel;
+  if (!activity) {
+    return STATUS_LABELS[locale][session.status];
+  }
+  return locale === "zh-CN"
+    ? (CHINESE_ACTIVITY_LABELS[activity] ?? activity)
+    : activity;
+}
+
+export function localizeSessionSource(
+  session: SanitizedSession,
+  locale: CompanionLocale,
+): string {
+  const isGenericName =
+    (session.source === "generic-cli" &&
+      session.displayName === "Generic CLI") ||
+    (session.source === "custom" && session.displayName === "Custom");
+  if (!isGenericName) {
+    return session.displayName;
+  }
+  return locale === "zh-CN" ? "其他工具" : "Other tool";
+}
 
 export interface CompanionCopy {
   activity: string;
   allFilter: string;
   collapse: string;
-  copied: string;
-  copyDaemonCommand: string;
-  copyFailed: string;
   currentActivity: string;
   detailFor: (expanded: boolean, title: string) => string;
   diagnostic: string;
@@ -157,7 +185,7 @@ export interface CompanionCopy {
   hide: string;
   hideDetails: string;
   keepAlwaysOnTop: string;
-  localConnection: string;
+  crewlightService: string;
   localOnly: string;
   needsActionCount: string;
   needsAttentionFilter: string;
@@ -165,7 +193,7 @@ export interface CompanionCopy {
   noCurrentSessions: string;
   noMatchingDetail: string;
   noMatchingTitle: string;
-  openDashboard: string;
+  openCrewlight: string;
   overallState: string;
   pinWindow: string;
   possiblyStuck: string;
@@ -178,7 +206,7 @@ export interface CompanionCopy {
   sessions: (count: number) => string;
   showDetails: string;
   stale: string;
-  startDaemon: string;
+  startCrewlight: string;
   status: string;
   unpinWindow: string;
   workspace: string;
@@ -189,49 +217,45 @@ const COMPANION_COPY: Record<CompanionLocale, CompanionCopy> = {
     activity: "Activity",
     allFilter: "All",
     collapse: "Collapse",
-    copied: "Copied",
-    copyDaemonCommand: "Copy daemon command",
-    copyFailed: "Copy failed",
     currentActivity: "Current activity",
     detailFor: (expanded, title) =>
       `${expanded ? "Hide" : "Show"} details for ${title}`,
-    diagnostic: "Diagnostic",
+    diagnostic: "Note",
     disableAlwaysOnTop: "Disable always on top",
     doneFilter: "Done",
     emptyDetail:
-      "Sessions will appear here as supported coding agents report local activity.",
+      "Tasks will appear here as supported coding agents report local activity.",
     emptyTitle: "Watching for agents",
     expand: "Expand",
-    failedCount: "Failed",
-    failedStaleFilter: "Failed / stale",
-    filterSessions: "Filter sessions",
+    failedCount: "Issues",
+    failedStaleFilter: "Issues",
+    filterSessions: "Filter tasks",
     hide: "Hide",
     hideDetails: "Hide details",
     keepAlwaysOnTop: "Keep always on top",
-    localConnection: "Local connection",
-    localOnly: "Local only · refreshes every 2s",
-    needsActionCount: "Needs action",
+    crewlightService: "Crewlight",
+    localOnly: "This computer · updates automatically",
+    needsActionCount: "Needs you",
     needsAttentionFilter: "Needs attention",
     needsYou: "Needs you",
-    noCurrentSessions: "No current sessions",
+    noCurrentSessions: "No active tasks",
     noMatchingDetail:
-      "Current activity does not match this filter. Choose All to see every observed session.",
-    noMatchingTitle: "No matching sessions",
-    openDashboard: "Open Dashboard",
-    overallState: "Overall state",
+      "Current activity does not match this filter. Choose All to see every task.",
+    noMatchingTitle: "No matching tasks",
+    openCrewlight: "Open Crewlight",
+    overallState: "Overall status",
     pinWindow: "Pin window",
-    possiblyStuck: "⚠️ Possibly stuck (no events for 5m)",
-    productMode: "Local companion",
+    possiblyStuck: "⚠️ Possibly stuck (no updates for 5m)",
+    productMode: "Live status",
     quit: "Quit",
-    runningCount: "Running",
+    runningCount: "Active",
     runningFilter: "Running",
-    sessionCounts: "Session counts",
-    sessionRadar: "Session radar",
-    sessions: (count) => `${count} ${count === 1 ? "session" : "sessions"}`,
+    sessionCounts: "Task counts",
+    sessionRadar: "Live tasks",
+    sessions: (count) => `${count} ${count === 1 ? "task" : "tasks"}`,
     showDetails: "Show details",
-    stale: "Stale",
-    startDaemon:
-      "Start the dashboard-enabled daemon. Crewlight will reconnect automatically.",
+    stale: "Possibly stuck",
+    startCrewlight: "Start Crewlight to reconnect.",
     status: "Status",
     unpinWindow: "Unpin window",
     workspace: "Workspace",
@@ -240,46 +264,43 @@ const COMPANION_COPY: Record<CompanionLocale, CompanionCopy> = {
     activity: "活动",
     allFilter: "全部",
     collapse: "收起",
-    copied: "已复制",
-    copyDaemonCommand: "复制服务启动命令",
-    copyFailed: "复制失败",
     currentActivity: "当前活动",
     detailFor: (expanded, title) =>
       `${expanded ? "隐藏" : "显示"}${title}的详情`,
-    diagnostic: "诊断",
+    diagnostic: "提示",
     disableAlwaysOnTop: "取消窗口置顶",
     doneFilter: "已完成",
-    emptyDetail: "受支持的编程代理报告本地活动后，会话会显示在这里。",
+    emptyDetail: "受支持的编程代理报告本地活动后，任务会显示在这里。",
     emptyTitle: "正在等待代理",
     expand: "展开",
-    failedCount: "失败",
-    failedStaleFilter: "失败 / 可能停滞",
-    filterSessions: "筛选会话",
+    failedCount: "异常",
+    failedStaleFilter: "异常",
+    filterSessions: "筛选任务",
     hide: "隐藏",
     hideDetails: "隐藏详情",
     keepAlwaysOnTop: "保持窗口置顶",
-    localConnection: "本地连接",
-    localOnly: "仅限本机 · 每 2 秒刷新",
-    needsActionCount: "需要处理",
+    crewlightService: "Crewlight",
+    localOnly: "仅限本机 · 自动更新",
+    needsActionCount: "需要你",
     needsAttentionFilter: "需要处理",
     needsYou: "需要你处理",
-    noCurrentSessions: "当前没有会话",
-    noMatchingDetail: "当前活动不符合此筛选条件。选择“全部”可查看所有会话。",
-    noMatchingTitle: "没有符合条件的会话",
-    openDashboard: "打开仪表盘",
+    noCurrentSessions: "当前没有任务",
+    noMatchingDetail: "当前活动不符合此筛选条件。选择“全部”可查看所有任务。",
+    noMatchingTitle: "没有符合条件的任务",
+    openCrewlight: "打开 Crewlight",
     overallState: "整体状态",
     pinWindow: "固定窗口",
-    possiblyStuck: "⚠️ 可能已停滞（5 分钟内没有事件）",
-    productMode: "本地伴侣",
+    possiblyStuck: "⚠️ 可能已停滞（5 分钟内没有更新）",
+    productMode: "实时状态",
     quit: "退出",
-    runningCount: "运行中",
+    runningCount: "进行中",
     runningFilter: "运行中",
-    sessionCounts: "会话计数",
-    sessionRadar: "会话雷达",
-    sessions: (count) => `${count} 个会话`,
+    sessionCounts: "任务计数",
+    sessionRadar: "实时任务",
+    sessions: (count) => `${count} 个任务`,
     showDetails: "显示详情",
     stale: "可能停滞",
-    startDaemon: "请启动带仪表盘的本地服务，Crewlight 会自动重新连接。",
+    startCrewlight: "启动 Crewlight 后会自动重新连接。",
     status: "状态",
     unpinWindow: "取消固定窗口",
     workspace: "工作区",
@@ -288,13 +309,6 @@ const COMPANION_COPY: Record<CompanionLocale, CompanionCopy> = {
 
 export function getCompanionCopy(locale: CompanionLocale): CompanionCopy {
   return COMPANION_COPY[locale];
-}
-
-export function getCompanionSurfaceLabel(
-  surface: string,
-  locale: CompanionLocale = "en",
-): string {
-  return SURFACE_LABELS[locale][surface] ?? surface;
 }
 
 function isRunning(session: SanitizedSession): boolean {
@@ -444,8 +458,8 @@ function getDiagnosticHint(
   }
   if (isStaleRunning(session)) {
     return locale === "zh-CN"
-      ? `最近一次事件在 ${formatCompanionAge(session.lastEventAgeMs, locale)}，会话可能已停滞`
-      : (session.staleReason ?? "No recent event; session may be stale");
+      ? `最近一次更新在 ${formatCompanionAge(session.lastEventAgeMs, locale)}，任务可能已停滞`
+      : `Last update ${formatCompanionAge(session.lastEventAgeMs, locale)}; this task may be stuck`;
   }
   return undefined;
 }
@@ -457,13 +471,12 @@ function toSessionView(
   const diagnosticHint = getDiagnosticHint(session, locale);
   return {
     id: session.viewId,
-    source: session.displayName,
-    surface: getCompanionSurfaceLabel(session.surface, locale),
+    source: localizeSessionSource(session, locale),
     title: session.taskTitle ?? session.displayWorkspace,
     workspace: session.displayWorkspace,
     status: session.status,
     statusLabel: STATUS_LABELS[locale][session.status],
-    activity: session.activityLabel ?? STATUS_LABELS[locale][session.status],
+    activity: localizeSessionActivity(session, locale),
     lastEventLabel: formatCompanionAge(session.lastEventAgeMs, locale),
     needsAction: needsAction(session),
     isStale: isStaleRunning(session),
@@ -506,10 +519,8 @@ export function deriveCompanionViewModel(
   if (result.kind === "offline") {
     return emptyViewModel(
       "offline",
-      locale === "zh-CN" ? "本地服务离线" : "Daemon offline",
-      locale === "zh-CN"
-        ? "无法连接本地服务。请在桌面应用中启动服务，Crewlight 会自动重新连接。"
-        : result.diagnostic,
+      locale === "zh-CN" ? "服务暂不可用" : "Service unavailable",
+      getCompanionCopy(locale).startCrewlight,
       now,
       windowState,
       locale,
@@ -518,10 +529,8 @@ export function deriveCompanionViewModel(
   if (result.kind === "api-unavailable") {
     return emptyViewModel(
       "api-unavailable",
-      locale === "zh-CN" ? "伴侣接口不可用" : "Companion API unavailable",
-      locale === "zh-CN"
-        ? "本地服务没有提供伴侣接口。请从桌面应用中重启服务。"
-        : result.diagnostic,
+      locale === "zh-CN" ? "服务暂不可用" : "Service unavailable",
+      getCompanionCopy(locale).startCrewlight,
       now,
       windowState,
       locale,
@@ -573,11 +582,11 @@ export function deriveCompanionViewModel(
     diagnostic = getDiagnosticHint(failure, locale);
   } else if (stale) {
     state = "stale";
-    summary = locale === "zh-CN" ? "可能已停滞" : "Possibly stale";
+    summary = locale === "zh-CN" ? "可能已停滞" : "Possibly stuck";
     diagnostic =
       locale === "zh-CN"
-        ? `${stale.displayName} 最近一次事件在 ${formatCompanionAge(stale.lastEventAgeMs, locale)}，可能已停滞`
-        : (stale.staleReason ?? `${stale.displayName} has no recent events`);
+        ? `${stale.displayName} 最近一次更新在 ${formatCompanionAge(stale.lastEventAgeMs, locale)}，可能已停滞`
+        : `${stale.displayName} last updated ${formatCompanionAge(stale.lastEventAgeMs, locale)} and may be stuck`;
   } else if (counts.running > 0) {
     state = "running";
     summary =

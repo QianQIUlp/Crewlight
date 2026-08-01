@@ -145,7 +145,7 @@ let connectionSettings = {
 };
 let latestSnapshot: DesktopDashboardResult = {
   kind: "offline",
-  diagnostic: "Checking the local Crewlight daemon.",
+  diagnostic: "Checking Crewlight.",
 };
 let latestNotice: DesktopNotice | undefined;
 let latestDoctorReport: DoctorReport = {
@@ -229,7 +229,7 @@ let serviceState: ManagedServiceState = serviceManager.snapshot();
 let latestCompanionViewModel: CompanionViewModel = deriveCompanionViewModel(
   {
     kind: "offline",
-    diagnostic: "Checking the local Crewlight daemon.",
+    diagnostic: "Checking Crewlight.",
   },
   Date.now(),
   {
@@ -287,8 +287,8 @@ async function refreshIntegrationInspections(): Promise<void> {
     setNotice(
       "error",
       localizeMain(
-        "Crewlight ignored an unsafe integration path. The app can still run, but automatic configuration is disabled until CODEX_HOME is an absolute path.",
-        "Crewlight 已忽略不安全的接入路径。应用仍可运行，但在 CODEX_HOME 改为绝对路径前，自动配置将保持禁用。",
+        "Codex one-click setup is unavailable. Crewlight can still show live status.",
+        "Codex 一键配置暂不可用，但 Crewlight 仍可显示实时状态。",
       ),
     );
   }
@@ -435,7 +435,10 @@ function createLocalCodexJsonlMonitor(): CodexJsonlMonitor | undefined {
   } catch {
     setNotice(
       "error",
-      "Codex live monitoring is disabled because CODEX_HOME is not an absolute path. / Codex 实时监控已禁用：CODEX_HOME 必须是绝对路径。",
+      localizeMain(
+        "Codex live status is unavailable. Check the Crewlight folder and try again.",
+        "Codex 实时状态暂不可用，请检查 Crewlight 路径后重试。",
+      ),
     );
     return undefined;
   }
@@ -610,7 +613,10 @@ function startPolling(): void {
 async function openDashboard(): Promise<void> {
   const endpoint = currentEndpoint();
   if (!isAllowedDashboardUrl(endpoint.dashboardUrl, endpoint)) {
-    setNotice("error", "Crewlight Desktop refused an unsafe dashboard URL.");
+    setNotice(
+      "error",
+      localizeMain("Couldn't open the detailed view.", "无法打开详细视图。"),
+    );
     return;
   }
 
@@ -619,7 +625,7 @@ async function openDashboard(): Promise<void> {
   } catch {
     setNotice(
       "error",
-      "Crewlight Desktop could not open the browser dashboard.",
+      localizeMain("Couldn't open the detailed view.", "无法打开详细视图。"),
     );
   }
 }
@@ -694,8 +700,8 @@ function buildTrayMenu(): Menu {
   return Menu.buildFromTemplate([
     {
       label: mainWindow?.isVisible()
-        ? "Hide Crewlight Desktop"
-        : "Show Crewlight Desktop",
+        ? localizeMain("Hide Crewlight Desktop", "隐藏 Crewlight 桌面版")
+        : localizeMain("Show Crewlight Desktop", "显示 Crewlight 桌面版"),
       click: () => {
         if (mainWindow?.isVisible()) {
           mainWindow.hide();
@@ -705,7 +711,9 @@ function buildTrayMenu(): Menu {
       },
     },
     {
-      label: companionWindow?.isVisible() ? "Hide Companion" : "Show Companion",
+      label: companionWindow?.isVisible()
+        ? localizeMain("Hide companion", "隐藏悬浮伴侣")
+        : localizeMain("Show companion", "显示悬浮伴侣"),
       click: () => {
         if (companionWindow?.isVisible()) {
           void hideCompanion();
@@ -716,7 +724,7 @@ function buildTrayMenu(): Menu {
     },
     { type: "separator" },
     {
-      label: "Start Local Service",
+      label: localizeMain("Start Crewlight", "启动 Crewlight"),
       enabled: !isExternalServiceConnection(
         serviceState,
         isSnapshotOnline(latestSnapshot),
@@ -726,7 +734,7 @@ function buildTrayMenu(): Menu {
       },
     },
     {
-      label: "Stop Local Service",
+      label: localizeMain("Stop Crewlight", "停止 Crewlight"),
       enabled: canStopManagedService(serviceState),
       click: () => {
         void stopLocalService();
@@ -734,14 +742,14 @@ function buildTrayMenu(): Menu {
     },
     { type: "separator" },
     {
-      label: "Open Dashboard",
+      label: localizeMain("Open detailed view", "打开详细视图"),
       click: () => {
         void openDashboard();
       },
     },
     { type: "separator" },
     {
-      label: "Quit",
+      label: localizeMain("Quit", "退出"),
       click: () => {
         quitting = true;
         app.quit();
@@ -900,7 +908,7 @@ async function startLocalService(): Promise<boolean> {
   ) {
     setNotice(
       "info",
-      "An externally started daemon is already connected and was left running.",
+      localizeMain("Crewlight is already running.", "Crewlight 已在运行。"),
     );
     return false;
   }
@@ -912,14 +920,17 @@ async function startLocalService(): Promise<boolean> {
   if (started) {
     setNotice(
       "success",
-      "Starting the local Crewlight service with the dashboard API enabled.",
+      localizeMain("Starting Crewlight…", "正在启动 Crewlight…"),
     );
     void codexJsonlMonitor?.replayLatest();
     void refreshDoctorReport(true);
   } else {
     setNotice(
       "error",
-      "Crewlight Desktop could not start the local service. Check the Doctor section.",
+      localizeMain(
+        "Crewlight couldn't start. Open Troubleshooting for help.",
+        "Crewlight 启动失败，请打开“故障排查”查看。",
+      ),
     );
   }
   return started;
@@ -931,8 +942,11 @@ async function stopLocalService(): Promise<boolean> {
     setNotice(
       "info",
       latestSnapshot.kind === "online"
-        ? "The connected daemon was started outside Crewlight Desktop and was left running. Stop it from the terminal that owns it."
-        : "No Crewlight Desktop-managed local service is running.",
+        ? localizeMain(
+            "Crewlight was started elsewhere and is still running.",
+            "Crewlight 由其他位置启动，仍在运行。",
+          )
+        : localizeMain("Crewlight is already stopped.", "Crewlight 已停止。"),
     );
     return false;
   }
@@ -944,16 +958,18 @@ async function stopLocalService(): Promise<boolean> {
     };
     latestSnapshot = {
       kind: "offline",
-      diagnostic:
-        "Run crewlight daemon --dashboard. Crewlight Desktop will retry.",
+      diagnostic: "Crewlight is stopped.",
     };
-    setNotice("info", "Stopped the managed local Crewlight service.");
+    setNotice("info", localizeMain("Crewlight stopped.", "Crewlight 已停止。"));
     refreshViewModels();
     void refreshDoctorReport(true);
   } else {
     setNotice(
       "error",
-      "Crewlight Desktop could not stop the managed local service cleanly.",
+      localizeMain(
+        "Crewlight couldn't stop. Try again.",
+        "Crewlight 停止失败，请重试。",
+      ),
     );
   }
   return stopped;
@@ -966,7 +982,10 @@ async function restartLocalService(): Promise<boolean> {
   ) {
     setNotice(
       "info",
-      "The connected daemon was started outside Crewlight Desktop and cannot be restarted here.",
+      localizeMain(
+        "Crewlight was started elsewhere and can't be restarted here.",
+        "Crewlight 由其他位置启动，无法在这里重启。",
+      ),
     );
     return false;
   }
@@ -976,12 +995,18 @@ async function restartLocalService(): Promise<boolean> {
   };
   const restarted = await serviceManager.restart(desiredRuntimeSettings);
   if (restarted) {
-    setNotice("success", "Restarting the local Crewlight service.");
+    setNotice(
+      "success",
+      localizeMain("Restarting Crewlight…", "正在重启 Crewlight…"),
+    );
     void refreshDoctorReport(true);
   } else {
     setNotice(
       "error",
-      "Crewlight Desktop could not restart the local service.",
+      localizeMain(
+        "Crewlight couldn't restart. Try again.",
+        "Crewlight 重启失败，请重试。",
+      ),
     );
   }
   return restarted;
@@ -995,7 +1020,10 @@ async function runDemo(): Promise<boolean> {
   } catch {
     setNotice(
       "error",
-      "The local daemon is unavailable. Start the service, then rerun the demo.",
+      localizeMain(
+        "Start Crewlight, then run the demo again.",
+        "请先启动 Crewlight，再运行演示。",
+      ),
     );
     return false;
   }
@@ -1008,14 +1036,17 @@ async function runDemo(): Promise<boolean> {
   } catch {
     setNotice(
       "error",
-      "The demo could not publish every synthetic event. Check the local daemon and rerun it.",
+      localizeMain("Demo failed. Try again.", "演示失败，请重试。"),
     );
     return false;
   }
 
   setNotice(
     "success",
-    `Loaded ${events.length} deterministic synthetic sessions into the local daemon.`,
+    localizeMain(
+      `Loaded ${events.length} sample tasks.`,
+      `已载入 ${events.length} 个示例任务。`,
+    ),
   );
   void pollDashboardOnce();
   return true;
@@ -1039,8 +1070,8 @@ async function configureIntegration(
     setNotice(
       "error",
       localizeMain(
-        "Crewlight could not check the standard user configuration path. No files were changed.",
-        "Crewlight 无法检查标准用户配置路径，未修改任何文件。",
+        "Crewlight couldn't check this agent's setup. Nothing changed.",
+        "Crewlight 无法检查这个代理的配置，未做任何改动。",
       ),
     );
     return false;
@@ -1063,8 +1094,8 @@ async function configureIntegration(
         : "";
     const message = partiallyInstalled
       ? `${localizeMain(
-          "Only part of the configuration was installed. Crewlight stopped without overwriting the remaining file; use the created backup if you need to restore it.",
-          "只有部分配置写入成功。Crewlight 已停止操作，没有覆盖剩余文件；如需恢复，请使用已创建的备份。",
+          "Setup was only partly completed. Crewlight stopped before replacing anything else; use the backup to restore if needed.",
+          "接入只完成了一部分。Crewlight 已停止后续改动；如需恢复，请使用备份。",
         )}${backupDetails}`
       : result.status === "unavailable"
         ? localizeMain(
@@ -1073,12 +1104,12 @@ async function configureIntegration(
           )
         : result.status === "refused"
           ? localizeMain(
-              "Existing settings need review, so Crewlight left them unchanged. Use Copy manual setup if you need to combine them.",
-              "发现需要人工确认的已有配置，因此 Crewlight 没有改动它。需要合并时可使用“复制手动配置”。",
+              "Existing settings need review, so Crewlight left them unchanged. Use Copy setup text if you need to combine them.",
+              "发现需要人工确认的已有配置，因此 Crewlight 没有改动它。需要合并时可使用“复制配置内容”。",
             )
           : localizeMain(
-              "Crewlight could not finish the configuration. Existing files were left intact or backed up.",
-              "Crewlight 未能完成配置；已有文件保持不变，或已创建备份。",
+              "Crewlight couldn't finish setup. Existing files were kept or backed up.",
+              "Crewlight 未能完成接入；原文件已保留或备份。",
             );
     setNotice("error", message);
     return false;
@@ -1089,12 +1120,12 @@ async function configureIntegration(
     "success",
     integration === "codex"
       ? localizeMain(
-          "Codex is configured. Restart Codex; if it asks for trust, approve only when the displayed command points to Crewlight.",
-          "Codex 接入已配置。请重启 Codex；如果它弹出安全确认，请仅在显示的命令指向 Crewlight 时允许。",
+          "Codex is connected. Live status works now; restart Codex once to add permission reminders.",
+          "Codex 已接入，实时状态现在就能显示；重启一次 Codex 后还可获得授权提醒。",
         )
       : localizeMain(
-          "Claude Code is configured. Restart Claude Code to load the connection. Existing settings were backed up when needed.",
-          "Claude Code 接入已配置。请重启 Claude Code 以加载接入；需要时已自动备份原配置。",
+          "Claude Code is connected. Restart it once to begin showing live status.",
+          "Claude Code 已接入，请重启一次以开始显示实时状态。",
         ),
   );
   return true;
@@ -1111,7 +1142,10 @@ async function applyServiceSettingUpdate(
   if (serviceState.phase === "running" || latestSnapshot.kind === "online") {
     setNotice(
       "info",
-      "Updated the session setting. Restart the local service to apply the new host, port, or notifier.",
+      localizeMain(
+        "Setting updated. Restart Crewlight to apply it.",
+        "设置已更新，重启 Crewlight 后生效。",
+      ),
     );
   } else {
     connectionSettings = {
@@ -1183,19 +1217,25 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
         latestDoctorReport,
       ),
     );
-    setNotice("success", "Copied the current diagnostic summary.");
+    setNotice(
+      "success",
+      localizeMain("Diagnostics copied.", "诊断信息已复制。"),
+    );
     return true;
   }
   if (action.type === "copy:text") {
     if (action.text.length > COPY_TEXT_LIMIT) {
       setNotice(
         "error",
-        "Crewlight Desktop refused to copy an oversized text payload.",
+        localizeMain("This text is too large to copy.", "内容过长，无法复制。"),
       );
       return false;
     }
     clipboard.writeText(action.text);
-    setNotice("success", "Copied the requested setup text.");
+    setNotice(
+      "success",
+      localizeMain("Setup text copied.", "配置内容已复制。"),
+    );
     return true;
   }
   if (action.type === "preferences:set-theme") {
@@ -1252,10 +1292,7 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
     };
     await savePreferences();
     await hideCompanion(false);
-    setNotice(
-      "info",
-      "Reset desktop UI preferences to their first-run defaults.",
-    );
+    setNotice("info", localizeMain("Preferences reset.", "偏好设置已重置。"));
     publishDesktopState();
     return true;
   }
@@ -1318,9 +1355,17 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
           }
           host.tunnelState = state.kind;
           if (state.kind === "error") {
-            host.tunnelMessage = state.message;
+            host.tunnelMessage = localizeMain(
+              "Couldn't connect. Check the host and try again.",
+              "连接失败，请检查主机后重试。",
+            );
           } else if (state.kind === "disconnected") {
-            host.tunnelMessage = state.reason;
+            host.tunnelMessage = state.reason
+              ? localizeMain(
+                  "Connection closed. Try again when you're ready.",
+                  "连接已断开，可以随时重试。",
+                )
+              : undefined;
           } else {
             host.tunnelMessage = undefined;
           }
@@ -1341,7 +1386,7 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
       activeTunnels.set(action.alias, tunnel);
       remoteConnectionAttempts.finish(action.alias, connectionAttempt);
       return true;
-    } catch (error) {
+    } catch {
       const isCurrentAttempt = remoteConnectionAttempts.finish(
         action.alias,
         connectionAttempt,
@@ -1356,10 +1401,10 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
         return false;
       }
       host.tunnelState = "error";
-      host.tunnelMessage =
-        error instanceof Error
-          ? `Remote connection setup failed: ${error.message}`
-          : "Remote connection setup failed.";
+      host.tunnelMessage = localizeMain(
+        "Couldn't connect. Check the host and try again.",
+        "连接失败，请检查主机后重试。",
+      );
       publishDesktopState();
       return false;
     }
@@ -1427,7 +1472,10 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
 
   if (action.type === "service:set-host") {
     if (action.host !== "127.0.0.1" && action.host !== "::1") {
-      setNotice("error", "Crewlight Desktop accepts loopback hosts only.");
+      setNotice(
+        "error",
+        localizeMain("Only this computer is supported.", "仅支持本机地址。"),
+      );
       return false;
     }
     return await applyServiceSettingUpdate({ host: action.host });
@@ -1438,7 +1486,13 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
       action.port < 1 ||
       action.port > 65_535
     ) {
-      setNotice("error", "Enter a valid local port from 1 through 65535.");
+      setNotice(
+        "error",
+        localizeMain(
+          "Enter a connection port from 1 to 65535.",
+          "请输入 1 到 65535 之间的连接端口。",
+        ),
+      );
       return false;
     }
     return await applyServiceSettingUpdate({ port: action.port });
@@ -1484,12 +1538,15 @@ function registerIpc(): void {
     clipboard.writeText(
       `${cliContext.displayCommand} daemon --dashboard --host ${desiredRuntimeSettings.host} --port ${desiredRuntimeSettings.port} --notifier ${desiredRuntimeSettings.notifier}`,
     );
-    setNotice("success", "Copied the local daemon command.");
+    setNotice(
+      "success",
+      localizeMain("Start command copied.", "启动命令已复制。"),
+    );
     return true;
   });
-  ipcMain.on("companion:open-dashboard", (event) => {
+  ipcMain.on("companion:open-main-window", (event) => {
     if (trustedSender(event, companionWindow, companionPageUrl)) {
-      void openDashboard();
+      showMainWindow();
     }
   });
   ipcMain.on("companion:quit", (event) => {

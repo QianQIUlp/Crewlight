@@ -406,25 +406,45 @@ describe("daemon HTTP server", () => {
     expect(pageBody).toContain('id="focus-root"');
     expect(pageBody).toContain('id="compact-session-list"');
     expect(pageBody).toContain('id="action-needed"');
+    expect(pageBody).toContain('id="locale-en"');
+    expect(pageBody).toContain('id="locale-zh"');
+    expect(pageBody).toContain('data-i18n="header.eyebrow"');
+    expect(pageBody).toContain('data-i18n-aria-label="language.label"');
     expect(pageBody).toContain('id="setup-opencode"');
     expect(pageBody).toContain('id="setup-cursor"');
     expect(pageBody).toContain('id="verify-cursor"');
     expect(pageBody).toContain('id="conn-cursor"');
-    expect(pageBody).toContain("Manual / experimental");
+    expect(pageBody).toContain("Cursor currently uses manual status updates");
     expect(pageBody).toContain('id="setup-antigravity-probe"');
-    expect(pageBody).toContain("Research-only");
-    expect(pageBody).toMatch(/not a\s+supported Crewlight integration/u);
+    expect(pageBody).toContain("Advanced manual example");
+    expect(pageBody).toMatch(/not a supported one-click\s+connection/u);
     expect(stylesheet.status).toBe(200);
     expect(stylesheet.headers.get("cache-control")).toBe("no-store");
     expect(stylesheetBody).toContain(".compact-session-row");
     expect(stylesheetBody).toContain('.view-nav a[aria-current="page"]');
+    expect(stylesheetBody).toContain(
+      '.language-switch button[aria-pressed="true"]',
+    );
     expect(script.status).toBe(200);
     expect(script.headers.get("cache-control")).toBe("no-store");
+    expect(() => new Function(scriptBody)).not.toThrow();
     expect(scriptBody).toContain(
       "const params = new URLSearchParams(window.location.search)",
     );
     expect(scriptBody).toContain('const focusKey = params.get("focus")');
     expect(scriptBody).toContain('const view = params.get("view")');
+    expect(scriptBody).toContain(
+      'const LOCALE_STORAGE_KEY = "crewlight.dashboard.locale"',
+    );
+    expect(scriptBody).toContain(
+      '(navigator.language || "en").toLowerCase().startsWith("zh")',
+    );
+    expect(scriptBody).toContain(
+      "window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)",
+    );
+    expect(scriptBody).toContain('"nav.overview": "总览"');
+    expect(scriptBody).toContain('"status.waitingPermission": "等待授权"');
+    expect(scriptBody).toContain('"activity.permissionRequested": "需要授权"');
     expect(scriptBody).toContain("function createCompactSessionRow(session)");
     expect(scriptBody).toContain("function compactRank(session)");
     expect(scriptBody).toContain('else if (view === "compact")');
@@ -433,28 +453,37 @@ describe("daemon HTTP server", () => {
     );
     expect(scriptBody).toContain('"&view=compact"');
     expect(scriptBody).toContain('returnToCompact ? "compact" : "overview"');
-    expect(scriptBody).toContain('stale.textContent = "Possibly stale"');
+    expect(scriptBody).toContain('stale.textContent = t("attention.check")');
     expect(scriptBody).toContain("document.createElement");
     expect(scriptBody).toContain(".textContent");
     expect(scriptBody).toContain(
-      "workspace.textContent = session.identityLine",
+      "workspace.textContent = workspaceLabel(session.identityLine)",
     );
     expect(scriptBody).toContain("title.textContent = session.taskTitle");
     expect(scriptBody).toContain(
-      'session.displayName + " · " + session.taskTitle',
+      'displayName(session) + " · " + session.taskTitle',
     );
     expect(scriptBody).toContain(
-      'activity.textContent = session.activityLabel || "Current activity unavailable"',
+      "activity.textContent = activityLabel(session.activityLabel)",
     );
     expect(scriptBody).not.toContain("session.error || session.lastMessage");
     expect(scriptBody).not.toContain("session.lastMessage || session.error");
     expect(scriptBody).toContain(
       '"/dashboard?focus=" + encodeURIComponent(session.sessionKey)',
     );
-    expect(scriptBody).toContain('"Last seen"');
-    expect(scriptBody).toContain("Possibly stale · no event for ");
+    expect(scriptBody).toContain('"session.lastSeen": "Last seen"');
+    expect(scriptBody).toContain(
+      '"session.stuck": "Possibly stuck · no update for {duration}"',
+    );
     expect(scriptBody).toContain("stale.textContent");
     expect(scriptBody).not.toContain(".innerHTML");
+    expect(scriptBody).toContain("details.append(summary, technicalMessage)");
+    expect(scriptBody).toContain(
+      "technicalMessage.textContent = check.message",
+    );
+    expect(scriptBody).toContain(
+      'session.source === "generic-cli" || session.source === "custom"',
+    );
     expect(scriptBody).toContain('setText("setup-cursor", data.setup.cursor)');
     expect(scriptBody).toContain('setText("conn-cursor", getAge("cursor"))');
     expect(scriptBody).toContain(
@@ -615,16 +644,12 @@ describe("daemon HTTP server", () => {
     expect(completedSession?.shortSessionKey).toBe(
       String(completedSession?.sessionKey).slice(-8),
     );
-    expect(completedSession?.identityLine).toBe(
-      `safe-project · Manual · #${String(completedSession?.shortSessionKey)}`,
-    );
+    expect(completedSession?.identityLine).toBe("safe-project");
     expect(completedSession?.lastEventAgeMs).toEqual(expect.any(Number));
     expect(completedSession).not.toHaveProperty("staleReason");
     expect(staleSession).toMatchObject({
       displayWorkspace: "Stale workspace",
-      identityLine: `Stale workspace · Cloud · #${String(
-        staleSession?.shortSessionKey,
-      )}`,
+      identityLine: "Stale workspace",
       isStale: true,
       staleReason: "No event for at least 2 minutes.",
     });

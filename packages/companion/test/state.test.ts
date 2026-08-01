@@ -215,6 +215,7 @@ describe("companion state derivation", () => {
         session("using_tool", {
           displayName: "Stale",
           isStale: true,
+          lastEventAgeMs: 5 * 60 * 1000,
           staleReason: "No event for at least 5 minutes.",
           lastEventAt: 1_000,
         }),
@@ -223,7 +224,7 @@ describe("companion state derivation", () => {
 
     expect(view.state).toBe("stale");
     expect(view.mostImportant?.source).toBe("Stale");
-    expect(view.diagnostic).toBe("No event for at least 5 minutes.");
+    expect(view.diagnostic).toBe("Stale last updated 5m ago and may be stuck");
   });
 
   it("identifies the highest-priority failure by agent", () => {
@@ -244,26 +245,41 @@ describe("companion state derivation", () => {
     expect(view.summary).toBe("Codex failed");
   });
 
-  it("separates daemon and API failure states", () => {
-    expect(
-      deriveCompanionViewModel({
-        kind: "offline",
-        diagnostic: "network",
-      }),
-    ).toMatchObject({
-      state: "offline",
-      summary: "Daemon offline",
-      diagnostic: "network",
+  it("keeps service failure details internal and presents friendly recovery copy", () => {
+    const offline = deriveCompanionViewModel({
+      kind: "offline",
+      diagnostic: "network connection refused",
     });
-    expect(
-      deriveCompanionViewModel({
-        kind: "api-unavailable",
-        diagnostic: "Start the daemon with --dashboard.",
-      }),
-    ).toMatchObject({
+    expect(offline).toMatchObject({
+      state: "offline",
+      summary: "Service unavailable",
+      diagnostic: "Start Crewlight to reconnect.",
+    });
+    expect(JSON.stringify(offline)).not.toContain("connection refused");
+
+    const unavailable = deriveCompanionViewModel({
+      kind: "api-unavailable",
+      diagnostic: "Dashboard API returned invalid JSON over HTTP 503.",
+    });
+    expect(unavailable).toMatchObject({
       state: "api-unavailable",
-      summary: "Companion API unavailable",
-      diagnostic: "Start the daemon with --dashboard.",
+      summary: "Service unavailable",
+      diagnostic: "Start Crewlight to reconnect.",
+    });
+    expect(`${unavailable.summary} ${unavailable.diagnostic}`).not.toMatch(
+      /API|HTTP|JSON|dashboard/iu,
+    );
+
+    expect(
+      deriveCompanionViewModel(
+        { kind: "offline", diagnostic: "network" },
+        5_000,
+        { expanded: false, alwaysOnTop: true },
+        { locale: "zh-CN" },
+      ),
+    ).toMatchObject({
+      summary: "服务暂不可用",
+      diagnostic: "启动 Crewlight 后会自动重新连接。",
     });
   });
 
@@ -346,7 +362,7 @@ describe("companion state derivation", () => {
     ).toEqual(["failed", "using_tool"]);
   });
 
-  it("presents Cursor as a first-class IDE session", () => {
+  it("presents Cursor without exposing the backend surface label", () => {
     const view = deriveCompanionViewModel(
       online([
         session("waiting_input", {
@@ -368,7 +384,6 @@ describe("companion state derivation", () => {
       summary: "Needs you",
       mostImportant: {
         source: "Cursor",
-        surface: "IDE extension",
         title: "Cursor needs review",
         workspace: "Crewlight",
         statusLabel: "Waiting for input",
@@ -376,6 +391,7 @@ describe("companion state derivation", () => {
         tone: "action",
       },
     });
+    expect(view.mostImportant).not.toHaveProperty("surface");
     expect(filterSessionViews(view.sessions, "attention")).toHaveLength(1);
   });
 
@@ -383,6 +399,7 @@ describe("companion state derivation", () => {
     const view = deriveCompanionViewModel(
       online([
         session("waiting_permission", {
+          activityLabel: "Permission requested",
           displayName: "Codex",
           surface: "ide-extension",
           taskTitle: "更新说明文档",
@@ -401,16 +418,38 @@ describe("companion state derivation", () => {
       summary: "需要你处理",
       diagnostic: "Codex 需要授权",
       mostImportant: {
-        surface: "IDE 扩展",
+        activity: "需要授权",
         statusLabel: "需要授权",
         lastEventLabel: "2 分钟前",
         diagnosticHint: "需要你的授权",
       },
     });
+    expect(view.mostImportant).not.toHaveProperty("surface");
     expect(formatCompanionAge(2_000, "zh-CN")).toBe("刚刚");
     expect(formatCompanionDuration(168_000, "zh-CN")).toBe("2分 48秒");
-    expect(getCompanionCopy("zh-CN").sessions(6)).toBe("6 个会话");
+    expect(getCompanionCopy("zh-CN").sessions(6)).toBe("6 个任务");
     expect(getCompanionCopy("zh-CN").needsAttentionFilter).toBe("需要处理");
+    expect(getCompanionCopy("zh-CN").openCrewlight).toBe("打开 Crewlight");
+  });
+
+  it("localizes generic source names instead of exposing CLI labels", () => {
+    const view = deriveCompanionViewModel(
+      online([
+        session("running", {
+          activityLabel: "Command running",
+          displayName: "Generic CLI",
+          source: "generic-cli",
+        }),
+      ]),
+      5_000,
+      undefined,
+      { locale: "zh-CN" },
+    );
+
+    expect(view.sessions[0]).toMatchObject({
+      activity: "命令运行中",
+      source: "其他工具",
+    });
   });
 
   it("does not expose the daemon's English stale reason in Chinese", () => {
@@ -428,9 +467,9 @@ describe("companion state derivation", () => {
       { locale: "zh-CN" },
     );
 
-    expect(view.diagnostic).toBe("Codex 最近一次事件在 5 分钟前，可能已停滞");
+    expect(view.diagnostic).toBe("Codex 最近一次更新在 5 分钟前，可能已停滞");
     expect(view.sessions[0]?.diagnosticHint).toBe(
-      "最近一次事件在 5 分钟前，会话可能已停滞",
+      "最近一次更新在 5 分钟前，任务可能已停滞",
     );
   });
 });

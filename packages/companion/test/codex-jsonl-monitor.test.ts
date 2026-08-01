@@ -137,7 +137,6 @@ describe("Codex JSONL monitor", () => {
         sessionId: SESSION_ID,
         projectPath: root,
         status: "using_tool",
-        title: "Codex is using a tool",
         timestamp: now - 1_000,
       }),
     ]);
@@ -153,6 +152,7 @@ describe("Codex JSONL monitor", () => {
     expect(events[0]).not.toHaveProperty("rawEvent");
     expect(events[0]).not.toHaveProperty("message");
     expect(events[0]).not.toHaveProperty("taskTitle");
+    expect(events[0]).not.toHaveProperty("title");
   });
 
   it("does not replay terminal history as a fresh completion on startup", async () => {
