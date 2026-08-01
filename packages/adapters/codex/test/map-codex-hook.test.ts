@@ -4,6 +4,7 @@ import {
   CODEX_HOOK_TOOL_NAME_LIMIT,
   ingestCodexHookJson,
   mapCodexHook,
+  stableCodexTurnEventId,
 } from "../src/index.js";
 
 describe("Codex hook adapter", () => {
@@ -150,6 +151,24 @@ describe("Codex hook adapter", () => {
       expect(result.event).not.toHaveProperty("taskTitle");
       expect(result.event).not.toHaveProperty("prompt");
     }
+  });
+
+  it("uses Codex turn identity to deduplicate Stop across ingestion paths", () => {
+    const sessionId = "019fbc6d-2aa2-7f21-94cd-7774f0ea9351";
+    const turnId = "019fbc71-7637-7930-8908-a7f90f2749b7";
+    const result = mapCodexHook({
+      session_id: sessionId,
+      turn_id: turnId,
+      hook_event_name: "Stop",
+    });
+
+    expect(result).toMatchObject({
+      kind: "event",
+      event: {
+        id: stableCodexTurnEventId(sessionId, turnId),
+        status: "completed",
+      },
+    });
   });
 
   it.each(["", "{", JSON.stringify({ session_id: 42 })])(

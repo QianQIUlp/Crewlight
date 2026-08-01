@@ -9,6 +9,11 @@ export {
 export { ingestCodexHookJson } from "./ingest-codex-hook.js";
 export { ingestCodexNotifyJson } from "./ingest-codex-notify.js";
 export {
+  mapCodexJsonlLine,
+  type CodexJsonlLineOptions,
+  type CodexJsonlLineResult,
+} from "./map-codex-jsonl.js";
+export {
   CODEX_HOOK_EVENT_NAMES,
   CODEX_HOOK_TOOL_NAME_LIMIT,
   isCodexHookEventName,
@@ -19,6 +24,7 @@ export {
 export {
   CODEX_MESSAGE_LIMIT,
   mapCodexNotification,
+  stableCodexTurnEventId,
   truncateCodexMessage,
   type CodexAdapterResult,
 } from "./map-codex-notification.js";

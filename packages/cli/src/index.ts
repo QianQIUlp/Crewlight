@@ -5,6 +5,13 @@ import { fileURLToPath } from "node:url";
 
 import { main } from "./app.js";
 
+export {
+  mapCodexJsonlLine,
+  stableCodexTurnEventId,
+  type CodexJsonlLineOptions,
+  type CodexJsonlLineResult,
+} from "@crewlight/adapter-codex";
+
 export function isMainModule(
   moduleUrl: string,
   entryPath: string | undefined,

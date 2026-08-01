@@ -596,8 +596,8 @@ function integrationCards(
     {
       boundary: pick(
         locale,
-        "Crewlight observes status only. It never approves permissions or controls Codex for you.",
-        "Crewlight 只观察状态，不会替你批准权限，也不会控制 Codex。",
+        "Crewlight automatically reads only status metadata from Codex's local session log. It never reads prompts into the dashboard, approves permissions, or controls Codex.",
+        "Crewlight 会自动从 Codex 本地会话日志中仅读取状态元数据，不会把提示词读入面板、替你批准权限或控制 Codex。",
       ),
       configureDisabled: configureDisabled(codexStatus),
       configureLabel: configureLabel(codexStatus),
@@ -611,8 +611,8 @@ function integrationCards(
         : pick(locale, "Ready", "可以接入"),
       observes: pick(
         locale,
-        "Shows when Codex is working, using tools, waiting for permission, or finished.",
-        "显示 Codex 何时工作、使用工具、等待授权或完成。",
+        "Live status works without restarting Codex. One-click setup adds precise permission events.",
+        "无需重启 Codex 即可看到实时状态；一键配置后还能获得准确的权限等待事件。",
       ),
       setupCommand: setup.codexHooks,
       setupStatus: observedSources.has("codex")

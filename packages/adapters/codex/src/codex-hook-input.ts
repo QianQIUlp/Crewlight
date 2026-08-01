@@ -6,6 +6,7 @@ export const codexHookInputSchema = z.object({
   prompt: z.string().min(1).optional().catch(undefined),
   session_id: z.string().min(1).optional().catch(undefined),
   tool_name: z.string().min(1).optional().catch(undefined),
+  turn_id: z.string().min(1).optional().catch(undefined),
 });
 
 export type CodexHookInput = z.infer<typeof codexHookInputSchema>;

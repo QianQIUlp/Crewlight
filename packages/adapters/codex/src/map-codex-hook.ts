@@ -6,7 +6,10 @@ import {
 } from "@crewlight/core";
 
 import { codexHookInputSchema } from "./codex-hook-input.js";
-import type { CodexAdapterResult } from "./map-codex-notification.js";
+import {
+  stableCodexTurnEventId,
+  type CodexAdapterResult,
+} from "./map-codex-notification.js";
 
 export const CODEX_HOOK_EVENT_NAMES = [
   "SessionStart",
@@ -77,6 +80,9 @@ export function mapCodexHook(
       ? formatPromptPreviewTaskTitle(payload.prompt)
       : undefined;
   const event: AgentEventInput = {
+    ...(hookEventName === "Stop" && payload.session_id && payload.turn_id
+      ? { id: stableCodexTurnEventId(payload.session_id, payload.turn_id) }
+      : {}),
     source: "codex",
     surface,
     status,

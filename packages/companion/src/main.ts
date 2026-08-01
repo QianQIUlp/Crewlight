@@ -28,7 +28,7 @@ import {
   type DoctorRuntime,
   type SetupSnippets,
 } from "@crewlight/cli";
-import { formatDaemonUrl } from "@crewlight/daemon";
+import { formatDaemonUrl, isLoopbackHost } from "@crewlight/daemon";
 import {
   isNotifierKind,
   probeOsNotifier,
@@ -38,6 +38,11 @@ import {
 import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
 
 import type { DesktopAction } from "./desktop-bridge.js";
+import {
+  createCodexJsonlMonitor,
+  resolveCodexSessionsDirectory,
+  type CodexJsonlMonitor,
+} from "./codex-jsonl-monitor.js";
 import {
   fetchDesktopSnapshot,
   type DesktopDashboardResult,
@@ -158,6 +163,7 @@ let doctorRefreshPromise: Promise<void> | undefined;
 let preferencesStore:
   | ReturnType<typeof createDesktopPreferencesStore>
   | undefined;
+let codexJsonlMonitor: CodexJsonlMonitor | undefined;
 
 let parsedSshConfigHosts: SshConfigHost[] = [];
 let remoteHostsState: DesktopRemoteHost[] = [];
@@ -253,11 +259,39 @@ function integrationInstallationStatuses(): DesktopViewModelInput["integrationIn
 
 async function refreshIntegrationInspections(): Promise<void> {
   const options = integrationInstallerOptions();
-  const [claudeCode, codex] = await Promise.all([
+  const [claudeCodeResult, codexResult] = await Promise.allSettled([
     inspectClaudeCodeIntegration(options),
     inspectCodexIntegration(options),
   ]);
+  const failedInspection = (
+    integration: InstallableIntegration,
+  ): IntegrationInspectionResult => ({
+    integration,
+    message: "Crewlight could not inspect this integration path safely.",
+    status: "error",
+    targets: [],
+  });
+  const claudeCode =
+    claudeCodeResult.status === "fulfilled"
+      ? claudeCodeResult.value
+      : failedInspection("claude-code");
+  const codex =
+    codexResult.status === "fulfilled"
+      ? codexResult.value
+      : failedInspection("codex");
   integrationInspections = { "claude-code": claudeCode, codex };
+  if (
+    claudeCodeResult.status === "rejected" ||
+    codexResult.status === "rejected"
+  ) {
+    setNotice(
+      "error",
+      localizeMain(
+        "Crewlight ignored an unsafe integration path. The app can still run, but automatic configuration is disabled until CODEX_HOME is an absolute path.",
+        "Crewlight 已忽略不安全的接入路径。应用仍可运行，但在 CODEX_HOME 改为绝对路径前，自动配置将保持禁用。",
+      ),
+    );
+  }
   refreshViewModels();
 }
 
@@ -381,6 +415,30 @@ function dashboardClient(
   return new DaemonClient({
     baseUrl: currentBaseUrl(host, port),
   });
+}
+
+function createLocalCodexJsonlMonitor(): CodexJsonlMonitor | undefined {
+  try {
+    const codexHome = process.env.CODEX_HOME?.trim();
+    return createCodexJsonlMonitor({
+      sessionsDirectory: resolveCodexSessionsDirectory({
+        homeDirectory: app.getPath("home"),
+        ...(codexHome ? { codexHome } : {}),
+      }),
+      publish: async (event) => {
+        if (!isLoopbackHost(connectionSettings.host)) {
+          return;
+        }
+        await dashboardClient().emit(event);
+      },
+    });
+  } catch {
+    setNotice(
+      "error",
+      "Codex live monitoring is disabled because CODEX_HOME is not an absolute path. / Codex 实时监控已禁用：CODEX_HOME 必须是绝对路径。",
+    );
+    return undefined;
+  }
 }
 
 function createDoctorRuntime(): DoctorRuntime {
@@ -530,8 +588,12 @@ async function pollDashboardOnce(): Promise<void> {
   }
   polling = true;
   try {
+    const wasOnline = isSnapshotOnline(latestSnapshot);
     latestSnapshot = await fetchDesktopSnapshot(currentEndpoint());
     refreshViewModels();
+    if (!wasOnline && isSnapshotOnline(latestSnapshot)) {
+      void codexJsonlMonitor?.replayLatest();
+    }
     void refreshDoctorReport(false);
   } finally {
     polling = false;
@@ -852,6 +914,7 @@ async function startLocalService(): Promise<boolean> {
       "success",
       "Starting the local Crewlight service with the dashboard API enabled.",
     );
+    void codexJsonlMonitor?.replayLatest();
     void refreshDoctorReport(true);
   } else {
     setNotice(
@@ -1486,6 +1549,8 @@ async function disposeApplicationResources(): Promise<void> {
     clearInterval(pollTimer);
     pollTimer = undefined;
   }
+  await codexJsonlMonitor?.stop();
+  codexJsonlMonitor = undefined;
   for (const alias of new Set([
     ...activeTunnels.keys(),
     ...activeProxies.keys(),
@@ -1567,6 +1632,8 @@ if (!ownsSingleInstance) {
     tray = undefined;
   }
   startPolling();
+  codexJsonlMonitor = createLocalCodexJsonlMonitor();
+  codexJsonlMonitor?.start();
   await refreshDoctorReport(true);
   void scanRemoteHosts();
 
