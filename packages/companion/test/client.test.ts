@@ -12,7 +12,7 @@ function validResponse(): Response {
   });
 }
 
-describe("companion dashboard client", () => {
+describe("companion service client", () => {
   it("returns sanitized online data for a valid response", async () => {
     await expect(
       fetchCompanionSnapshot(endpoint, {
@@ -24,7 +24,7 @@ describe("companion dashboard client", () => {
     });
   });
 
-  it("maps network failures to daemon offline", async () => {
+  it("maps network failures to an internal service diagnostic", async () => {
     const result = await fetchCompanionSnapshot(endpoint, {
       fetch: async () => {
         throw new TypeError("connection refused");
@@ -34,7 +34,7 @@ describe("companion dashboard client", () => {
     expect(result).toMatchObject({
       kind: "offline",
     });
-    expect(result.diagnostic).toContain("crewlight daemon --dashboard");
+    expect(result.diagnostic).toBe("Crewlight service request failed.");
   });
 
   it("aborts slow requests and reports the timeout", async () => {
@@ -52,7 +52,9 @@ describe("companion dashboard client", () => {
       kind: "offline",
     });
     expect(result.diagnostic).toContain("timed out after 5ms");
-    expect(result.diagnostic).toContain("will retry");
+    expect(result.diagnostic).toBe(
+      "Crewlight service request timed out after 5ms.",
+    );
   });
 
   it("times out when response body parsing never completes", async () => {
@@ -74,14 +76,14 @@ describe("companion dashboard client", () => {
     expect(result.diagnostic).not.toContain("partial-body-secret");
   });
 
-  it("provides a dashboard startup hint for HTTP 404", async () => {
+  it("classifies a missing service endpoint without exposing a command", async () => {
     await expect(
       fetchCompanionSnapshot(endpoint, {
         fetch: async () => new Response("Not found", { status: 404 }),
       }),
     ).resolves.toEqual({
       kind: "api-unavailable",
-      diagnostic: "Restart with: crewlight daemon --dashboard.",
+      diagnostic: "Crewlight service endpoint was not found.",
     });
   });
 
@@ -92,7 +94,7 @@ describe("companion dashboard client", () => {
       }),
     ).resolves.toEqual({
       kind: "api-unavailable",
-      diagnostic: "Dashboard API returned HTTP 503. Restart with --dashboard.",
+      diagnostic: "Crewlight service returned status 503.",
     });
 
     await expect(
@@ -104,8 +106,7 @@ describe("companion dashboard client", () => {
       }),
     ).resolves.toEqual({
       kind: "api-unavailable",
-      diagnostic:
-        "Dashboard API returned invalid JSON. Restart with --dashboard.",
+      diagnostic: "Crewlight service returned invalid JSON.",
     });
 
     await expect(
@@ -114,8 +115,7 @@ describe("companion dashboard client", () => {
       }),
     ).resolves.toEqual({
       kind: "api-unavailable",
-      diagnostic:
-        "Dashboard API response is unsupported. Restart with --dashboard.",
+      diagnostic: "Crewlight service response is unsupported.",
     });
   });
 

@@ -58,6 +58,11 @@ export async function executeRunCommand(
     },
   });
 
+  if (result.startFailure === "unsafe-windows-batch-argument") {
+    io.warn(
+      "[Crewlight] warning: Windows batch arguments containing shell metacharacters or line breaks are not run implicitly. Invoke cmd.exe explicitly when shell syntax is intentional.",
+    );
+  }
   if (result.exitCode !== null) {
     return result.exitCode;
   }

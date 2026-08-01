@@ -17,12 +17,15 @@ failure. Unsupported events are ignored.
 could overwrite a terminal session state. The setup snippet does not register
 that hook.
 
-When the daemon explicitly enables `--dashboard-task-titles prompt-preview`,
-Claude Code
+Prompt preview has two independent, local-only opt-ins: the daemon must enable
+`--dashboard-task-titles prompt-preview`, and the Claude Code or Codex hook
+process must receive `CREWLIGHT_PROMPT_PREVIEW=1`. The daemon host must remain
+the literal loopback address `127.0.0.1` or `::1`. Only then may Claude Code's
 [`UserPromptSubmit.prompt`](https://docs.anthropic.com/en/docs/claude-code/hooks)
-may be read in hook-process memory to produce a whitespace-normalized,
+be read in hook-process memory to produce a whitespace-normalized,
 60-code-point `taskTitle`. The complete prompt is never emitted or retained.
-Default behavior does not inspect prompt content.
+Default behavior does not inspect prompt content, and the setup command never
+modifies the user's environment.
 
 ## Precise integration: Codex hooks
 
@@ -40,9 +43,9 @@ mechanism.
 
 By default the adapter does not read prompts, transcript files or paths, tool
 input, tool response/output, assistant messages, or complete payloads. With
-explicit prompt-preview opt-in, only `UserPromptSubmit.prompt` is read in
-memory, and only the bounded derived `taskTitle` leaves the hook process. The
-event and field are documented in the official
+both prompt-preview opt-ins above and a loopback daemon, only
+`UserPromptSubmit.prompt` is read in memory, and only the bounded derived
+`taskTitle` leaves the hook process. The event and field are documented in the official
 [Codex hooks reference](https://developers.openai.com/codex/hooks).
 
 ## Narrow official integration: Codex notify

@@ -23,6 +23,20 @@ function normalizeRemoteProjectPath(projectPath: string): string {
   return posix.normalize(projectPath);
 }
 
+function normalizeProjectPathForIdentity(
+  projectPath: string,
+  remoteAlias?: string,
+): string {
+  const normalized = normalizeProjectPath(projectPath, remoteAlias);
+  const usesWindowsPathSemantics = remoteAlias
+    ? /^[A-Za-z]:[\\/]/u.test(projectPath) ||
+      projectPath.startsWith("\\\\") ||
+      projectPath.includes("\\")
+    : process.platform === "win32";
+
+  return usesWindowsPathSemantics ? normalized.toLowerCase() : normalized;
+}
+
 export function normalizeProjectPath(
   projectPath: string,
   remoteAlias?: string,
@@ -63,7 +77,10 @@ export function deriveSessionKey(identity: SessionIdentity): string {
         identity.remoteAlias,
         identity.source,
         identity.surface,
-        normalizeProjectPath(identity.projectPath, identity.remoteAlias),
+        normalizeProjectPathForIdentity(
+          identity.projectPath,
+          identity.remoteAlias,
+        ),
       ]);
       return `project:${digest(value)}`;
     }
@@ -72,7 +89,7 @@ export function deriveSessionKey(identity: SessionIdentity): string {
       "project",
       identity.source,
       identity.surface,
-      normalizeProjectPath(identity.projectPath),
+      normalizeProjectPathForIdentity(identity.projectPath),
     ].join("\0");
     return `project:${digest(value)}`;
   }

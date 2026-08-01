@@ -92,6 +92,25 @@ describe("CLI commands", () => {
     expect(capture.output[1]).toContain('"status": "completed"');
   });
 
+  it("accepts the privacy-preserving remote proxy acknowledgement", async () => {
+    const capture = captureIo();
+    const client: CrewlightClient = {
+      emit: async () => ({ accepted: true }),
+      sessions: async () => [],
+    };
+
+    const code = await executeEmitCommand(
+      ["--source", "custom", "--surface", "manual", "--status", "completed"],
+      client,
+      capture.io,
+    );
+
+    expect(code).toBe(0);
+    expect(capture.output).toEqual([
+      "Accepted custom/completed through the remote ingest proxy",
+    ]);
+  });
+
   it("runs successfully even when the daemon is unavailable", async () => {
     const capture = captureIo();
     const client: CrewlightClient = {

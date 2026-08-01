@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsc -b && node packages/companion/scripts/copy-assets.mjs",
     "build:desktop": "pnpm build",
-    "build:standalone": "pnpm build && node scripts/build-standalone.mjs",
+    "build:standalone": "node scripts/clean-build-output.mjs && pnpm build && node scripts/build-standalone.mjs",
     "clean": "tsc -b --clean",
     "companion:dev": "pnpm --filter @crewlight/companion dev",
     "desktop:dev": "pnpm --filter @crewlight/companion dev",
@@ -27,7 +27,7 @@
     "package:desktop:windows": "node scripts/package-desktop.mjs windows",
     "release:verify": "node scripts/verify-release.mjs",
     "smoke:standalone": "bash scripts/smoke-standalone.sh",
-    "smoke:standalone:windows": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-standalone.ps1",
+    "smoke:standalone:windows": "node scripts/run-windows-smoke.mjs",
     "test": "tsc -b --pretty false && vitest run --passWithNoTests",
     "test:run": "vitest run --passWithNoTests",
     "typecheck": "tsc -b --pretty false",

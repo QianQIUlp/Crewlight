@@ -106,7 +106,7 @@ describe("dashboard session derivation", () => {
     expect(getDisplayWorkspace(baseSession)).toBe("Unknown workspace");
   });
 
-  it("formats the complete dashboard identity line", () => {
+  it("keeps the dashboard identity line user-facing", () => {
     expect(
       getDashboardIdentityLine({
         ...baseSession,
@@ -114,7 +114,7 @@ describe("dashboard session derivation", () => {
         surface: "ide-extension",
         workspaceName: "Crewlight",
       }),
-    ).toBe("Crewlight · IDE extension · #34567890");
+    ).toBe("Crewlight");
   });
 
   it("serializes Cursor sessions for dashboard and companion presentation", () => {
@@ -135,7 +135,7 @@ describe("dashboard session derivation", () => {
       source: "cursor",
       displayName: "Cursor",
       displayWorkspace: "Crewlight",
-      identityLine: "Crewlight · IDE extension · #rewlight",
+      identityLine: "Crewlight",
       taskTitle: "Cursor needs review",
       activityLabel: "Input requested",
       attention: "action",
@@ -345,7 +345,7 @@ describe("dashboard session derivation", () => {
       shortSessionKey: ":session",
       displayName: "Codex",
       displayWorkspace: "safe-project",
-      identityLine: "safe-project · Manual · #:session",
+      identityLine: "safe-project",
       taskTitle: "Review dashboard output",
       activityLabel: "Permission requested",
       durationMs: 600_400,

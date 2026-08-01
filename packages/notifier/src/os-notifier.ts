@@ -2,6 +2,7 @@ import type { AgentEvent, AgentSession } from "@crewlight/core";
 
 import type { Notifier } from "./notifier.js";
 import { shouldNotify } from "./notification-policy.js";
+import { isUsableWindowsToasterAsset } from "./windows-notifier.js";
 
 export const OS_NOTIFICATION_TITLE_LIMIT = 80;
 export const OS_NOTIFICATION_MESSAGE_LIMIT = 200;
@@ -9,6 +10,8 @@ export const OS_NOTIFICATION_TIMEOUT_MS = 1_000;
 export const OS_NOTIFIER_PROBE_TIMEOUT_MS = 1_000;
 
 export const OS_NOTIFIER_WARNINGS = {
+  asset:
+    "Crewlight warning: the packaged Windows notification helper is missing or failed its integrity check. Desktop notifications are unavailable, but the daemon will continue ingesting events. Reinstall Crewlight or restart with `crewlight daemon --notifier console`.",
   callback:
     "Crewlight warning: the OS notifier reported a delivery failure. The event was ingested, but no desktop notification was confirmed. The daemon is still running. Fallback: restart with `crewlight daemon --notifier console`.",
   import:
@@ -33,19 +36,21 @@ export type OsNotificationSender = (
 ) => void;
 type OsNotificationSenderLoadResult =
   | { kind: "ready"; sender: OsNotificationSender }
-  | { kind: "unavailable"; reason: "import" | "shape" };
+  | { kind: "unavailable"; reason: "asset" | "import" | "shape" };
 export type OsNotifierModuleLoader = () => Promise<unknown>;
 export type OsNotifierWarningWriter = (warning: string) => void;
 
 export interface OsNotifierOptions {
+  assetVerifier?: (path: string) => Promise<boolean>;
   loader?: OsNotifierModuleLoader;
   timeoutMs?: number;
   warning?: OsNotifierWarningWriter;
+  windowsToasterPath?: string;
 }
 
 export type OsNotifierProbeResult =
   | { available: true }
-  | { available: false; reason: "import" | "shape" };
+  | { available: false; reason: "asset" | "import" | "shape" };
 
 function truncate(value: string, limit: number): string {
   if (value.length <= limit) {
@@ -61,11 +66,10 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function senderFromModule(module: unknown): OsNotificationSender | undefined {
-  const namespace = record(module);
-  const candidate = record(namespace?.default) ?? namespace;
+function senderFromCandidate(
+  candidate: Record<string, unknown> | undefined,
+): OsNotificationSender | undefined {
   const notify = candidate?.notify;
-
   if (typeof notify !== "function") {
     return undefined;
   }
@@ -75,10 +79,48 @@ function senderFromModule(module: unknown): OsNotificationSender | undefined {
   };
 }
 
+function senderFromModule(
+  module: unknown,
+  windowsToasterPath?: string,
+): OsNotificationSender | undefined {
+  const namespace = record(module);
+  const defaultCandidate = record(namespace?.default);
+
+  if (windowsToasterPath) {
+    const constructor =
+      defaultCandidate?.WindowsToaster ?? namespace?.WindowsToaster;
+    if (typeof constructor !== "function") {
+      return undefined;
+    }
+    const WindowsToaster = constructor as new (options: {
+      customPath: string;
+      withFallback: boolean;
+    }) => unknown;
+    return senderFromCandidate(
+      record(
+        new WindowsToaster({
+          customPath: windowsToasterPath,
+          withFallback: false,
+        }),
+      ),
+    );
+  }
+
+  return senderFromCandidate(defaultCandidate ?? namespace);
+}
+
 export async function probeOsNotifier(
   loader: OsNotifierModuleLoader = () => import("node-notifier"),
   timeoutMs = OS_NOTIFIER_PROBE_TIMEOUT_MS,
+  windowsToasterPath?: string,
+  assetVerifier: (
+    path: string,
+  ) => Promise<boolean> = isUsableWindowsToasterAsset,
 ): Promise<OsNotifierProbeResult> {
+  if (windowsToasterPath && !(await assetVerifier(windowsToasterPath))) {
+    return { available: false, reason: "asset" };
+  }
+
   const timedOut = Symbol("os-notifier-probe-timeout");
   let timeout: NodeJS.Timeout | undefined;
   let module: unknown | typeof timedOut;
@@ -103,7 +145,7 @@ export async function probeOsNotifier(
   }
 
   try {
-    return senderFromModule(module)
+    return senderFromModule(module, windowsToasterPath)
       ? { available: true }
       : { available: false, reason: "shape" };
   } catch {
@@ -129,15 +171,19 @@ export function formatOsNotification(
 }
 
 export class OsNotifier implements Notifier {
+  readonly #assetVerifier: (path: string) => Promise<boolean>;
   readonly #loader: OsNotifierModuleLoader;
   readonly #timeoutMs: number;
   readonly #warning: OsNotifierWarningWriter;
+  readonly #windowsToasterPath: string | undefined;
   #senderPromise: Promise<OsNotificationSenderLoadResult> | undefined;
 
   constructor(options: OsNotifierOptions = {}) {
+    this.#assetVerifier = options.assetVerifier ?? isUsableWindowsToasterAsset;
     this.#loader = options.loader ?? (() => import("node-notifier"));
     this.#timeoutMs = options.timeoutMs ?? OS_NOTIFICATION_TIMEOUT_MS;
     this.#warning = options.warning ?? console.warn;
+    this.#windowsToasterPath = options.windowsToasterPath;
   }
 
   async notify(event: AgentEvent, session: AgentSession): Promise<void> {
@@ -169,11 +215,7 @@ export class OsNotifier implements Notifier {
             return;
           }
           if (result.kind === "unavailable") {
-            this.#warn(
-              result.reason === "import"
-                ? OS_NOTIFIER_WARNINGS.import
-                : OS_NOTIFIER_WARNINGS.shape,
-            );
+            this.#warn(OS_NOTIFIER_WARNINGS[result.reason]);
             finish();
             return;
           }
@@ -212,6 +254,13 @@ export class OsNotifier implements Notifier {
   async #createSender(): Promise<OsNotificationSenderLoadResult> {
     let module: unknown;
 
+    if (
+      this.#windowsToasterPath &&
+      !(await this.#assetVerifier(this.#windowsToasterPath))
+    ) {
+      return { kind: "unavailable", reason: "asset" };
+    }
+
     try {
       module = await this.#loader();
     } catch {
@@ -220,7 +269,7 @@ export class OsNotifier implements Notifier {
 
     let sender: OsNotificationSender | undefined;
     try {
-      sender = senderFromModule(module);
+      sender = senderFromModule(module, this.#windowsToasterPath);
     } catch {
       return { kind: "unavailable", reason: "shape" };
     }

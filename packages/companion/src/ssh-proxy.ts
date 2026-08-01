@@ -12,6 +12,7 @@ export interface LocalHttpProxy {
 
 export interface LocalHttpProxyOptions {
   alias: string;
+  remotePort: number;
   targetHost: "127.0.0.1" | "::1";
   targetPort: number;
 }
@@ -38,6 +39,20 @@ export function isAllowedRemoteProxyRequest(
   );
 }
 
+export function isAllowedRemoteProxyAuthority(
+  host: string | string[] | undefined,
+  origin: string | string[] | undefined,
+  remotePort: number,
+): boolean {
+  const expectedAuthority = `127.0.0.1:${remotePort}`;
+  const hostValue = firstHeaderValue(host);
+  const originValue = firstHeaderValue(origin);
+  return (
+    hostValue === expectedAuthority &&
+    (originValue === undefined || originValue === `http://${expectedAuthority}`)
+  );
+}
+
 export function forwardedRequestHeaders(
   headers: IncomingHttpHeaders,
   alias: string,
@@ -49,15 +64,14 @@ export function forwardedRequestHeaders(
   };
 }
 
-export function forwardedResponseHeaders(
-  headers: IncomingHttpHeaders,
-): OutgoingHttpHeaders {
-  const contentType = firstHeaderValue(headers["content-type"]);
-  const cacheControl = firstHeaderValue(headers["cache-control"]);
-  return {
-    ...(contentType ? { "content-type": contentType } : {}),
-    ...(cacheControl ? { "cache-control": cacheControl } : {}),
-  };
+function sendProxyAcknowledgement(
+  response: import("node:http").ServerResponse,
+): void {
+  response.writeHead(200, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  response.end(JSON.stringify({ accepted: true }));
 }
 
 function sendProxyError(
@@ -85,6 +99,17 @@ export function createLocalHttpProxy(
   return new Promise((resolve, reject) => {
     const server = createServer((request, response) => {
       if (
+        !isAllowedRemoteProxyAuthority(
+          request.headers.host,
+          request.headers.origin,
+          options.remotePort,
+        )
+      ) {
+        sendProxyError(response, 403, "Remote proxy request rejected");
+        request.resume();
+        return;
+      }
+      if (
         !isAllowedRemoteProxyRequest(
           request.method,
           request.url,
@@ -107,11 +132,17 @@ export function createLocalHttpProxy(
           headers: forwardedRequestHeaders(request.headers, options.alias),
         },
         (upstreamResponse) => {
-          response.writeHead(
-            upstreamResponse.statusCode ?? 502,
-            forwardedResponseHeaders(upstreamResponse.headers),
+          const statusCode = upstreamResponse.statusCode ?? 502;
+          upstreamResponse.resume();
+          if (statusCode >= 200 && statusCode < 300) {
+            sendProxyAcknowledgement(response);
+            return;
+          }
+          sendProxyError(
+            response,
+            statusCode >= 400 && statusCode < 500 ? 400 : 502,
+            "Local Crewlight daemon rejected the event",
           );
-          upstreamResponse.pipe(response);
         },
       );
       upstream.on("error", () => {

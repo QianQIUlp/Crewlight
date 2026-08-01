@@ -17,9 +17,18 @@ $DaemonOut = Join-Path $Work "daemon.stdout.log"
 $DaemonErr = Join-Path $Work "daemon.stderr.log"
 $DaemonPidFile = Join-Path $Work "daemon.pid"
 $DaemonPid = $null
-$NodeHarness = (Get-Command node -ErrorAction Stop).Source
-$Taskkill = (Get-Command taskkill.exe -ErrorAction Stop).Source
-$Where = (Get-Command where.exe -ErrorAction Stop).Source
+$UnicodeMessage = "$([char]0x5b8c)$([char]0x6210) $([char]0x2713) Crewlight"
+$SystemDirectory = [Environment]::GetFolderPath([Environment+SpecialFolder]::System)
+if (-not $env:CREWLIGHT_NODE_HARNESS) {
+  throw "Run the Windows smoke through npm run smoke:standalone:windows."
+}
+if (-not $env:CREWLIGHT_PROCESS_RUNNER) {
+  throw "The exact Windows process runner is unavailable."
+}
+$NodeHarness = $env:CREWLIGHT_NODE_HARNESS
+$ProcessRunner = $env:CREWLIGHT_PROCESS_RUNNER
+$Taskkill = Join-Path $SystemDirectory "taskkill.exe"
+$Where = Join-Path $SystemDirectory "where.exe"
 $DaemonControl = Join-Path $Root "scripts\windows-daemon-control.mjs"
 
 function Convert-StreamToText {
@@ -55,6 +64,74 @@ function Get-ByteCount {
   return 1
 }
 
+function Invoke-ExactProcess {
+  param(
+    [string]$FilePath,
+    [string[]]$Arguments,
+    [string]$StdoutPath,
+    [string]$StderrPath,
+    [string]$StdinPath
+  )
+
+  $payload = [ordered]@{
+    file = $FilePath
+    args = @($Arguments)
+    stdout = $StdoutPath
+    stderr = $StderrPath
+  }
+  if ($PSBoundParameters.ContainsKey("StdinPath")) {
+    $payload.stdin = $StdinPath
+  }
+  $json = $payload | ConvertTo-Json -Compress -Depth 4
+  $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($json))
+  & $NodeHarness $ProcessRunner $encoded
+  return [int]$LASTEXITCODE
+}
+
+function Test-ContentManifest {
+  param([string]$Directory)
+
+  $manifestPath = Join-Path $Directory "CONTENTS.sha256"
+  if (-not (Test-Path $manifestPath -PathType Leaf)) {
+    throw "Archive is missing CONTENTS.sha256."
+  }
+  $expected = @{}
+  foreach ($line in @(Get-Content $manifestPath -Encoding UTF8)) {
+    if (-not $line) {
+      continue
+    }
+    if ($line -notmatch "^([a-fA-F0-9]{64})  (.+)$") {
+      throw "Archive content manifest contains an invalid line."
+    }
+    $relativePath = $Matches[2]
+    if ($relativePath -eq "CONTENTS.sha256" -or
+        $relativePath.StartsWith("/") -or
+        $relativePath.Contains("\") -or
+        $relativePath.Contains("..")) {
+      throw "Archive content manifest contains an unsafe path."
+    }
+    $expected[$relativePath] = $Matches[1].ToLowerInvariant()
+  }
+
+  $files = @(
+    Get-ChildItem $Directory -Recurse -File |
+      Where-Object { $_.FullName -ne $manifestPath }
+  )
+  if ($files.Count -ne $expected.Count) {
+    throw "Archive content manifest entry count mismatch."
+  }
+  foreach ($file in $files) {
+    $relativePath = $file.FullName.Substring($Directory.Length + 1).Replace("\", "/")
+    if (-not $expected.ContainsKey($relativePath)) {
+      throw "Archive contains an unlisted file: $relativePath"
+    }
+    $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+    if ($hash -ne $expected[$relativePath]) {
+      throw "Archive content hash mismatch: $relativePath"
+    }
+  }
+}
+
 function Invoke-Crewlight {
   param(
     [string[]]$Arguments,
@@ -65,30 +142,24 @@ function Invoke-Crewlight {
   $stdoutPath = Join-Path $Work "command-$([guid]::NewGuid()).stdout"
   $stderrPath = Join-Path $Work "command-$([guid]::NewGuid()).stderr"
   $stdinFile = $null
-  $start = @{
-    FilePath = $Bin
-    ArgumentList = $Arguments
-    RedirectStandardOutput = $stdoutPath
-    RedirectStandardError = $stderrPath
-    NoNewWindow = $true
-    PassThru = $true
-    Wait = $true
-  }
   if ($PSBoundParameters.ContainsKey("Stdin")) {
     $stdinFile = Join-Path $Work "command-$([guid]::NewGuid()).stdin"
     [System.IO.File]::WriteAllText($stdinFile, $Stdin, [System.Text.UTF8Encoding]::new($false))
-    $start.RedirectStandardInput = $stdinFile
   }
 
-  $process = Start-Process @start
-  $stdoutValue = if (Test-Path $stdoutPath) { Get-Content $stdoutPath -Raw } else { $null }
-  $stderrValue = if (Test-Path $stderrPath) { Get-Content $stderrPath -Raw } else { $null }
+  $exitCode = if ($null -eq $stdinFile) {
+    Invoke-ExactProcess -FilePath $Bin -Arguments $Arguments -StdoutPath $stdoutPath -StderrPath $stderrPath
+  } else {
+    Invoke-ExactProcess -FilePath $Bin -Arguments $Arguments -StdoutPath $stdoutPath -StderrPath $stderrPath -StdinPath $stdinFile
+  }
+  $stdoutValue = if (Test-Path $stdoutPath) { Get-Content $stdoutPath -Raw -Encoding UTF8 } else { $null }
+  $stderrValue = if (Test-Path $stderrPath) { Get-Content $stderrPath -Raw -Encoding UTF8 } else { $null }
   $stdoutBytes = if (Test-Path $stdoutPath) { [System.IO.File]::ReadAllBytes($stdoutPath) } else { [byte[]]@() }
   $stderrBytes = if (Test-Path $stderrPath) { [System.IO.File]::ReadAllBytes($stderrPath) } else { [byte[]]@() }
   $stdoutText = [string](Convert-StreamToText -Value $stdoutValue)
   $stderrText = [string](Convert-StreamToText -Value $stderrValue)
   $result = [pscustomobject]@{
-    ExitCode = $process.ExitCode
+    ExitCode = $exitCode
     Stdout = [string]$stdoutText
     StdoutBytes = [byte[]]$stdoutBytes
     Stderr = [string]$stderrText
@@ -244,7 +315,7 @@ function ConvertFrom-CodexNotify {
 
       $arrayText = $trimmedLine.Substring($equalsIndex + 1).Trim()
       try {
-        return @($arrayText | ConvertFrom-Json)
+        return ($arrayText | ConvertFrom-Json)
       } catch {
         throw "Codex notify argv could not be parsed. Expected binary path: $Bin"
       }
@@ -302,14 +373,54 @@ try {
   }
 
   Expand-Archive -Path $Archive -DestinationPath $Extracted
-  foreach ($name in @("crewlight.exe", "LICENSE", "BUILD-INFO.txt")) {
+  foreach ($name in @(
+    "crewlight.exe",
+    "LICENSE",
+    "BUILD-INFO.txt",
+    "CONTENTS.sha256",
+    "resources\snoretoast-x64.exe",
+    "resources\THIRD-PARTY-NOTICES.txt",
+    "resources\licenses\Node.js-22-LICENSE.txt",
+    "resources\licenses\node-notifier-10.0.1-LICENSE.txt",
+    "resources\licenses\SnoreToast-0.7.0-LGPL-3.0.txt",
+    "resources\licenses\SnoreToast-0.7.0-SOURCE.txt"
+  )) {
     if (-not (Test-Path (Join-Path $Extracted $name))) {
       throw "Archive is missing $name."
     }
   }
-  $entries = @(Get-ChildItem $Extracted)
-  if ($entries.Count -ne 3) {
-    throw "Archive must contain exactly crewlight.exe, LICENSE, and BUILD-INFO.txt."
+  $rootNames = @(
+    Get-ChildItem $Extracted |
+      ForEach-Object { $_.Name } |
+      Sort-Object
+  )
+  $expectedRootNames = @(
+    "BUILD-INFO.txt",
+    "CONTENTS.sha256",
+    "crewlight.exe",
+    "LICENSE",
+    "resources"
+  ) | Sort-Object
+  if (($rootNames -join "`n") -cne ($expectedRootNames -join "`n")) {
+    throw "Archive root contains unexpected entries: $($rootNames -join ', ')"
+  }
+  Test-ContentManifest -Directory $Extracted
+
+  $toasterPath = Join-Path $Extracted "resources\snoretoast-x64.exe"
+  $toasterHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $toasterPath).Hash.ToLowerInvariant()
+  if ($toasterHash -cne "42d20792498514562cfd6fd8221b4abb59229e893073fc59fbfc83f884a2401b") {
+    throw "Packaged SnoreToast helper failed its SHA-256 allowlist."
+  }
+  $toasterHeader = [System.IO.File]::ReadAllBytes($toasterPath)
+  if ($toasterHeader.Length -lt 2 -or
+      $toasterHeader[0] -ne 0x4d -or
+      $toasterHeader[1] -ne 0x5a) {
+    throw "Packaged SnoreToast helper is not a Windows PE file."
+  }
+  if ((Get-Content (Join-Path $Extracted "resources\licenses\node-notifier-10.0.1-LICENSE.txt") -Raw -Encoding UTF8) -notmatch "MIT License" -or
+      (Get-Content (Join-Path $Extracted "resources\licenses\SnoreToast-0.7.0-LGPL-3.0.txt") -Raw -Encoding UTF8) -notmatch "GNU LESSER GENERAL PUBLIC LICENSE" -or
+      (Get-Content (Join-Path $Extracted "resources\licenses\SnoreToast-0.7.0-SOURCE.txt") -Raw -Encoding UTF8) -notmatch "github.com/KDE/snoretoast") {
+    throw "Packaged Windows notifier licensing or source information is incomplete."
   }
 
   $buildInfo = Get-Content (Join-Path $Extracted "BUILD-INFO.txt") -Raw
@@ -328,14 +439,9 @@ try {
   foreach ($name in @("node", "npm", "pnpm")) {
     $whereOut = Join-Path $Work "where-$name.stdout"
     $whereErr = Join-Path $Work "where-$name.stderr"
-    $whereProcess = Start-Process -FilePath $Where `
-      -ArgumentList @($name) `
-      -RedirectStandardOutput $whereOut `
-      -RedirectStandardError $whereErr `
-      -NoNewWindow `
-      -PassThru `
-      -Wait
-    if ($whereProcess.ExitCode -eq 0) {
+    $whereExit = Invoke-ExactProcess -FilePath $Where -Arguments @($name) `
+      -StdoutPath $whereOut -StderrPath $whereErr
+    if ($whereExit -eq 0) {
       throw "Unexpected runtime dependency available in restricted PATH: $name"
     }
   }
@@ -392,6 +498,14 @@ try {
   }
   Remove-Item Env:CREWLIGHT_HOST
 
+  $ManagedOut = Join-Path $Work "managed.stdout.log"
+  $ManagedErr = Join-Path $Work "managed.stderr.log"
+  & $NodeHarness $DaemonControl managed-smoke $Bin $ManagedOut $ManagedErr `
+    daemon --dashboard --port $Port --notifier none
+  if ($LASTEXITCODE -ne 0) {
+    throw "Managed daemon stdin shutdown smoke failed."
+  }
+
   Start-Daemon -StdoutPath $DaemonOut -StderrPath $DaemonErr
 
   $dashboard = Wait-Dashboard
@@ -406,6 +520,14 @@ try {
   $doctor = Invoke-Crewlight -Arguments @("doctor", "--json", "--notifier", "none")
   if (-not ($doctor.Stdout | ConvertFrom-Json).ok) {
     throw "Doctor did not pass against the standalone daemon."
+  }
+  $osDoctor = Invoke-Crewlight -Arguments @("doctor", "--json", "--notifier", "os")
+  $osDoctorReport = $osDoctor.Stdout | ConvertFrom-Json
+  $notifierChecks = @($osDoctorReport.checks | Where-Object { $_.id -ceq "notifier" })
+  if (-not $osDoctorReport.ok -or
+      $notifierChecks.Count -ne 1 -or
+      $notifierChecks[0].status -cne "ok") {
+    throw "Packaged OS notifier assets did not pass doctor."
   }
 
   $hookPayload = '{"session_id":"windows-codex-hook","cwd":"C:\\demo","hook_event_name":"PreToolUse","tool_name":"must-not-win","prompt":"must-not-leak","tool_input":{"command":"must-not-leak"},"tool_response":"must-not-leak","transcript_path":"C:\\must-not-leak"}'
@@ -442,10 +564,11 @@ try {
 
   Invoke-Crewlight -Arguments @(
     "emit", "--source", "custom", "--surface", "manual", "--status", "completed",
-    "--session-id", "windows-standalone-smoke", "--message", "done"
+    "--session-id", "windows-standalone-smoke", "--message", $UnicodeMessage
   ) | Out-Null
   $status = Invoke-Crewlight -Arguments @("status", "--json")
-  $sessions = @($status.Stdout | ConvertFrom-Json)
+  $parsedSessions = $status.Stdout | ConvertFrom-Json
+  $sessions = @($parsedSessions)
   $hookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-hook" })
   $toolHookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-tool-hook" })
   $openCodeSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-opencode" })
@@ -460,6 +583,7 @@ try {
       $antigravitySessions.Count -ne 1 -or
       $antigravitySessions[0].status -cne "unknown" -or
       $manualSessions.Count -ne 1 -or
+      $manualSessions[0].lastMessage -cne $UnicodeMessage -or
       $status.Stdout -match "must-not-leak") {
     throw "Status output is missing smoke sessions or leaked sensitive hook data."
   }

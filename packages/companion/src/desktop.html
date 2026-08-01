@@ -4,98 +4,32 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Crewlight Desktop</title>
     <meta
       name="description"
-      content="Crewlight — Local activity radar for AI coding agents"
+      content="See live AI coding agent status on this computer"
     />
     <link rel="stylesheet" href="./desktop.css" />
-    <script src="./desktop-renderer.js" defer></script>
+    <script type="module" src="./desktop-renderer.js"></script>
   </head>
   <body data-theme="system" data-accent="teal" data-density="comfortable">
-    <!--
-      Liquid Glass SVG filter definitions.
-      Uses a static SVG feTurbulence + feDisplacementMap for restrained
-      refractive texture without continuous decorative motion.
-    -->
-    <svg
-      id="lg-svg-defs"
-      aria-hidden="true"
-      focusable="false"
-      style="
-        position: absolute;
-        width: 0;
-        height: 0;
-        overflow: hidden;
-        pointer-events: none;
-      "
-    >
-      <defs>
-        <!-- Sidebar liquid glass: gentle slow flow, scale=10 -->
-        <filter
-          id="lg-sidebar"
-          x="-5%"
-          y="-5%"
-          width="110%"
-          height="110%"
-          color-interpolation-filters="sRGB"
-        >
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.020 0.016"
-            numOctaves="4"
-            seed="7"
-            result="noise"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="noise"
-            scale="10"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-
-        <!-- Modal liquid glass: slightly stronger, scale=14 -->
-        <filter
-          id="lg-modal"
-          x="-7%"
-          y="-7%"
-          width="114%"
-          height="114%"
-          color-interpolation-filters="sRGB"
-        >
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.024 0.018"
-            numOctaves="3"
-            seed="13"
-            result="noise"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="noise"
-            scale="14"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </defs>
-    </svg>
-
     <div id="app-shell" class="app-shell">
       <aside class="sidebar">
         <div class="brand-lockup">
-          <span class="product-mark" aria-hidden="true">
-            <span></span>
-          </span>
+          <img
+            class="product-mark"
+            src="./crewlight-icon.png"
+            alt=""
+            width="48"
+            height="48"
+          />
           <div>
             <p class="brand-eyebrow">Crewlight Desktop</p>
             <h1>Crewlight</h1>
-            <p class="brand-copy">AI agent activity radar, local-first.</p>
+            <p class="brand-copy">See agent status at a glance.</p>
           </div>
         </div>
 
@@ -107,23 +41,29 @@
 
         <section class="sidebar-footer">
           <p><span id="sidebar-version">—</span></p>
-          <p>Loopback only · privacy first</p>
+          <p>This computer only · private by design</p>
         </section>
       </aside>
 
       <main class="main-shell">
         <header class="topbar">
           <div>
-            <p class="section-eyebrow">Command Center</p>
+            <p class="section-eyebrow">Crewlight</p>
             <h2 id="page-title">Crewlight Desktop</h2>
             <p id="page-subtitle" class="page-subtitle">
-              Start the local service, run the demo, and keep the companion
-              nearby.
+              See live agent status in one place.
             </p>
           </div>
           <div class="topbar-meta">
+            <label class="locale-control" for="locale-select">
+              <span class="sr-only">Language</span>
+              <select id="locale-select" aria-label="Language">
+                <option value="en">EN</option>
+                <option value="zh-CN">中文</option>
+              </select>
+            </label>
             <span id="service-badge" class="status-badge neutral"
-              >Local service stopped</span
+              >Crewlight is off</span
             >
             <span id="last-updated" class="last-updated"
               >Waiting for local status</span
@@ -131,7 +71,14 @@
           </div>
         </header>
 
-        <section id="notice" class="notice" hidden></section>
+        <section
+          id="notice"
+          class="notice"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+        ></section>
 
         <section id="onboarding-root" class="onboarding-shell" hidden>
           <div class="onboarding-card hero-card">
@@ -166,8 +113,8 @@
             <div class="home-grid">
               <article class="hero-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Home</p>
-                  <h3 id="home-hero-title">Command Center</h3>
+                  <p class="section-eyebrow">Overview</p>
+                  <h3 id="home-hero-title">Activity overview</h3>
                   <p id="home-hero-copy" class="section-copy"></p>
                 </div>
                 <div class="button-row">
@@ -181,18 +128,18 @@
                     class="secondary-button"
                     type="button"
                   >
-                    Open browser dashboard
+                    Open detailed view
                   </button>
                 </div>
               </article>
 
               <div class="metric-grid">
                 <article class="metric-card">
-                  <p class="section-eyebrow">Total sessions</p>
+                  <p class="section-eyebrow">Tasks</p>
                   <strong id="metric-total">0</strong>
                 </article>
                 <article class="metric-card">
-                  <p class="section-eyebrow">Running</p>
+                  <p class="section-eyebrow">Active</p>
                   <strong id="metric-running">0</strong>
                 </article>
                 <article class="metric-card">
@@ -200,7 +147,7 @@
                   <strong id="metric-attention">0</strong>
                 </article>
                 <article class="metric-card">
-                  <p class="section-eyebrow">Failed / stale</p>
+                  <p class="section-eyebrow">Issues</p>
                   <strong id="metric-failed-stale">0</strong>
                 </article>
               </div>
@@ -209,17 +156,14 @@
             <article class="panel-card">
               <div class="card-heading card-heading-inline">
                 <div>
-                  <p class="section-eyebrow">Live session preview</p>
-                  <h3>Current local activity</h3>
+                  <p class="section-eyebrow">Live activity</p>
+                  <h3>Current activity</h3>
                 </div>
               </div>
               <div id="home-preview-sessions" class="session-grid"></div>
               <section id="home-preview-empty" class="empty-state" hidden>
-                <h4>No sessions yet</h4>
-                <p>
-                  Start the local service and run the demo to see Crewlight in
-                  motion.
-                </p>
+                <h4>No tasks yet</h4>
+                <p>Connect Codex or Claude Code to see activity here.</p>
               </section>
             </article>
           </section>
@@ -228,13 +172,11 @@
             <div class="panel-grid two-up">
               <article class="panel-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">SSH Port Forwarding</p>
-                  <h3>Remote connections</h3>
+                  <p class="section-eyebrow">Remote work</p>
+                  <h3>Remote computers</h3>
                   <p class="section-copy">
-                    Connect local-first daemon to remote servers over secure SSH
-                    tunnel. Mark configurations in
-                    <code>~/.ssh/config</code> with comment
-                    <code># CrewlightRemote: yes</code> to scan.
+                    Crewlight connects only to hosts you mark in your SSH
+                    config.
                   </p>
                 </div>
                 <div class="button-row">
@@ -243,18 +185,18 @@
                     class="primary-button"
                     type="button"
                   >
-                    Rescan ssh config
+                    Scan SSH config
                   </button>
                 </div>
               </article>
 
               <article class="panel-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Status</p>
-                  <h3>Active SSH Tunnels</h3>
+                  <p class="section-eyebrow">Connections</p>
+                  <h3>Secure connections</h3>
                   <p class="section-copy">
-                    Remote events will be securely received on your local
-                    loopback address.
+                    Remote activity appears here through an encrypted SSH
+                    connection.
                   </p>
                 </div>
               </article>
@@ -262,15 +204,15 @@
 
             <article class="panel-card">
               <div class="card-heading">
-                <p class="section-eyebrow">Hosts</p>
-                <h3>Detected Remote Hosts</h3>
+                <p class="section-eyebrow">Computers</p>
+                <h3>Detected remote computers</h3>
               </div>
               <div id="remote-hosts-list" class="remote-grid"></div>
               <section id="remote-hosts-empty" class="empty-state" hidden>
-                <h4>No remote hosts detected</h4>
+                <h4>No remote computers found</h4>
                 <p>
-                  Add <code># CrewlightRemote: yes</code> comment line above
-                  your Host block in your <code>~/.ssh/config</code> file.
+                  Add <code># CrewlightRemote: yes</code> above a Host entry in
+                  <code>~/.ssh/config</code>.
                 </p>
               </section>
             </article>
@@ -280,8 +222,8 @@
             <div class="panel-grid two-up">
               <article class="panel-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Doctor</p>
-                  <h3>Local diagnostics</h3>
+                  <p class="section-eyebrow">Troubleshooting</p>
+                  <h3>System check</h3>
                   <p id="doctor-summary" class="section-copy"></p>
                 </div>
                 <div class="button-row">
@@ -290,7 +232,7 @@
                     class="primary-button"
                     type="button"
                   >
-                    Start local service
+                    Start Crewlight
                   </button>
                   <button
                     data-action="service:restart"
@@ -318,8 +260,8 @@
 
               <article class="panel-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Runtime</p>
-                  <h3>Desktop and daemon state</h3>
+                  <p class="section-eyebrow">Details</p>
+                  <h3>Crewlight status</h3>
                 </div>
                 <dl id="doctor-facts" class="fact-list"></dl>
               </article>
@@ -327,8 +269,8 @@
 
             <article class="panel-card">
               <div class="card-heading">
-                <p class="section-eyebrow">Checks</p>
-                <h3>Detailed health report</h3>
+                <p class="section-eyebrow">Results</p>
+                <h3>What Crewlight checked</h3>
               </div>
               <div id="doctor-checks" class="check-list"></div>
             </article>
@@ -337,12 +279,11 @@
           <section id="agents-section" class="section-view" hidden>
             <article class="panel-card">
               <div class="card-heading">
-                <p class="section-eyebrow">Integrations</p>
-                <h3>Choose a setup path</h3>
+                <p class="section-eyebrow">Connect agents</p>
+                <h3>Choose an agent</h3>
                 <p class="section-copy">
-                  Crewlight stays local-first and read-only. Integration cards
-                  expose setup snippets, verification commands, and honest
-                  boundaries.
+                  Pick an agent and follow the setup shown here. Crewlight stays
+                  local and read-only.
                 </p>
               </div>
               <div id="agent-cards" class="integration-grid"></div>
@@ -422,7 +363,7 @@
               <article class="hero-card">
                 <div class="card-heading">
                   <p class="section-eyebrow">Demo</p>
-                  <h3>Run the local multi-agent scenario</h3>
+                  <h3>Preview common agent states</h3>
                   <p id="demo-summary" class="section-copy"></p>
                 </div>
                 <div class="button-row">
@@ -431,7 +372,7 @@
                     class="primary-button"
                     type="button"
                   >
-                    Run multi-agent demo
+                    Run demo
                   </button>
                   <button
                     data-action="companion:show"
@@ -445,11 +386,11 @@
 
               <article class="panel-card reward-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Synthetic data only</p>
-                  <h3>Safe, local, repeatable</h3>
+                  <p class="section-eyebrow">Sample data only</p>
+                  <h3>Private and repeatable</h3>
                   <p class="section-copy">
-                    The demo uses deterministic local sessions. No real prompts,
-                    transcripts, tool I/O, or cloud data are involved.
+                    Uses sample tasks only. It never includes your prompts or
+                    conversations.
                   </p>
                 </div>
               </article>
@@ -457,16 +398,13 @@
 
             <article class="panel-card">
               <div class="card-heading">
-                <p class="section-eyebrow">Scenario sessions</p>
-                <h3>Demo session list</h3>
+                <p class="section-eyebrow">Sample tasks</p>
+                <h3>Demo activity</h3>
               </div>
               <div id="demo-sessions" class="session-grid"></div>
               <section id="demo-empty" class="empty-state" hidden>
                 <h4>Demo not loaded yet</h4>
-                <p>
-                  Run the scenario to populate Home, Demo, and Companion
-                  together.
-                </p>
+                <p>Run the demo to preview a few common states.</p>
               </section>
             </article>
           </section>
@@ -476,10 +414,9 @@
               <article class="panel-card">
                 <div class="card-heading">
                   <p class="section-eyebrow">Appearance</p>
-                  <h3>Saved desktop preferences</h3>
+                  <h3>Customize Crewlight</h3>
                   <p class="section-copy">
-                    Theme, accent, density, and companion visibility preference
-                    persist locally.
+                    Your choices are saved on this computer.
                   </p>
                 </div>
                 <div class="control-stack">
@@ -507,11 +444,11 @@
 
               <article class="panel-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Accent and motion</p>
-                  <h3>Visual tone</h3>
+                  <p class="section-eyebrow">Color and motion</p>
+                  <h3>Choose a color</h3>
                   <p class="section-copy">
-                    The companion and main window share this token set. Reduced
-                    motion is respected.
+                    The main window and companion use the same color. Reduced
+                    motion follows your system setting.
                   </p>
                 </div>
                 <div id="accent-options" class="accent-grid"></div>
@@ -530,50 +467,44 @@
             <div class="panel-grid two-up">
               <article class="panel-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Local service</p>
-                  <h3>Current app-session settings</h3>
-                  <p class="section-copy">
-                    Host, port, and notifier apply to the next service start or
-                    restart.
-                  </p>
+                  <p class="section-eyebrow">Crewlight settings</p>
+                  <h3>Startup and notifications</h3>
+                  <p class="section-copy">Changes apply after restart.</p>
                 </div>
                 <div class="control-stack">
                   <label class="field">
-                    <span>Host</span>
+                    <span>Local address</span>
                     <select id="host-select">
                       <option value="127.0.0.1">127.0.0.1</option>
                       <option value="::1">::1</option>
                     </select>
                   </label>
                   <label class="field">
-                    <span>Port</span>
+                    <span>Connection port</span>
                     <input id="port-input" type="number" min="1" max="65535" />
                   </label>
                   <label class="field">
-                    <span>Notifier</span>
+                    <span>Notifications</span>
                     <select id="notifier-select">
                       <option value="console">Console</option>
-                      <option value="none">None</option>
-                      <option value="os">OS</option>
+                      <option value="none">Off</option>
+                      <option value="os">System notifications</option>
                     </select>
                   </label>
                   <label class="toggle-field">
                     <input id="auto-start-toggle" type="checkbox" />
-                    <span
-                      >Attempt to start the local service when the desktop app
-                      launches</span
-                    >
+                    <span>Start Crewlight when the app opens</span>
                   </label>
                 </div>
               </article>
 
               <article class="panel-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Desktop state</p>
-                  <h3>Reset or replay</h3>
+                  <p class="section-eyebrow">App preferences</p>
+                  <h3>Reset</h3>
                   <p class="section-copy">
-                    Reset only desktop UI preferences. No prompts, transcripts,
-                    sessions, or raw payloads are persisted.
+                    Reset appearance and onboarding only. Agent activity is not
+                    saved here.
                   </p>
                 </div>
                 <div class="button-column">
@@ -582,14 +513,14 @@
                     class="secondary-button"
                     type="button"
                   >
-                    Reset desktop UI state
+                    Reset preferences
                   </button>
                   <button
                     data-action="onboarding:start-over"
                     class="secondary-button"
                     type="button"
                   >
-                    Replay onboarding
+                    Show setup guide again
                   </button>
                 </div>
               </article>
@@ -620,7 +551,7 @@
       </main>
     </div>
 
-    <!-- Remote Install CLI Modal -->
+    <!-- Remote Crewlight setup modal -->
     <div
       id="remote-install-modal"
       class="modal-overlay"
@@ -634,19 +565,15 @@
       <div class="modal-dialog">
         <div class="modal-header">
           <h3 id="remote-install-title">
-            Install Crewlight CLI on Remote Host
+            Set up Crewlight on a remote computer
           </h3>
         </div>
         <div class="modal-body">
           <p id="remote-install-description" class="section-copy">
-            We detected that the Crewlight CLI tool is not installed on the
-            remote host <strong id="remote-install-host-name"></strong>. Use the
-            same-version Crewlight release artifact for
-            <strong id="remote-install-version"></strong> and the remote
-            operating system. Verify the published checksum, place the extracted
-            <code>crewlight</code> executable on that host's <code>PATH</code>,
-            then reconnect. Crewlight does not publish an npm-installable CLI
-            package.
+            Crewlight is not ready on
+            <strong id="remote-install-host-name"></strong>. Download
+            <strong id="remote-install-version"></strong> for that computer,
+            verify the download, finish setup, then reconnect.
           </p>
         </div>
         <div class="modal-footer">

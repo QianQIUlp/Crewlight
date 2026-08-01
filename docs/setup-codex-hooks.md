@@ -12,9 +12,12 @@ permission or turn behavior.
 crewlight setup codex-hooks --print
 ```
 
-The command prints a mergeable `hooks.json` fragment. It does not inspect or
-modify `~/.codex/hooks.json`, project `.codex/hooks.json`, `config.toml`, or any
-other Codex configuration.
+The CLI command prints a mergeable `hooks.json` fragment and remains
+print-only. Crewlight Desktop also offers an explicit **Configure** action. It
+checks only the fixed user paths under `$CODEX_HOME` (or `~/.codex`), creates
+timestamped backups, and replaces only Crewlight-owned hook groups while
+preserving unrelated handlers. Malformed or conflicting configuration is left
+unchanged; project configuration is never scanned.
 
 By default the generated commands use the current standalone executable's
 absolute path. Source mode uses the absolute Node executable followed by the
@@ -43,11 +46,16 @@ If the path contains whitespace or command-sensitive characters, setup fails
 closed with a diagnostic instead of printing a known-broken hooks fragment. It
 does not copy the executable or modify Codex configuration.
 
-## Merge and trust manually
+## Merge and trust
 
 Merge the printed event groups into one active `hooks` object while preserving
 existing handlers. Suitable locations include user-level
 `~/.codex/hooks.json` and project `.codex/hooks.json`.
+
+The Desktop Configure action handles the user-level merge, but it does not and
+must not bypass Codex's trust review. After configuration, restart Codex and
+approve the Crewlight command only when the displayed executable path matches
+the installed portable folder.
 
 Project hooks load only for trusted projects. Every non-managed command hook
 must also be reviewed and trusted against its exact definition:
@@ -84,18 +92,30 @@ messages, or the complete payload.
 
 ### Optional prompt-preview task titles
 
-Prompt-derived titles remain disabled unless the local daemon starts with:
+Prompt-derived titles remain disabled unless both the local daemon capability
+and the hook-process environment opt in. The daemon must use the literal
+loopback host `127.0.0.1` or `::1`. Set
+`CREWLIGHT_PROMPT_PREVIEW=1` in each shell that launches the daemon or Codex,
+then start the daemon with:
 
 ```bash
+CREWLIGHT_PROMPT_PREVIEW=1 crewlight daemon --dashboard --dashboard-task-titles prompt-preview
+```
+
+PowerShell:
+
+```powershell
+$env:CREWLIGHT_PROMPT_PREVIEW = "1"
 crewlight daemon --dashboard --dashboard-task-titles prompt-preview
 ```
 
 When enabled, only the documented `UserPromptSubmit.prompt` string is read in
 memory. Crewlight collapses whitespace and sends only a preview of at most 60
 Unicode code points as `taskTitle`; the complete prompt is never serialized
-into a Crewlight event, stored, logged, forwarded, or included in dashboard
-responses. Tool events, Stop, transcripts, tool input/output, assistant output,
-and Codex notify `input-messages` are not title sources.
+or retained. `crewlight setup` does not set this environment variable or
+modify Codex configuration automatically.
+Tool events, Stop, transcripts, tool input/output, assistant output, and Codex
+notify `input-messages` are not title sources.
 
 Existing hooks do not need regeneration when their command invokes the updated
 Crewlight binary or CLI. Capability lookup reuses the same daemon address as

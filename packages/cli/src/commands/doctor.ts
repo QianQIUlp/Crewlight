@@ -1,6 +1,6 @@
 import { access, realpath } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
-import { sep } from "node:path";
+import { dirname, sep, win32 } from "node:path";
 import { isSea } from "node:sea";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
@@ -8,14 +8,70 @@ import { parseArgs } from "node:util";
 import {
   isNotifierKind,
   probeOsNotifier,
+  resolveWindowsToasterPath,
   type NotifierKind,
   type OsNotifierProbeResult,
 } from "@crewlight/notifier";
+import {
+  resolveWindowsCommandInvocation,
+  type WindowsCommandLocator,
+} from "@crewlight/adapter-generic-cli";
+import { isLoopbackHost } from "@crewlight/daemon";
 import { DEFAULT_DAEMON_HOST, DEFAULT_DAEMON_PORT } from "@crewlight/shared";
 
 import { DaemonClient } from "../daemon-client.js";
 import { createSetupSnippets, type CodexHooksSetupResult } from "./setup.js";
 import type { CommandIo } from "./types.js";
+
+export type PnpmVersionRunner = (
+  command: string,
+  args: string[],
+  options?: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    windowsVerbatimArguments?: boolean;
+  },
+) => {
+  status: number | null;
+  stdout: string | null;
+};
+
+export function detectPnpmVersion(
+  platform: NodeJS.Platform = process.platform,
+  runner: PnpmVersionRunner = (command, args, options) =>
+    spawnSync(command, args, {
+      ...options,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true,
+    }),
+  locator?: WindowsCommandLocator,
+): string | undefined {
+  let result: ReturnType<PnpmVersionRunner>;
+  if (platform === "win32") {
+    const trustedCwd = dirname(process.execPath);
+    const lookupCwd = win32.join(
+      process.env.SystemRoot ?? "C:\\Windows",
+      "System32",
+    );
+    const invocation = resolveWindowsCommandInvocation(
+      "pnpm",
+      ["--version"],
+      process.env,
+      locator,
+      lookupCwd,
+    );
+    result = runner(invocation.command, invocation.args, {
+      cwd: trustedCwd,
+      env: process.env,
+      windowsVerbatimArguments: invocation.windowsVerbatimArguments,
+    });
+  } else {
+    result = runner("pnpm", ["--version"]);
+  }
+  const version = typeof result.stdout === "string" ? result.stdout.trim() : "";
+  return result.status === 0 && version ? version : undefined;
+}
 
 export type DoctorCheckStatus = "ok" | "warning" | "error" | "skipped";
 
@@ -55,19 +111,18 @@ export function createDoctorRuntime(
   options: DoctorRuntimeOptions = {},
 ): DoctorRuntime {
   const setup = createSetupSnippets();
+  const windowsToasterPath = resolveWindowsToasterPath({
+    execPath: process.execPath,
+    isSea,
+    platform: process.platform,
+  });
   const client = new DaemonClient(
     options.baseUrl ? { baseUrl: options.baseUrl } : {},
   );
   return {
     standalone: isSea,
     nodeVersion: () => process.versions.node,
-    pnpmVersion: () => {
-      const result = spawnSync("pnpm", ["--version"], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      });
-      return result.status === 0 ? result.stdout.trim() : undefined;
-    },
+    pnpmVersion: detectPnpmVersion,
     cliBuilt: async () => {
       const entryPath = process.argv[1];
       if (!entryPath) {
@@ -99,16 +154,25 @@ export function createDoctorRuntime(
     },
     pathResolvedCrewlight: () => {
       try {
-        const result = spawnSync(
-          process.platform === "win32" ? "where" : "which",
-          ["crewlight"],
-          {
-            encoding: "utf8",
-            stdio: ["ignore", "pipe", "ignore"],
-          },
-        );
+        const command =
+          process.platform === "win32"
+            ? win32.join(
+                process.env.SystemRoot ?? "C:\\Windows",
+                "System32",
+                "where.exe",
+              )
+            : "which";
+        const result = spawnSync(command, ["crewlight"], {
+          cwd:
+            process.platform === "win32"
+              ? dirname(process.execPath)
+              : undefined,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+          windowsHide: true,
+        });
         return result.status === 0
-          ? result.stdout.trim().split("\n")[0]
+          ? result.stdout.trim().split(/\r?\n/u)[0]
           : undefined;
       } catch {
         return undefined;
@@ -120,7 +184,7 @@ export function createDoctorRuntime(
       const port = Number(process.env.CREWLIGHT_PORT ?? DEFAULT_DAEMON_PORT);
       return { host, port };
     },
-    osNotifier: probeOsNotifier,
+    osNotifier: () => probeOsNotifier(undefined, undefined, windowsToasterPath),
     claudeSnippet: () => setup.claudeCode,
     codexSnippet: () => setup.codex,
     codexHooksSetup: () => setup.codexHooks,
@@ -282,10 +346,15 @@ async function notifierCheck(
     id: "notifier",
     status: "warning",
     message:
-      result.reason === "import"
-        ? "OS notifier module could not be loaded. Desktop notifications are unavailable."
-        : "OS notifier module has an unsupported interface. Desktop notifications are unavailable.",
-    action: "Use `crewlight daemon --notifier console` as a safe fallback.",
+      result.reason === "asset"
+        ? "The packaged Windows notification helper is missing or failed its integrity check. Desktop notifications are unavailable."
+        : result.reason === "import"
+          ? "OS notifier module could not be loaded. Desktop notifications are unavailable."
+          : "OS notifier module has an unsupported interface. Desktop notifications are unavailable.",
+    action:
+      result.reason === "asset"
+        ? "Reinstall Crewlight, or use `crewlight daemon --notifier console` as a safe fallback."
+        : "Use `crewlight daemon --notifier console` as a safe fallback.",
   };
 }
 
@@ -301,15 +370,14 @@ function runtimeChecks(runtime: DoctorRuntime): DoctorCheck[] {
     });
   }
 
-  if (
-    env.host !== "127.0.0.1" &&
-    env.host !== "::1" &&
-    env.host !== "localhost"
-  ) {
+  if (!isLoopbackHost(env.host)) {
     checks.push({
       id: "daemon-host",
-      status: "ok", // info
-      message: `Daemon is listening on ${env.host}. Note that Codespaces/remote environments may require port forwarding configurations.`,
+      status: "warning",
+      message:
+        "The daemon is configured beyond Crewlight's literal loopback boundary and has no client authentication.",
+      action:
+        "Use CREWLIGHT_HOST=127.0.0.1 (or ::1), unless this is an explicitly trusted development or container network. Never expose the port publicly.",
     });
   }
 

@@ -111,6 +111,31 @@ Host remote-two
     }
   });
 
+  it("expands a Windows-style home-relative IdentityFile", async () => {
+    const tempConfigPath = join(
+      tmpdir(),
+      `ssh-config-windows-home-${Date.now()}`,
+    );
+    await writeFile(
+      tempConfigPath,
+      [
+        "# CrewlightRemote: yes",
+        "Host windows-home-key",
+        String.raw`  IdentityFile ~\.ssh\id_ed25519`,
+      ].join("\n"),
+      "utf8",
+    );
+
+    try {
+      const hosts = await parseCrewlightRemoteHosts(tempConfigPath);
+      expect(hosts[0]?.identityFile).toBe(
+        join((await import("node:os")).homedir(), ".ssh", "id_ed25519"),
+      );
+    } finally {
+      await rm(tempConfigPath, { force: true });
+    }
+  });
+
   it("does not apply a dangling top-level marker to the preceding Host block", async () => {
     const tempConfigPath = join(tmpdir(), `ssh-config-dangling-${Date.now()}`);
     await writeFile(

@@ -114,21 +114,8 @@ function entryMatchesHost(
   return positiveMatch;
 }
 
-export function knownHostCandidates(
-  hostname: string,
-  port: number,
-  alias?: string,
-): string[] {
-  const names = [hostname, ...(alias && alias !== hostname ? [alias] : [])];
-  const candidates = new Set<string>();
-  for (const name of names) {
-    if (port === 22) {
-      candidates.add(name);
-    } else {
-      candidates.add(`[${name}]:${port}`);
-    }
-  }
-  return [...candidates];
+export function knownHostCandidates(hostname: string, port: number): string[] {
+  return [port === 22 ? hostname : `[${hostname}]:${port}`];
 }
 
 export function verifyKnownHostKey(

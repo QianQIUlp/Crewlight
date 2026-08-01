@@ -5,6 +5,13 @@ import { fileURLToPath } from "node:url";
 
 import { main } from "./app.js";
 
+export {
+  mapCodexJsonlLine,
+  stableCodexTurnEventId,
+  type CodexJsonlLineOptions,
+  type CodexJsonlLineResult,
+} from "@crewlight/adapter-codex";
+
 export function isMainModule(
   moduleUrl: string,
   entryPath: string | undefined,
@@ -38,11 +45,13 @@ export {
 } from "./commands/setup.js";
 export {
   createDoctorRuntime,
+  detectPnpmVersion,
   runDoctor,
   type DoctorCheck,
   type DoctorReport,
   type DoctorRuntime,
   type DoctorRuntimeOptions,
+  type PnpmVersionRunner,
 } from "./commands/doctor.js";
 export {
   DAEMON_REQUEST_TIMEOUT_MS,

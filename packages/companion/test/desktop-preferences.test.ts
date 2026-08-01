@@ -40,6 +40,21 @@ describe("desktop preferences", () => {
     expect(serialized).not.toContain("toolInput");
   });
 
+  it("persists only the supported English and Simplified Chinese locales", () => {
+    expect(
+      sanitizeDesktopPreferences({
+        ...DEFAULT_DESKTOP_PREFERENCES,
+        locale: "zh-CN",
+      }).locale,
+    ).toBe("zh-CN");
+    expect(
+      sanitizeDesktopPreferences({
+        ...DEFAULT_DESKTOP_PREFERENCES,
+        locale: "fr",
+      }).locale,
+    ).toBe("en");
+  });
+
   it("sanitizes remoteHosts preferences with installPromptDismissed", () => {
     const sanitized = sanitizeDesktopPreferences({
       remoteHosts: [

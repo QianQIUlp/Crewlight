@@ -8,6 +8,11 @@
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
+  "files": [
+    "assets",
+    "dist",
+    "electron-builder.json"
+  ],
   "scripts": {
     "build": "tsc -b && pnpm copy:assets",
     "copy:assets": "node scripts/copy-assets.mjs",

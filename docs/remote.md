@@ -9,6 +9,8 @@ Crewlight Desktop can receive agent events from explicitly selected SSH hosts th
 3. **Authentication:** Crewlight uses the block's `IdentityFile` when present and can fall back to the local SSH agent when `SSH_AUTH_SOCK` is available. Password prompts are not supported.
 4. **Event forwarding:** The SSH server listens on remote `127.0.0.1:3768`; accepted event requests are forwarded to a loopback-only proxy and then to the local Crewlight daemon. Crewlight attaches the configured host alias locally.
 
+The reverse listener is loopback-bound, but it is not process-authenticated. Any process or user on the selected remote host that can access its loopback port can submit allowed event fields and trigger local notifications. Marking a host therefore trusts that host's local users and processes for event ingest. The tunnel still cannot read sessions or expose the dashboard.
+
 ## Configure a host
 
 Mark a concrete SSH host block in `~/.ssh/config`:

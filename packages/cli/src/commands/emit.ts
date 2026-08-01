@@ -38,10 +38,11 @@ export async function executeEmitCommand(
     ...(values.message ? { message: values.message } : {}),
     ...(values.urgency ? { urgency: values.urgency } : {}),
   });
-  const { event, session } = await client.emit(input);
-
+  const result = await client.emit(input);
   io.write(
-    `Accepted ${event.source}/${event.status} for ${session.sessionKey}`,
+    "accepted" in result
+      ? `Accepted ${input.source}/${input.status} through the remote ingest proxy`
+      : `Accepted ${result.event.source}/${result.event.status} for ${result.session.sessionKey}`,
   );
   return 0;
 }

@@ -97,7 +97,6 @@ export function createDaemonServiceManager(
     stdoutSummary: [],
     stderrSummary: [],
   };
-
   function publish(): void {
     events.emit("state", { ...state });
   }
@@ -121,10 +120,25 @@ export function createDaemonServiceManager(
     }
   }
 
+  function requestManagedShutdown(
+    activeChild: ChildProcessWithoutNullStreams,
+  ): boolean {
+    try {
+      if (!activeChild.stdin.writable || activeChild.stdin.destroyed) {
+        return false;
+      }
+      activeChild.stdin.write("shutdown\n", "utf8");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function releaseChild(): void {
     clearStopTimer();
     if (child) {
       child.removeAllListeners();
+      child.stdin.removeAllListeners();
       child.stdout.removeAllListeners();
       child.stderr.removeAllListeners();
       child = undefined;
@@ -164,12 +178,7 @@ export function createDaemonServiceManager(
     };
 
     clearStopTimer();
-    try {
-      if (!activeChild.kill("SIGTERM")) {
-        forceStop();
-        return;
-      }
-    } catch {
+    if (!requestManagedShutdown(activeChild)) {
       forceStop();
       return;
     }
@@ -224,21 +233,7 @@ export function createDaemonServiceManager(
         }
         finish(false);
       };
-      const onExit = () => {
-        finish(true);
-      };
-      settlePendingStop = finish;
-      activeChild.once("exit", onExit);
-      try {
-        if (!activeChild.kill("SIGTERM")) {
-          failStop();
-          return;
-        }
-      } catch {
-        failStop();
-        return;
-      }
-      stopTimer = setTimeout(() => {
+      const forceStop = () => {
         try {
           if (!activeChild.kill("SIGKILL")) {
             failStop();
@@ -249,7 +244,17 @@ export function createDaemonServiceManager(
           return;
         }
         stopTimer = setTimeout(failStop, FORCE_STOP_GRACE_MS);
-      }, STOP_TIMEOUT_MS);
+      };
+      const onExit = () => {
+        finish(true);
+      };
+      settlePendingStop = finish;
+      activeChild.once("exit", onExit);
+      if (!requestManagedShutdown(activeChild)) {
+        forceStop();
+        return;
+      }
+      stopTimer = setTimeout(forceStop, STOP_TIMEOUT_MS);
     });
     stopPromise = operation;
     try {
@@ -290,6 +295,7 @@ export function createDaemonServiceManager(
       ...cli.args,
       "daemon",
       "--dashboard",
+      "--managed-stdio",
       "--host",
       settings.host,
       "--port",
@@ -302,6 +308,7 @@ export function createDaemonServiceManager(
       child = spawn(cli.command, args, {
         env: process.env,
         stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
       });
     } catch (error) {
       applyState({
@@ -361,6 +368,11 @@ export function createDaemonServiceManager(
 
     spawnedChild.stdout.setEncoding("utf8");
     spawnedChild.stderr.setEncoding("utf8");
+    spawnedChild.stdin.on("error", () => {
+      // A daemon may close its managed control pipe before the ChildProcess
+      // exit event arrives. The bounded stop timer still confirms or forces
+      // termination, so EPIPE must not become an uncaught Electron error.
+    });
     spawnedChild.stdout.on("data", (chunk: string) => {
       stdoutCollector(chunk);
       const probeOutput = `${readyProbe}${chunk}`;

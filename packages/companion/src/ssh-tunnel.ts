@@ -1,5 +1,10 @@
 import net from "node:net";
-import { Client, type ClientChannel, type ConnectConfig } from "ssh2";
+import { userInfo } from "node:os";
+import ssh2, {
+  type Client as SshClient,
+  type ClientChannel,
+  type ConnectConfig,
+} from "ssh2";
 import { loadSshIdentity } from "./ssh-auth.js";
 import {
   knownHostCandidates,
@@ -8,6 +13,8 @@ import {
   type KnownHostEntry,
 } from "./known-hosts.js";
 import type { SshConfigHost } from "./ssh-config-parser.js";
+
+const { Client } = ssh2;
 
 export interface SshTunnelOptions {
   host: SshConfigHost;
@@ -36,6 +43,21 @@ const REMOTE_CLI_PROBE_COMMANDS = [
 const REMOTE_CLI_PROBE_OUTPUT_LIMIT = 4_096;
 export const REMOTE_CLI_PROBE_TIMEOUT_MS = 1_000;
 
+export function resolveDefaultSshUsername(
+  env: NodeJS.ProcessEnv = process.env,
+  localUsername: () => string = () => userInfo().username,
+): string {
+  const configured = env.USER?.trim() || env.USERNAME?.trim();
+  if (configured) {
+    return configured;
+  }
+  try {
+    return localUsername().trim() || "root";
+  } catch {
+    return "root";
+  }
+}
+
 function closeProbeChannel(stream: ClientChannel): void {
   const channel = stream as ClientChannel & {
     close?: () => void;
@@ -57,7 +79,7 @@ function closeProbeChannel(stream: ClientChannel): void {
 }
 
 function probeRemoteCommand(
-  connection: Client,
+  connection: SshClient,
   command: (typeof REMOTE_CLI_PROBE_COMMANDS)[number],
 ): Promise<boolean> {
   return new Promise((resolve) => {
@@ -122,7 +144,7 @@ function probeRemoteCommand(
 
 export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
   const { host, remotePort, localPort, onStateChange } = options;
-  let conn: Client | null = null;
+  let conn: SshClient | null = null;
   let retryCount = 0;
   let isConnected = false;
   const maxRetries = 3;
@@ -141,12 +163,12 @@ export function createSshTunnel(options: SshTunnelOptions): SshTunnel {
     const port = host.port ?? 22;
     const knownHosts =
       options.knownHosts ?? loadKnownHosts(options.knownHostsPath);
-    const candidates = knownHostCandidates(hostname, port, host.alias);
+    const candidates = knownHostCandidates(hostname, port);
     hostKeyFailure = undefined;
     const connectConfig: ConnectConfig = {
       host: hostname,
       port,
-      username: host.user ?? process.env.USER ?? "root",
+      username: host.user ?? resolveDefaultSshUsername(),
       keepaliveInterval: 15000,
       keepaliveCountMax: 3,
       hostVerifier: (key: Buffer) => {

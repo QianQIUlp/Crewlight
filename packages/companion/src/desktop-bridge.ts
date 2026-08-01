@@ -1,6 +1,7 @@
 import type {
   DesktopAccent,
   DesktopDensity,
+  DesktopLocale,
   DesktopSection,
   DesktopTheme,
   PreferredIntegration,
@@ -16,6 +17,10 @@ export type DesktopAction =
   | { type: "copy:diagnostic-summary" }
   | { type: "copy:text"; text: string }
   | { type: "demo:run" }
+  | {
+      type: "integration:configure";
+      integration: "claude-code" | "codex";
+    }
   | { type: "onboarding:complete" }
   | { type: "onboarding:skip-step" }
   | { type: "onboarding:start-over" }
@@ -27,6 +32,7 @@ export type DesktopAction =
   | { type: "preferences:set-companion-visibility"; visible: boolean }
   | { type: "preferences:set-density"; density: DesktopDensity }
   | { type: "preferences:set-last-section"; section: DesktopSection }
+  | { type: "preferences:set-locale"; locale: DesktopLocale }
   | { type: "preferences:set-service-auto-start"; enabled: boolean }
   | { type: "preferences:set-theme"; theme: DesktopTheme }
   | { type: "preferences:reset" }
