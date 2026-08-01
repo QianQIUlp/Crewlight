@@ -5,6 +5,7 @@ import type { DesktopDashboardResult } from "./desktop-client.js";
 import type {
   DesktopAccent,
   DesktopDensity,
+  DesktopLocale,
   DesktopPreferences,
   DesktopSection,
   DesktopTheme,
@@ -18,29 +19,62 @@ import {
 } from "./state.js";
 import type { SanitizedSession } from "./sanitize.js";
 
-const STATUS_LABELS: Record<SanitizedSession["status"], string> = {
-  idle: "Idle",
-  running: "Running",
-  using_tool: "Using tool",
-  waiting_input: "Waiting for input",
-  waiting_permission: "Permission needed",
-  completed: "Completed",
-  failed: "Failed",
-  rate_limited: "Rate limited",
-  unknown: "Unknown",
+const STATUS_LABELS: Record<
+  DesktopLocale,
+  Record<SanitizedSession["status"], string>
+> = {
+  en: {
+    idle: "Idle",
+    running: "Running",
+    using_tool: "Using tool",
+    waiting_input: "Waiting for input",
+    waiting_permission: "Permission needed",
+    completed: "Completed",
+    failed: "Failed",
+    rate_limited: "Rate limited",
+    unknown: "Unknown",
+  },
+  "zh-CN": {
+    idle: "空闲",
+    running: "运行中",
+    using_tool: "正在使用工具",
+    waiting_input: "等待输入",
+    waiting_permission: "需要授权",
+    completed: "已完成",
+    failed: "失败",
+    rate_limited: "受到限流",
+    unknown: "状态未知",
+  },
 };
 
-const SECTION_LABELS: Record<DesktopSection, string> = {
-  home: "Home",
-  remote: "Remote",
-  doctor: "Doctor",
-  agents: "Agents",
-  companion: "Companion",
-  demo: "Demo",
-  appearance: "Appearance",
-  settings: "Settings",
-  about: "About",
+const SECTION_LABELS: Record<DesktopLocale, Record<DesktopSection, string>> = {
+  en: {
+    home: "Home",
+    remote: "Remote",
+    doctor: "Doctor",
+    agents: "Agents",
+    companion: "Companion",
+    demo: "Demo",
+    appearance: "Appearance",
+    settings: "Settings",
+    about: "About",
+  },
+  "zh-CN": {
+    home: "首页",
+    remote: "远程",
+    doctor: "诊断",
+    agents: "代理接入",
+    companion: "悬浮伴侣",
+    demo: "演示",
+    appearance: "外观",
+    settings: "设置",
+    about: "关于",
+  },
 };
+
+function pick(locale: DesktopLocale, english: string, chinese: string): string {
+  return locale === "zh-CN" ? chinese : english;
+}
 
 export type DesktopNoticeTone = "info" | "success" | "error";
 
@@ -146,6 +180,7 @@ export interface DesktopViewModel {
   appearance: {
     accent: DesktopAccent;
     density: DesktopDensity;
+    locale: DesktopLocale;
     theme: DesktopTheme;
   };
   companion: DesktopCompanionState & {
@@ -229,31 +264,38 @@ export interface DesktopViewModelInput {
   remoteHosts: DesktopRemoteHost[];
 }
 
-function formatRelativeAge(milliseconds: number): string {
+function formatRelativeAge(
+  milliseconds: number,
+  locale: DesktopLocale,
+): string {
   const seconds = Math.floor(milliseconds / 1000);
   if (seconds < 5) {
-    return "just now";
+    return pick(locale, "just now", "刚刚");
   }
   if (seconds < 60) {
-    return `${seconds}s ago`;
+    return pick(locale, `${seconds}s ago`, `${seconds} 秒前`);
   }
 
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) {
-    return `${minutes}m ago`;
+    return pick(locale, `${minutes}m ago`, `${minutes} 分钟前`);
   }
 
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return `${hours}h ago`;
+    return pick(locale, `${hours}h ago`, `${hours} 小时前`);
   }
 
-  return `${Math.floor(hours / 24)}d ago`;
+  const days = Math.floor(hours / 24);
+  return pick(locale, `${days}d ago`, `${days} 天前`);
 }
 
-function formatTimestamp(timestamp: number | undefined): string {
+function formatTimestamp(
+  timestamp: number | undefined,
+  locale: DesktopLocale,
+): string {
   if (timestamp === undefined) {
-    return "Waiting for local status";
+    return pick(locale, "Waiting for local status", "等待本地状态");
   }
   return new Date(timestamp).toLocaleTimeString([], {
     hour: "2-digit",
@@ -309,36 +351,48 @@ function sessionTone(session: SanitizedSession): DesktopSessionCard["tone"] {
   return "quiet";
 }
 
-function diagnosticHint(session: SanitizedSession): string | undefined {
+function diagnosticHint(
+  session: SanitizedSession,
+  locale: DesktopLocale,
+): string | undefined {
   if (session.status === "waiting_permission") {
-    return "Permission required";
+    return pick(locale, "Permission required", "需要你的授权");
   }
   if (session.status === "waiting_input") {
-    return "User input requested";
+    return pick(locale, "User input requested", "代理正在等待你的输入");
   }
   if (session.status === "failed") {
-    return "Agent reported a failure";
+    return pick(locale, "Agent reported a failure", "代理报告了失败");
   }
   if (session.status === "rate_limited") {
-    return "Rate limit reported";
+    return pick(locale, "Rate limit reported", "代理报告了限流");
   }
   if (session.isStale && isRunning(session)) {
-    return session.staleReason ?? "No recent event; session may be stale";
+    return (
+      session.staleReason ??
+      pick(
+        locale,
+        "No recent event; session may be stale",
+        "长时间没有新事件，任务可能已停滞",
+      )
+    );
   }
   return undefined;
 }
 
-function toSessionCard(session: SanitizedSession): DesktopSessionCard {
+function toSessionCard(
+  session: SanitizedSession,
+  locale: DesktopLocale,
+): DesktopSessionCard {
+  const hint = diagnosticHint(session, locale);
   return {
     id: session.viewId,
-    activity: session.activityLabel ?? STATUS_LABELS[session.status],
-    ageLabel: formatRelativeAge(session.lastEventAgeMs),
-    ...(diagnosticHint(session)
-      ? { diagnosticHint: diagnosticHint(session) }
-      : {}),
+    activity: session.activityLabel ?? STATUS_LABELS[locale][session.status],
+    ageLabel: formatRelativeAge(session.lastEventAgeMs, locale),
+    ...(hint ? { diagnosticHint: hint } : {}),
     needsAction: needsAction(session),
     source: session.displayName,
-    statusLabel: STATUS_LABELS[session.status],
+    statusLabel: STATUS_LABELS[locale][session.status],
     surface: getCompanionSurfaceLabel(session.surface),
     title: session.taskTitle ?? session.displayWorkspace,
     tone: sessionTone(session),
@@ -467,23 +521,46 @@ function integrationCards(
 function serviceBadge(
   serviceState: ManagedServiceState,
   snapshot: DesktopDashboardResult,
+  locale: DesktopLocale,
 ): DesktopStatusBadge {
   if (serviceState.phase === "starting") {
-    return { label: "Starting local service", tone: "active" };
+    return {
+      label: pick(locale, "Starting local service", "正在启动本地服务"),
+      tone: "active",
+    };
   }
   if (serviceState.phase === "stopping") {
-    return { label: "Stopping local service", tone: "warning" };
+    return {
+      label: pick(locale, "Stopping local service", "正在停止本地服务"),
+      tone: "warning",
+    };
   }
   if (serviceState.phase === "running") {
-    return { label: "Managed local service", tone: "success" };
+    return {
+      label: pick(locale, "Managed local service", "本地服务运行中"),
+      tone: "success",
+    };
   }
   if (snapshot.kind === "online") {
-    return { label: "External local service detected", tone: "active" };
+    return {
+      label: pick(
+        locale,
+        "External local service detected",
+        "已检测到外部本地服务",
+      ),
+      tone: "active",
+    };
   }
   if (serviceState.phase === "error") {
-    return { label: "Local service needs attention", tone: "error" };
+    return {
+      label: pick(locale, "Local service needs attention", "本地服务需要处理"),
+      tone: "error",
+    };
   }
-  return { label: "Local service stopped", tone: "neutral" };
+  return {
+    label: pick(locale, "Local service stopped", "本地服务已停止"),
+    tone: "neutral",
+  };
 }
 
 function primaryAction(
@@ -491,29 +568,46 @@ function primaryAction(
   snapshot: DesktopDashboardResult,
   companion: DesktopCompanionState,
   demoSessions: readonly SanitizedSession[],
+  locale: DesktopLocale,
 ): DesktopActionCard {
   if (serviceState.phase !== "running" && snapshot.kind !== "online") {
     return {
       action: "start-service",
-      description:
+      description: pick(
+        locale,
         "Start the local daemon and dashboard so Crewlight can watch live sessions.",
-      label: "Start local service",
+        "启动本地服务，让 Crewlight 开始汇总实时代理会话。",
+      ),
+      label: pick(locale, "Start local service", "启动本地服务"),
     };
   }
   if (demoSessions.length === 0) {
     return {
       action: "run-demo",
-      description:
+      description: pick(
+        locale,
         "Load the deterministic multi-agent scenario to populate Home, Demo, and Companion instantly.",
-      label: "Run multi-agent demo",
+        "载入可重复的多代理场景，立即查看首页、演示和悬浮伴侣的完整体验。",
+      ),
+      label: pick(locale, "Run multi-agent demo", "运行多代理演示"),
     };
   }
   return {
     action: "show-companion",
     description: companion.visible
-      ? "Bring the floating companion forward for a quick status read."
-      : "Show the floating companion to keep live status visible while you work elsewhere.",
-    label: companion.visible ? "Bring companion forward" : "Show companion",
+      ? pick(
+          locale,
+          "Bring the floating companion forward for a quick status read.",
+          "把悬浮伴侣带到前台，快速查看当前状态。",
+        )
+      : pick(
+          locale,
+          "Show the floating companion to keep live status visible while you work elsewhere.",
+          "显示悬浮伴侣，在其他窗口工作时也能掌握实时状态。",
+        ),
+    label: companion.visible
+      ? pick(locale, "Bring companion forward", "将悬浮伴侣置于前台")
+      : pick(locale, "Show companion", "显示悬浮伴侣"),
   };
 }
 
@@ -543,6 +637,7 @@ export function deriveDesktopViewModel(
   input: DesktopViewModelInput,
   setup: DesktopSetupSnippets,
 ): DesktopViewModel {
+  const locale = input.preferences.locale;
   const liveSessions =
     input.snapshot.kind === "online" ? input.snapshot.data.sessions : [];
   const sortedSessions = sortSessions(liveSessions);
@@ -552,53 +647,80 @@ export function deriveDesktopViewModel(
       ? { kind: "online", data: { sessions: liveSessions } }
       : input.snapshot,
   );
-  const previewSessions = sortedSessions.slice(0, 4).map(toSessionCard);
+  const previewSessions = sortedSessions
+    .slice(0, 4)
+    .map((session) => toSessionCard(session, locale));
   const failedOrStale = sortedSessions.filter(
     (session) => isError(session) || (session.isStale && isRunning(session)),
   ).length;
-  const sections = Object.entries(SECTION_LABELS).map(([id, label]) => ({
-    active: input.preferences.lastSection === id,
-    id: id as DesktopSection,
-    label,
-  }));
+  const sections = Object.entries(SECTION_LABELS[locale]).map(
+    ([id, label]) => ({
+      active: input.preferences.lastSection === id,
+      id: id as DesktopSection,
+      label,
+    }),
+  );
   const onboardingSteps: DesktopOnboardingStep[] = [
     {
       id: "welcome",
-      title: "Welcome",
-      description: "Meet Crewlight Desktop and the local-first workflow.",
+      title: pick(locale, "Welcome", "欢迎"),
+      description: pick(
+        locale,
+        "Meet Crewlight Desktop and the local-first workflow.",
+        "认识 Crewlight Desktop 和本地优先的工作方式。",
+      ),
       complete: true,
     },
     {
       id: "start-service",
-      title: "Start local service",
-      description: "Bring up the loopback daemon and dashboard API.",
+      title: pick(locale, "Start local service", "启动本地服务"),
+      description: pick(
+        locale,
+        "Bring up the loopback daemon and dashboard API.",
+        "启动仅监听回环地址的守护进程和面板 API。",
+      ),
       complete:
         input.serviceState.phase === "running" ||
         input.snapshot.kind === "online",
     },
     {
       id: "run-demo",
-      title: "Run demo",
-      description:
+      title: pick(locale, "Run demo", "运行演示"),
+      description: pick(
+        locale,
         "Load six deterministic local sessions to see the product loop.",
+        "载入六个可重复的本地会话，快速了解产品闭环。",
+      ),
       complete: demoSessions.length > 0,
     },
     {
       id: "show-companion",
-      title: "Show companion",
-      description: "Open the floating companion so live status stays nearby.",
+      title: pick(locale, "Show companion", "显示悬浮伴侣"),
+      description: pick(
+        locale,
+        "Open the floating companion so live status stays nearby.",
+        "打开悬浮伴侣，让实时状态始终近在眼前。",
+      ),
       complete: input.companion.visible,
     },
     {
       id: "choose-integration",
-      title: "Choose an integration path",
-      description: "Pick the first setup path you want Crewlight to highlight.",
+      title: pick(locale, "Choose an integration path", "选择接入方式"),
+      description: pick(
+        locale,
+        "Pick the first setup path you want Crewlight to highlight.",
+        "选择希望 Crewlight 优先引导的接入方式。",
+      ),
       complete: input.preferences.preferredIntegration !== undefined,
     },
     {
       id: "finish",
-      title: "Finish",
-      description: "Land in Home and keep the current local state intact.",
+      title: pick(locale, "Finish", "完成"),
+      description: pick(
+        locale,
+        "Land in Home and keep the current local state intact.",
+        "进入首页，并保留当前本地状态。",
+      ),
       complete: input.preferences.onboardingCompleted,
     },
   ];
@@ -610,54 +732,107 @@ export function deriveDesktopViewModel(
 
   return {
     about: {
-      boundaries: [
-        "No cloud service",
-        "No private API scraping",
-        "No automatic permission approval",
-        "No prompt, transcript, or tool I/O retention",
-      ],
+      boundaries:
+        locale === "zh-CN"
+          ? [
+              "不依赖云端服务",
+              "不抓取私有 API",
+              "不自动批准权限",
+              "不保留提示词、对话或工具输入输出",
+            ]
+          : [
+              "No cloud service",
+              "No private API scraping",
+              "No automatic permission approval",
+              "No prompt, transcript, or tool I/O retention",
+            ],
       license: "MIT",
-      migrationSummary: [
-        "AgentPulse is now Crewlight.",
-        "The desktop app is the primary user-facing v0.5.0 surface.",
-        "CLI and browser dashboard remain available for advanced local workflows.",
-      ],
+      migrationSummary:
+        locale === "zh-CN"
+          ? [
+              "AgentPulse 现已更名为 Crewlight。",
+              "桌面应用是 v0.5.0 的主要用户界面。",
+              "CLI 和浏览器面板仍可用于高级本地工作流。",
+            ]
+          : [
+              "AgentPulse is now Crewlight.",
+              "The desktop app is the primary user-facing v0.5.0 surface.",
+              "CLI and browser dashboard remain available for advanced local workflows.",
+            ],
       repoUrl: "https://github.com/QianQIUlp/Crewlight",
-      tagline: "Local activity radar for AI coding agents.",
+      tagline: pick(
+        locale,
+        "Local activity radar for AI coding agents.",
+        "面向 AI 编码代理的本地活动雷达。",
+      ),
       version: input.version,
     },
     appearance: {
       accent: input.preferences.accent,
       density: input.preferences.density,
+      locale,
       theme: input.preferences.theme,
     },
     companion: {
       ...input.companion,
-      modeLabel: input.companion.expanded ? "Expanded mode" : "Compact mode",
-      statusLabel: input.companion.visible ? "Visible" : "Hidden",
+      modeLabel: input.companion.expanded
+        ? pick(locale, "Expanded mode", "展开模式")
+        : pick(locale, "Compact mode", "紧凑模式"),
+      statusLabel: input.companion.visible
+        ? pick(locale, "Visible", "已显示")
+        : pick(locale, "Hidden", "已隐藏"),
     },
     demo: {
       hasSyntheticSessions: demoSessions.length > 0,
-      sessions: demoSessions.map(toSessionCard),
+      sessions: demoSessions.map((session) => toSessionCard(session, locale)),
       summary:
         demoSessions.length > 0
-          ? `${demoSessions.length} synthetic local sessions are active. Rerun the demo to refresh the same identities.`
-          : "Run the local multi-agent demo to populate Home, Demo, and Companion with synthetic sessions.",
+          ? pick(
+              locale,
+              `${demoSessions.length} synthetic local sessions are active. Rerun the demo to refresh the same identities.`,
+              `${demoSessions.length} 个合成本地会话正在运行。再次运行演示可刷新同一组会话。`,
+            )
+          : pick(
+              locale,
+              "Run the local multi-agent demo to populate Home, Demo, and Companion with synthetic sessions.",
+              "运行本地多代理演示，用合成会话填充首页、演示和悬浮伴侣。",
+            ),
     },
     doctor: {
       checks: input.doctorReport.checks,
       platformLabel: platformLabel(),
       summary: input.doctorReport.ok
-        ? "Doctor checks look healthy for the current local setup."
-        : "Doctor found follow-up items before release or daily use.",
+        ? pick(
+            locale,
+            "Doctor checks look healthy for the current local setup.",
+            "当前本地环境的诊断结果正常。",
+          )
+        : pick(
+            locale,
+            "Doctor found follow-up items before release or daily use.",
+            "诊断发现了需要在发布或日常使用前处理的问题。",
+          ),
     },
     header: {
       lastUpdatedLabel:
         input.snapshot.kind === "online"
-          ? `Last update ${formatTimestamp(Date.now())}`
-          : "Waiting for local status",
-      serviceBadge: serviceBadge(input.serviceState, input.snapshot),
-      summary: companionView.summary,
+          ? pick(
+              locale,
+              `Last update ${formatTimestamp(Date.now(), locale)}`,
+              `最近更新 ${formatTimestamp(Date.now(), locale)}`,
+            )
+          : pick(locale, "Waiting for local status", "等待本地状态"),
+      serviceBadge: serviceBadge(input.serviceState, input.snapshot, locale),
+      summary:
+        input.snapshot.kind !== "online"
+          ? pick(locale, "Daemon offline", "本地服务离线")
+          : pick(
+              locale,
+              companionView.summary,
+              companionView.counts.action > 0
+                ? `${companionView.counts.action} 个会话需要你处理`
+                : `${companionView.counts.running} 个会话正在运行`,
+            ),
     },
     home: {
       counts: {
@@ -671,9 +846,10 @@ export function deriveDesktopViewModel(
         input.snapshot,
         input.companion,
         demoSessions,
+        locale,
       ),
       previewSessions,
-      tagline: "Command Center",
+      tagline: pick(locale, "Command Center", "代理指挥台"),
     },
     integrations,
     ...(input.notice ? { notice: input.notice } : {}),

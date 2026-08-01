@@ -1,6 +1,7 @@
 import type {
   DesktopAccent,
   DesktopDensity,
+  DesktopLocale,
   DesktopSection,
   DesktopTheme,
   PreferredIntegration,
@@ -27,6 +28,7 @@ export type DesktopAction =
   | { type: "preferences:set-companion-visibility"; visible: boolean }
   | { type: "preferences:set-density"; density: DesktopDensity }
   | { type: "preferences:set-last-section"; section: DesktopSection }
+  | { type: "preferences:set-locale"; locale: DesktopLocale }
   | { type: "preferences:set-service-auto-start"; enabled: boolean }
   | { type: "preferences:set-theme"; theme: DesktopTheme }
   | { type: "preferences:reset" }

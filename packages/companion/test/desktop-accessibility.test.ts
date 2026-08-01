@@ -29,6 +29,8 @@ describe("desktop accessibility regressions", () => {
     );
     expect(desktopHtml).not.toMatch(/\sstyle=/u);
     expect(companionHtml).not.toMatch(/\sstyle=/u);
+    expect(desktopHtml).toContain('id="locale-select"');
+    expect(desktopHtml).toContain('src="./crewlight-icon.png"');
   });
 
   it("uses a labelled modal dialog and no dead npm install command", async () => {

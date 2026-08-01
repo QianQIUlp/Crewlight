@@ -4,6 +4,7 @@ export const DESKTOP_PREFERENCES_VERSION = 1;
 export const DESKTOP_THEMES = ["system", "light", "dark"] as const;
 export const DESKTOP_ACCENTS = ["teal", "amber", "azure"] as const;
 export const DESKTOP_DENSITIES = ["comfortable", "compact"] as const;
+export const DESKTOP_LOCALES = ["en", "zh-CN"] as const;
 export const DESKTOP_SECTIONS = [
   "home",
   "remote",
@@ -42,6 +43,7 @@ export const INTEGRATION_IDS = [
 export type DesktopTheme = (typeof DESKTOP_THEMES)[number];
 export type DesktopAccent = (typeof DESKTOP_ACCENTS)[number];
 export type DesktopDensity = (typeof DESKTOP_DENSITIES)[number];
+export type DesktopLocale = (typeof DESKTOP_LOCALES)[number];
 export type DesktopSection = (typeof DESKTOP_SECTIONS)[number];
 export type PreferredIntegration = (typeof INTEGRATION_IDS)[number];
 
@@ -57,6 +59,7 @@ export interface DesktopPreferences {
   theme: DesktopTheme;
   accent: DesktopAccent;
   density: DesktopDensity;
+  locale: DesktopLocale;
   lastSection: DesktopSection;
   companionVisibilityPreference: boolean;
   serviceAutoStart: boolean;
@@ -76,6 +79,7 @@ export const DEFAULT_DESKTOP_PREFERENCES: DesktopPreferences = {
   theme: "system",
   accent: "teal",
   density: "comfortable",
+  locale: "en",
   lastSection: "home",
   companionVisibilityPreference: false,
   serviceAutoStart: false,
@@ -101,6 +105,13 @@ function isDensity(value: unknown): value is DesktopDensity {
   return (
     typeof value === "string" &&
     (DESKTOP_DENSITIES as readonly string[]).includes(value)
+  );
+}
+
+function isLocale(value: unknown): value is DesktopLocale {
+  return (
+    typeof value === "string" &&
+    (DESKTOP_LOCALES as readonly string[]).includes(value)
   );
 }
 
@@ -159,6 +170,9 @@ export function sanitizeDesktopPreferences(value: unknown): DesktopPreferences {
     density: isDensity(value.density)
       ? value.density
       : DEFAULT_DESKTOP_PREFERENCES.density,
+    locale: isLocale(value.locale)
+      ? value.locale
+      : DEFAULT_DESKTOP_PREFERENCES.locale,
     lastSection: isSection(value.lastSection)
       ? value.lastSection
       : DEFAULT_DESKTOP_PREFERENCES.lastSection,

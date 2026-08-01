@@ -227,4 +227,45 @@ describe("desktop view-model derivation", () => {
 
     expect(view.home.previewSessions[0]?.remoteAlias).toBe("staging-server");
   });
+
+  it("derives Chinese navigation, status, onboarding, and session labels", () => {
+    const view = deriveDesktopViewModel(
+      {
+        companion: {
+          alwaysOnTop: false,
+          expanded: false,
+          visible: false,
+        },
+        doctorReport,
+        preferences: {
+          ...DEFAULT_DESKTOP_PREFERENCES,
+          locale: "zh-CN",
+        },
+        runtimeSettings: {
+          host: "127.0.0.1",
+          port: 3768,
+          notifier: "none",
+        },
+        serviceState,
+        snapshot: {
+          kind: "online",
+          data: {
+            health: { status: "ok" },
+            sessions: [session("waiting_permission")],
+          },
+        },
+        version: "v0.5.0",
+        remoteHosts: [],
+      },
+      setup,
+    );
+
+    expect(view.appearance.locale).toBe("zh-CN");
+    expect(view.sections.find((section) => section.id === "home")?.label).toBe(
+      "首页",
+    );
+    expect(view.header.serviceBadge.label).toBe("已检测到外部本地服务");
+    expect(view.onboarding.steps[0]?.title).toBe("欢迎");
+    expect(view.home.previewSessions[0]?.statusLabel).toBe("需要授权");
+  });
 });

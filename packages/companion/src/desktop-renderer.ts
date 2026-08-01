@@ -5,7 +5,10 @@ import type {
   DesktopSessionCard,
   DesktopViewModel,
 } from "./desktop-state.js";
-import type { PreferredIntegration } from "./desktop-preferences.js";
+import type {
+  DesktopLocale,
+  PreferredIntegration,
+} from "./desktop-preferences.js";
 import { DisclosureState } from "./interaction.js";
 
 let latestState: DesktopViewModel | undefined;
@@ -14,6 +17,202 @@ let sessionDetailId = 0;
 let dialogReturnFocus: HTMLElement | undefined;
 const homeSessionDisclosures = new DisclosureState();
 const demoSessionDisclosures = new DisclosureState();
+const originalStaticText = new WeakMap<Element, string>();
+
+const STATIC_ZH: Record<string, string> = {
+  "Crewlight Desktop": "Crewlight 桌面版",
+  Language: "语言",
+  "AI agent activity radar, local-first.": "本地优先的 AI 代理活动雷达。",
+  "Loopback only · privacy first": "仅限本机 · 隐私优先",
+  "Command Center": "代理指挥台",
+  "Local service stopped": "本地服务已停止",
+  "Waiting for local status": "等待本地状态",
+  "First run": "首次使用",
+  "Welcome to Crewlight Desktop": "欢迎使用 Crewlight 桌面版",
+  Continue: "继续",
+  "Skip for now": "暂时跳过",
+  Home: "首页",
+  "Open browser dashboard": "打开浏览器面板",
+  "Total sessions": "全部会话",
+  Running: "运行中",
+  "Needs attention": "需要处理",
+  "Failed / stale": "失败 / 停滞",
+  "Live session preview": "实时会话",
+  "Current local activity": "当前本地活动",
+  "No sessions yet": "还没有会话",
+  "Start the local service and run the demo to see Crewlight in motion.":
+    "启动本地服务并运行演示，即可看到 Crewlight 的完整工作状态。",
+  "SSH Port Forwarding": "SSH 端口转发",
+  "Remote connections": "远程连接",
+  "Rescan ssh config": "重新扫描 SSH 配置",
+  Status: "状态",
+  "Active SSH Tunnels": "活动 SSH 隧道",
+  "Remote events will be securely received on your local loopback address.":
+    "远程事件会通过本机回环地址安全接收。",
+  Hosts: "主机",
+  "Detected Remote Hosts": "检测到的远程主机",
+  "No remote hosts detected": "未检测到远程主机",
+  Doctor: "诊断",
+  "Local diagnostics": "本地诊断",
+  "Start local service": "启动本地服务",
+  Restart: "重启",
+  Stop: "停止",
+  "Copy diagnostic summary": "复制诊断摘要",
+  Runtime: "运行环境",
+  "Desktop and daemon state": "桌面与服务状态",
+  Checks: "检查项",
+  "Detailed health report": "详细健康报告",
+  Integrations: "接入",
+  "Choose a setup path": "选择接入方式",
+  "Crewlight stays local-first and read-only. Integration cards expose setup snippets, verification commands, and honest boundaries.":
+    "Crewlight 始终本地优先且只读。接入卡片会提供配置片段、验证命令和明确的能力边界。",
+  "Floating companion": "悬浮伴侣",
+  "Keep live status nearby": "让实时状态始终近在眼前",
+  "Show companion": "显示悬浮伴侣",
+  "Hide companion": "隐藏悬浮伴侣",
+  "Bring to front": "置于前台",
+  "Compact mode": "紧凑模式",
+  "Expanded mode": "展开模式",
+  "Toggle always on top": "切换始终置顶",
+  "Companion hidden": "悬浮伴侣已隐藏",
+  Demo: "演示",
+  "Run the local multi-agent scenario": "运行本地多代理场景",
+  "Run multi-agent demo": "运行多代理演示",
+  "Synthetic data only": "仅使用合成数据",
+  "Safe, local, repeatable": "安全、本地、可重复",
+  "The demo uses deterministic local sessions. No real prompts, transcripts, tool I/O, or cloud data are involved.":
+    "演示使用可重复的本地会话，不涉及真实提示词、对话、工具输入输出或云端数据。",
+  "Scenario sessions": "场景会话",
+  "Demo session list": "演示会话列表",
+  "Demo not loaded yet": "演示尚未载入",
+  "Run the scenario to populate Home, Demo, and Companion together.":
+    "运行场景后，首页、演示和悬浮伴侣会同步显示会话。",
+  Appearance: "外观",
+  "Saved desktop preferences": "已保存的桌面偏好",
+  "Theme, accent, density, and companion visibility preference persist locally.":
+    "主题、强调色、密度和悬浮伴侣可见性都会保存在本机。",
+  Theme: "主题",
+  System: "跟随系统",
+  Light: "浅色",
+  Dark: "深色",
+  Density: "密度",
+  Comfortable: "舒适",
+  Compact: "紧凑",
+  "Show companion when Crewlight Desktop launches":
+    "启动 Crewlight 时显示悬浮伴侣",
+  "Accent and motion": "强调色与动效",
+  "Visual tone": "视觉风格",
+  "The companion and main window share this token set. Reduced motion is respected.":
+    "悬浮伴侣和主窗口共用这套视觉变量，并遵循系统的减少动态效果设置。",
+  "Local service": "本地服务",
+  "Current app-session settings": "当前应用会话设置",
+  "Host, port, and notifier apply to the next service start or restart.":
+    "主机、端口和通知方式会在下次启动或重启服务时生效。",
+  Host: "主机",
+  Port: "端口",
+  Notifier: "通知方式",
+  Console: "控制台",
+  None: "无",
+  OS: "系统通知",
+  "Attempt to start the local service when the desktop app launches":
+    "桌面应用启动时尝试启动本地服务",
+  "Desktop state": "桌面状态",
+  "Reset or replay": "重置或重新引导",
+  "Reset only desktop UI preferences. No prompts, transcripts, sessions, or raw payloads are persisted.":
+    "仅重置桌面界面偏好；提示词、对话、会话和原始载荷都不会被持久化。",
+  "Reset desktop UI state": "重置桌面界面状态",
+  "Replay onboarding": "重新开始引导",
+  About: "关于",
+  "Open repository": "打开代码仓库",
+  "Install Crewlight CLI on Remote Host": "在远程主机安装 Crewlight CLI",
+  "Got it": "知道了",
+  Precise: "精确",
+  "Precise lifecycle": "精确生命周期",
+  "Manual / Experimental bridge": "手动 / 实验性桥接",
+  "Implemented, verification pending": "已实现，等待验证",
+  "Manual / Custom ingest": "手动 / 自定义接入",
+  "Observed in current daemon": "当前服务已观察到活动",
+  "Ready to configure": "可以开始配置",
+  "Manual bridge available": "可使用手动桥接",
+  "Plugin scaffold ready": "插件脚手架已就绪",
+  "Manual path available": "可使用手动路径",
+  "Live activity detected": "已检测到实时活动",
+  "Mergeable snippet ready": "可合并的配置片段已就绪",
+  "Hooks snippet ready": "Hooks 配置片段已就绪",
+  "Manual commands ready": "手动命令已就绪",
+  "Manual path ready": "手动路径已就绪",
+  "Copy setup snippet": "复制配置片段",
+  "Copy verification command": "复制验证命令",
+  "Copy setup commands": "复制配置命令",
+  "Copy plugin file": "复制插件文件",
+  "Copy ingest command": "复制接入命令",
+  "Session start, prompts, notifications, permissions, tools, stop, and failures.":
+    "会话启动、提示、通知、权限、工具、停止和失败状态。",
+  "Session, prompt, tool, permission, and stop events after trust review.":
+    "经信任审查后的会话、提示、工具、权限和停止事件。",
+  "Explicit terminal or task-driven status updates only.":
+    "仅观察显式终端或任务驱动的状态更新。",
+  "Session and permission lifecycle updates from the local OpenCode plugin.":
+    "来自本地 OpenCode 插件的会话和权限生命周期更新。",
+  "Manual normalized events, generic CLI wrapping, and bounded local probes.":
+    "手动规范化事件、通用 CLI 包装和有边界的本地探测。",
+  "Observes documented Claude Code lifecycle hooks without modifying Claude settings.":
+    "通过公开的 Claude Code 生命周期 Hooks 观察状态，不修改 Claude 设置。",
+  "Observes Codex notify and hooks only. Crewlight does not approve permissions or return turn-control output.":
+    "仅观察 Codex notify 和 Hooks；Crewlight 不会批准权限或返回回合控制输出。",
+  "Manual / Experimental bridge. No automatic Cursor lifecycle hook or private API scraping is claimed.":
+    "手动 / 实验性桥接；不声称拥有 Cursor 自动生命周期 Hooks，也不抓取私有 API。",
+  "Uses documented local plugin events and keeps payload handling allowlisted and local.":
+    "使用公开的本地插件事件，并仅在本地按白名单处理载荷。",
+  "Use manual ingest or local probes only. No private API scraping, hidden permissions, or background control paths.":
+    "仅使用手动接入或本地探测；不抓取私有 API，不使用隐藏权限或后台控制路径。",
+};
+
+function currentLocale(): DesktopLocale {
+  return latestState?.appearance.locale ?? "en";
+}
+
+function tr(english: string, chinese: string): string {
+  return currentLocale() === "zh-CN" ? chinese : english;
+}
+
+function localized(value: string): string {
+  return currentLocale() === "zh-CN" ? (STATIC_ZH[value] ?? value) : value;
+}
+
+function applyStaticLocale(locale: DesktopLocale): void {
+  document.documentElement.lang = locale;
+  document.title =
+    locale === "zh-CN" ? "Crewlight 桌面版" : "Crewlight Desktop";
+  for (const element of Array.from(document.querySelectorAll("body *"))) {
+    if (element.children.length > 0) {
+      continue;
+    }
+    const original =
+      originalStaticText.get(element) ??
+      element.textContent?.replace(/\s+/gu, " ").trim();
+    if (!original) {
+      continue;
+    }
+    originalStaticText.set(element, original);
+    const translated = locale === "zh-CN" ? STATIC_ZH[original] : original;
+    if (translated) {
+      element.textContent = translated;
+    }
+  }
+  byId("sidebar-nav").setAttribute(
+    "aria-label",
+    locale === "zh-CN" ? "主要页面" : "Primary sections",
+  );
+  const brandEyebrow = document.querySelector(".brand-eyebrow");
+  if (brandEyebrow) {
+    brandEyebrow.textContent = "CREWLIGHT DESKTOP";
+  }
+  byId("locale-select").setAttribute(
+    "aria-label",
+    locale === "zh-CN" ? "语言" : "Language",
+  );
+}
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -74,7 +273,11 @@ function renderSessionCard(
   if (session.remoteAlias) {
     topLine.append(
       sourceChip,
-      createElement("span", "chip remote-chip", `🌐 ${session.remoteAlias}`),
+      createElement(
+        "span",
+        "chip remote-chip",
+        `Remote · ${session.remoteAlias}`,
+      ),
       createElement("span", "chip", session.statusLabel),
     );
   } else {
@@ -99,7 +302,10 @@ function renderSessionCard(
       createElement(
         "p",
         "session-meta stuck-warning",
-        "⚠️ Possibly stuck (no events for 5m)",
+        tr(
+          "Possibly stuck · no events for 5m",
+          "可能已停滞 · 5 分钟没有新事件",
+        ),
       ),
     );
   } else if (session.diagnosticHint) {
@@ -116,11 +322,11 @@ function renderSessionCard(
     detail.append(line);
   };
 
-  addDetailLine("Workspace", session.workspace);
-  addDetailLine("Status", session.statusLabel);
-  addDetailLine("Activity", session.activity);
+  addDetailLine(tr("Workspace", "工作区"), session.workspace);
+  addDetailLine(tr("Status", "状态"), session.statusLabel);
+  addDetailLine(tr("Activity", "活动"), session.activity);
   if (session.diagnosticHint) {
-    addDetailLine("Diagnostic", session.diagnosticHint);
+    addDetailLine(tr("Diagnostic", "诊断"), session.diagnosticHint);
   }
 
   const toggle = createElement(
@@ -132,10 +338,20 @@ function renderSessionCard(
   toggle.setAttribute("aria-controls", detail.id);
   const applyExpanded = (isExpanded: boolean) => {
     toggle.setAttribute("aria-expanded", String(isExpanded));
-    toggle.textContent = isExpanded ? "Hide details" : "Show details";
+    toggle.textContent = isExpanded
+      ? tr("Hide details", "收起详情")
+      : tr("Show details", "查看详情");
     toggle.setAttribute(
       "aria-label",
-      `${isExpanded ? "Hide" : "Show"} details for ${session.title}`,
+      isExpanded
+        ? tr(
+            `Hide details for ${session.title}`,
+            `收起 ${session.title} 的详情`,
+          )
+        : tr(
+            `Show details for ${session.title}`,
+            `查看 ${session.title} 的详情`,
+          ),
     );
     detail.hidden = !isExpanded;
   };
@@ -216,7 +432,7 @@ function renderSidebar(state: DesktopViewModel): void {
         createElement(
           "span",
           undefined,
-          section.id === "home" ? "Primary" : " ",
+          section.id === "home" ? tr("Primary", "主要") : " ",
         ),
       );
       return button;
@@ -233,7 +449,7 @@ function renderNotice(state: DesktopViewModel): void {
     return;
   }
   notice.dataset.tone = state.notice.tone;
-  notice.textContent = state.notice.message;
+  notice.textContent = localized(state.notice.message);
 }
 
 function applySectionVisibility(state: DesktopViewModel): void {
@@ -274,14 +490,14 @@ function renderDoctor(state: DesktopViewModel): void {
 
   const facts = byId("doctor-facts");
   const entries: Array<[string, string]> = [
-    ["Version", state.about.version],
-    ["Platform", state.doctor.platformLabel],
-    ["Host", state.settings.host],
-    ["Port", String(state.settings.port)],
-    ["Notifier", state.settings.notifier],
-    ["Companion", state.companion.statusLabel],
-    ["Mode", state.companion.modeLabel],
-    ["Service", state.header.serviceBadge.label],
+    [tr("Version", "版本"), state.about.version],
+    [tr("Platform", "平台"), state.doctor.platformLabel],
+    [tr("Host", "主机"), state.settings.host],
+    [tr("Port", "端口"), String(state.settings.port)],
+    [tr("Notifier", "通知方式"), state.settings.notifier],
+    [tr("Companion", "悬浮伴侣"), state.companion.statusLabel],
+    [tr("Mode", "模式"), state.companion.modeLabel],
+    [tr("Service", "服务"), state.header.serviceBadge.label],
   ];
   facts.replaceChildren(
     ...entries.flatMap(([key, value]) => [
@@ -305,7 +521,11 @@ function renderDoctor(state: DesktopViewModel): void {
       );
       if (check.action) {
         card.append(
-          createElement("p", "check-copy", `Action: ${check.action}`),
+          createElement(
+            "p",
+            "check-copy",
+            `${tr("Action", "建议操作")}: ${check.action}`,
+          ),
         );
       }
       return card;
@@ -326,12 +546,15 @@ function integrationButton(
   button.dataset.copyKind = kind;
   button.textContent =
     kind === "setup"
-      ? card.copySetupLabel
+      ? localized(card.copySetupLabel)
       : kind === "verification"
-        ? (card.copyVerificationLabel ?? "Copy verification command")
+        ? localized(
+            card.copyVerificationLabel ??
+              tr("Copy verification command", "复制验证命令"),
+          )
         : card.highlight
-          ? "Selected"
-          : "Choose this path";
+          ? tr("Selected", "已选择")
+          : tr("Choose this path", "选择此方式");
   button.disabled = kind === "verification" && !card.verificationCommand;
   return button;
 }
@@ -345,16 +568,16 @@ function renderIntegrationCard(
 
   const topLine = createElement("div", "integration-topline");
   topLine.append(
-    createElement("span", "chip", card.maturity),
-    createElement("span", "chip", card.observed),
+    createElement("span", "chip", localized(card.maturity)),
+    createElement("span", "chip", localized(card.observed)),
   );
 
   article.append(
     topLine,
     createElement("h4", "session-title", card.title),
-    createElement("p", "integration-copy", card.observes),
-    createElement("p", "integration-copy", card.boundary),
-    createElement("p", "integration-copy", card.setupStatus),
+    createElement("p", "integration-copy", localized(card.observes)),
+    createElement("p", "integration-copy", localized(card.boundary)),
+    createElement("p", "integration-copy", localized(card.setupStatus)),
   );
 
   const actions = createElement("div", "integration-actions");
@@ -381,29 +604,46 @@ function renderAgents(state: DesktopViewModel): void {
 function renderCompanion(state: DesktopViewModel): void {
   setText(
     "companion-status-title",
-    `Companion ${state.companion.statusLabel.toLowerCase()}`,
+    tr(
+      `Companion ${state.companion.statusLabel.toLowerCase()}`,
+      `悬浮伴侣${state.companion.visible ? "已显示" : "已隐藏"}`,
+    ),
   );
   setText(
     "companion-status-copy",
     state.companion.visible
-      ? "The floating surface is ready for quick agent checks while you work elsewhere."
-      : "Show the companion to keep live multi-agent status nearby without the browser dashboard.",
+      ? tr(
+          "The floating surface is ready for quick agent checks while you work elsewhere.",
+          "悬浮界面已就绪，你可以在其他窗口工作时快速查看代理状态。",
+        )
+      : tr(
+          "Show the companion to keep live multi-agent status nearby without the browser dashboard.",
+          "显示悬浮伴侣，无需打开浏览器面板也能随时查看多代理状态。",
+        ),
   );
 
   const facts = byId("companion-facts");
   const entries: Array<[string, string]> = [
-    ["Visibility", state.companion.statusLabel],
-    ["Mode", state.companion.modeLabel],
-    ["Always on top", state.companion.alwaysOnTop ? "Enabled" : "Disabled"],
-    ["Top session", state.companion.topSession ?? "No current session"],
+    [tr("Visibility", "可见性"), state.companion.statusLabel],
+    [tr("Mode", "模式"), state.companion.modeLabel],
     [
-      "Last update",
+      tr("Always on top", "始终置顶"),
+      state.companion.alwaysOnTop
+        ? tr("Enabled", "已启用")
+        : tr("Disabled", "已停用"),
+    ],
+    [
+      tr("Top session", "首要会话"),
+      state.companion.topSession ?? tr("No current session", "暂无会话"),
+    ],
+    [
+      tr("Last update", "最近更新"),
       state.companion.updatedAt
         ? new Date(state.companion.updatedAt).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           })
-        : "Waiting for local status",
+        : tr("Waiting for local status", "等待本地状态"),
     ],
   ];
   facts.replaceChildren(
@@ -424,9 +664,9 @@ function renderDemo(state: DesktopViewModel): void {
 function renderAccentOptions(state: DesktopViewModel): void {
   const root = byId("accent-options");
   const accents: Array<["teal" | "amber" | "azure", string]> = [
-    ["teal", "Radar teal"],
-    ["amber", "Signal amber"],
-    ["azure", "Loopback blue"],
+    ["teal", tr("Radar teal", "雷达青")],
+    ["amber", tr("Signal amber", "信号琥珀")],
+    ["azure", tr("Loopback blue", "回环蓝")],
   ];
   root.replaceChildren(
     ...accents.map(([accent, label]) => {
@@ -491,7 +731,7 @@ function renderRemote(state: DesktopViewModel): void {
             createElement(
               "p",
               "remote-detail",
-              "✅ Remote Crewlight CLI installed",
+              tr("Remote Crewlight CLI installed", "远程 Crewlight CLI 已安装"),
             ),
           );
         } else {
@@ -504,12 +744,12 @@ function renderRemote(state: DesktopViewModel): void {
           const warningText = createElement(
             "span",
             "remote-detail stuck-warning",
-            "⚠️ Remote Crewlight CLI missing.",
+            tr("Remote Crewlight CLI missing.", "远程主机缺少 Crewlight CLI。"),
           );
           const guideBtn = createElement(
             "button",
             "text-link-button",
-            "Setup Guide",
+            tr("Setup Guide", "安装指南"),
           );
           guideBtn.style.background = "none";
           guideBtn.style.border = "none";
@@ -550,7 +790,10 @@ function renderRemote(state: DesktopViewModel): void {
 
       const autoConnectLabel = document.createElement("label");
       autoConnectLabel.htmlFor = `auto-connect-${host.alias}`;
-      autoConnectLabel.textContent = "Auto-connect on startup";
+      autoConnectLabel.textContent = tr(
+        "Auto-connect on startup",
+        "启动时自动连接",
+      );
       autoConnectLabel.style.fontSize = "0.85rem";
       autoConnectLabel.style.cursor = "pointer";
 
@@ -559,7 +802,11 @@ function renderRemote(state: DesktopViewModel): void {
 
       const actions = createElement("div", "remote-actions");
       if (host.tunnelState === "disconnected" || host.tunnelState === "error") {
-        const btn = createElement("button", "primary-button", "Connect");
+        const btn = createElement(
+          "button",
+          "primary-button",
+          tr("Connect", "连接"),
+        );
         btn.type = "button";
         btn.addEventListener("click", () => {
           window.crewlightDesktop.perform({
@@ -569,7 +816,11 @@ function renderRemote(state: DesktopViewModel): void {
         });
         actions.append(btn);
       } else {
-        const btn = createElement("button", "secondary-button", "Disconnect");
+        const btn = createElement(
+          "button",
+          "secondary-button",
+          tr("Disconnect", "断开连接"),
+        );
         btn.type = "button";
         btn.addEventListener("click", () => {
           window.crewlightDesktop.perform({
@@ -636,7 +887,10 @@ function onboardingBody(
       createElement(
         "p",
         "section-copy",
-        "Crewlight Desktop packages the main control surface, floating companion, local service control, and demo flow into one local-first Windows app.",
+        tr(
+          "Crewlight Desktop packages the main control surface, floating companion, local service control, and demo flow into one local-first Windows app.",
+          "Crewlight 桌面版把主控制界面、悬浮伴侣、本地服务控制和演示流程整合在一个本地优先的 Windows 应用中。",
+        ),
       ),
     );
     return;
@@ -646,7 +900,10 @@ function onboardingBody(
     const intro = createElement(
       "p",
       "section-copy",
-      "Choose the integration path you want Crewlight to highlight first. You can change this later in Settings.",
+      tr(
+        "Choose the integration path you want Crewlight to highlight first. You can change this later in Settings.",
+        "选择希望 Crewlight 优先引导的接入方式，稍后可在设置中更改。",
+      ),
     );
     const grid = createElement("div", "integration-grid");
     grid.append(
@@ -663,7 +920,10 @@ function onboardingBody(
       createElement(
         "p",
         "section-copy",
-        "Finish into Home with your current local state intact. If you already ran the demo, the desktop and companion stay populated.",
+        tr(
+          "Finish into Home with your current local state intact. If you already ran the demo, the desktop and companion stay populated.",
+          "完成后进入首页并保留当前本地状态；如果已经运行演示，桌面界面和悬浮伴侣会继续显示这些会话。",
+        ),
       ),
     );
     return;
@@ -679,7 +939,10 @@ function onboardingBody(
         ? state.header.serviceBadge.label
         : step.id === "run-demo"
           ? state.demo.summary
-          : "The floating companion mirrors the same safe session model as Home.",
+          : tr(
+              "The floating companion mirrors the same safe session model as Home.",
+              "悬浮伴侣与首页使用同一套安全会话模型。",
+            ),
     ),
   );
   body.append(info);
@@ -719,20 +982,22 @@ function renderOnboarding(state: DesktopViewModel): void {
     current.id === "choose-integration" && !state.settings.preferredIntegration;
   primary.textContent =
     current.id === "welcome"
-      ? "Start onboarding"
+      ? tr("Start onboarding", "开始引导")
       : current.id === "finish"
-        ? "Finish into Home"
+        ? tr("Finish into Home", "完成并进入首页")
         : current.id === "choose-integration"
-          ? "Continue"
+          ? tr("Continue", "继续")
           : current.complete
-            ? "Continue"
+            ? tr("Continue", "继续")
             : current.id === "start-service"
-              ? "Start local service"
+              ? tr("Start local service", "启动本地服务")
               : current.id === "run-demo"
-                ? "Run demo"
-                : "Show companion";
+                ? tr("Run demo", "运行演示")
+                : tr("Show companion", "显示悬浮伴侣");
   secondary.textContent =
-    current.id === "finish" ? "Review later" : "Skip for now";
+    current.id === "finish"
+      ? tr("Review later", "稍后再看")
+      : tr("Skip for now", "暂时跳过");
 
   onboardingBody(state, current);
 }
@@ -752,9 +1017,11 @@ function syncOnboardingProgress(state: DesktopViewModel): void {
 
 function render(state: DesktopViewModel): void {
   latestState = state;
+  applyStaticLocale(state.appearance.locale);
   document.body.dataset.theme = state.appearance.theme;
   document.body.dataset.accent = state.appearance.accent;
   document.body.dataset.density = state.appearance.density;
+  byId<HTMLSelectElement>("locale-select").value = state.appearance.locale;
 
   setText("page-title", SECTION_LABEL(state.selectedSection));
   setText("page-subtitle", state.header.summary);
@@ -1012,6 +1279,13 @@ document.addEventListener("change", async (event) => {
     await window.crewlightDesktop.perform({
       type: "preferences:set-density",
       density: (target as HTMLSelectElement).value as "comfortable" | "compact",
+    });
+    return;
+  }
+  if (target.id === "locale-select") {
+    await window.crewlightDesktop.perform({
+      type: "preferences:set-locale",
+      locale: (target as HTMLSelectElement).value as DesktopLocale,
     });
     return;
   }

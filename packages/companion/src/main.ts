@@ -1020,6 +1020,10 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
     await updatePreferences({ lastSection: action.section });
     return true;
   }
+  if (action.type === "preferences:set-locale") {
+    await updatePreferences({ locale: action.locale });
+    return true;
+  }
   if (action.type === "preferences:set-companion-visibility") {
     await updatePreferences({
       companionVisibilityPreference: action.visible,
