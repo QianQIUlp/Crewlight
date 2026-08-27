@@ -1,8 +1,10 @@
-import type {
-  AgentSession,
-  AgentSource,
-  AgentStatus,
-  AgentSurface,
+import {
+  evaluateAttention,
+  type AttentionPriority,
+  type AgentSession,
+  type AgentSource,
+  type AgentStatus,
+  type AgentSurface,
 } from "@crewlight/core";
 import type { NotifierKind } from "@crewlight/notifier";
 import type { ServerResponse } from "node:http";
@@ -47,7 +49,6 @@ export interface DashboardOptions {
   doctor(): Promise<DashboardDoctorReport>;
 }
 
-export type DashboardAttention = "passive" | "done" | "action" | "error";
 export type DashboardActionKind = "input" | "permission";
 
 export interface DashboardSession {
@@ -58,15 +59,14 @@ export interface DashboardSession {
   status: AgentStatus;
   lastEventAt: number;
   lastEventAgeMs: number;
-  isStale: boolean;
-  staleReason?: string;
+  priority: AttentionPriority;
+  visibleUntil?: number;
   displayName: string;
   displayWorkspace: string;
   identityLine: string;
   taskTitle?: string;
   activityLabel?: string;
   durationMs: number;
-  attention: DashboardAttention;
   actionKind?: DashboardActionKind;
   sessionId?: string;
   projectPath?: string;
@@ -139,20 +139,21 @@ const SURFACE_LABELS: Record<AgentSurface, string> = {
   manual: "Manual",
 };
 
-const STALE_THRESHOLDS_MS: Partial<Record<AgentStatus, number>> = {
-  running: 5 * 60 * 1000,
-  using_tool: 5 * 60 * 1000,
-  waiting_input: 10 * 60 * 1000,
-  waiting_permission: 10 * 60 * 1000,
-  unknown: 2 * 60 * 1000,
-};
-
 const ACTIVE_STATUSES = new Set<AgentStatus>([
   "running",
   "using_tool",
   "waiting_input",
   "waiting_permission",
 ]);
+
+const DASHBOARD_PRIORITY_ORDER: Record<AttentionPriority, number> = {
+  needs_action: 0,
+  error: 1,
+  stale: 2,
+  active: 3,
+  ready: 4,
+  hidden: 5,
+};
 
 const DASHBOARD_TASK_TITLE_LIMIT = 120;
 
@@ -163,13 +164,13 @@ const ACTIVITY_LABELS: Record<string, string> = {
   PostToolUse: "Tool completed",
   PermissionRequest: "Permission requested",
   Notification: "Attention requested",
-  Stop: "Session completed",
+  Stop: "Turn finished",
   StopFailure: "Session failed",
-  "agent-turn-complete": "Turn completed",
+  "agent-turn-complete": "Turn finished",
   "session.created": "Session started",
   "session.updated": "Session updated",
   "session.status": "Status updated",
-  "session.idle": "Session completed",
+  "session.idle": "Turn finished",
   "session.error": "Session failed",
   "permission.asked": "Permission requested",
   "permission.replied": "Permission answered",
@@ -193,7 +194,7 @@ const STATUS_ACTIVITY_LABELS: Record<AgentStatus, string> = {
   using_tool: "Using tool",
   waiting_input: "Input requested",
   waiting_permission: "Permission requested",
-  completed: "Session completed",
+  completed: "Turn finished",
   failed: "Session failed",
   rate_limited: "Rate limited",
   unknown: "Status unknown",
@@ -267,42 +268,67 @@ export function getLastEventAgeMs(lastEventAt: number, now: number): number {
   return Math.max(0, now - lastEventAt);
 }
 
-export function getDashboardStaleState(
-  status: AgentStatus,
-  lastEventAgeMs: number,
-): { isStale: boolean; staleReason?: string } {
-  const thresholdMs = STALE_THRESHOLDS_MS[status];
-  if (thresholdMs === undefined || lastEventAgeMs < thresholdMs) {
-    return { isStale: false };
-  }
-
-  const thresholdMinutes = thresholdMs / (60 * 1000);
-  return {
-    isStale: true,
-    staleReason: `No event for at least ${thresholdMinutes} minutes.`,
-  };
+function compareSessionKeys(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
+export function sortDashboardSessions(
+  sessions: readonly DashboardSession[],
+): DashboardSession[] {
+  return [...sessions].sort((left, right) => {
+    const priorityDifference =
+      DASHBOARD_PRIORITY_ORDER[left.priority] -
+      DASHBOARD_PRIORITY_ORDER[right.priority];
+    return (
+      priorityDifference ||
+      right.lastEventAt - left.lastEventAt ||
+      compareSessionKeys(left.sessionKey, right.sessionKey)
+    );
+  });
+}
+
+/** @deprecated Presentation-only compatibility helpers; the wire contract uses priority. */
 export function getDashboardAttention(status: AgentStatus): {
-  attention: DashboardAttention;
+  attention: "action" | "error" | "done" | "passive";
   actionKind?: DashboardActionKind;
 } {
-  switch (status) {
-    case "waiting_input":
-      return { attention: "action", actionKind: "input" };
-    case "waiting_permission":
-      return { attention: "action", actionKind: "permission" };
-    case "completed":
-      return { attention: "done" };
-    case "failed":
-    case "rate_limited":
-      return { attention: "error" };
-    case "idle":
-    case "running":
-    case "using_tool":
-    case "unknown":
-      return { attention: "passive" };
+  if (status === "waiting_input") {
+    return { attention: "action", actionKind: "input" };
   }
+  if (status === "waiting_permission") {
+    return { attention: "action", actionKind: "permission" };
+  }
+  if (status === "failed" || status === "rate_limited") {
+    return { attention: "error" };
+  }
+  if (status === "completed") {
+    return { attention: "done" };
+  }
+  return { attention: "passive" };
+}
+
+/** @deprecated The dashboard wire response no longer exposes staleReason. */
+export function getDashboardStaleState(
+  status: AgentStatus,
+  ageMs: number,
+): { isStale: boolean; staleReason?: string } {
+  const thresholds: Partial<Record<AgentStatus, number>> = {
+    running: 5 * 60 * 1000,
+    using_tool: 5 * 60 * 1000,
+    waiting_input: 10 * 60 * 1000,
+    waiting_permission: 10 * 60 * 1000,
+    unknown: 2 * 60 * 1000,
+  };
+  const threshold = thresholds[status];
+  if (threshold === undefined || ageMs < threshold) {
+    return { isStale: false };
+  }
+  return {
+    isStale: true,
+    staleReason: `No event for at least ${Math.round(threshold / 60_000)} minutes.`,
+  };
 }
 
 export function getDashboardDurationMs(
@@ -314,7 +340,11 @@ export function getDashboardDurationMs(
 
   if (ACTIVE_STATUSES.has(session.status)) {
     end = now;
-  } else if (session.status === "completed" || session.status === "failed") {
+  } else if (
+    session.status === "completed" ||
+    session.status === "failed" ||
+    session.status === "rate_limited"
+  ) {
     end = session.completedAt ?? session.lastEventAt;
   }
 
@@ -1100,7 +1130,7 @@ function statusLabel(status) {
     using_tool: "Using tool",
     waiting_input: "Waiting for input",
     waiting_permission: "Waiting for permission",
-    completed: "Completed",
+    completed: "Turn finished",
     failed: "Failed",
     rate_limited: "Rate limited",
     unknown: "Unknown status",
@@ -1109,14 +1139,23 @@ function statusLabel(status) {
 }
 
 function attentionLabel(session) {
-  if (session.attention === "action") {
+  if (session.priority === "needs_action") {
     return session.actionKind === "permission"
       ? "Permission needed"
       : "Input needed";
   }
-  if (session.attention === "error") return "Needs review";
-  if (session.attention === "done") return "Complete";
-  return session.isStale ? "Check activity" : "Background";
+  if (session.priority === "error") return "Needs review";
+  if (session.priority === "stale") return "Check activity";
+  if (session.priority === "ready") return "Ready for review";
+  if (session.priority === "active") return "Background";
+  return "Hidden";
+}
+
+function attentionClass(priority) {
+  if (priority === "needs_action") return "action";
+  if (priority === "error") return "error";
+  if (priority === "ready") return "done";
+  return "passive";
 }
 
 function setActiveView(activeView) {
@@ -1139,10 +1178,10 @@ function createSessionCard(session, expanded = false) {
   const card = document.createElement("article");
   card.className =
     "session-card attention-" +
-    session.attention +
+    attentionClass(session.priority) +
     " status-" +
     session.status +
-    (session.isStale ? " is-stale" : "") +
+    (session.priority === "stale" ? " is-stale" : "") +
     (expanded ? " expanded" : "");
 
   const heading = document.createElement("div");
@@ -1180,7 +1219,7 @@ function createSessionCard(session, expanded = false) {
     card.append(confidence);
   }
 
-  if (session.isStale) {
+  if (session.priority === "stale") {
     const stale = document.createElement("p");
     stale.className = "stale-note";
     stale.textContent =
@@ -1219,21 +1258,31 @@ function createSessionCard(session, expanded = false) {
 }
 
 function compactRank(session) {
-  if (session.attention === "action") return 0;
-  if (session.attention === "error") return 1;
-  if (session.isStale) return 2;
-  if (session.attention === "passive") return 3;
-  return 4;
+  const ranks = {
+    needs_action: 0,
+    error: 1,
+    stale: 2,
+    active: 3,
+    ready: 4,
+    hidden: 5,
+  };
+  return ranks[session.priority] ?? 5;
+}
+
+function compareSessionKeys(left, right) {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 function createCompactSessionRow(session) {
   const row = document.createElement("a");
   row.className =
     "compact-session-row attention-" +
-    session.attention +
+    attentionClass(session.priority) +
     " status-" +
     session.status +
-    (session.isStale ? " is-stale" : "");
+    (session.priority === "stale" ? " is-stale" : "");
   row.href =
     "/dashboard?focus=" +
     encodeURIComponent(session.sessionKey) +
@@ -1272,7 +1321,7 @@ function createCompactSessionRow(session) {
   lastSeen.textContent =
     "Last seen " + formatDuration(session.lastEventAgeMs) + " ago";
   metadata.append(duration, lastSeen);
-  if (session.isStale) {
+  if (session.priority === "stale") {
     const stale = document.createElement("p");
     stale.className = "compact-stale";
     stale.textContent = "Possibly stale";
@@ -1301,13 +1350,17 @@ function renderOverview(sessions) {
   const actionSessions = sessions
     .filter(
       (session) =>
-        session.attention === "action" || session.attention === "error",
+        session.priority === "needs_action" || session.priority === "error",
     )
     .sort((left, right) => {
-      const rank = { action: 0, error: 1 };
+      const rank = { needs_action: 0, error: 1 };
       const attentionDifference =
-        rank[left.attention] - rank[right.attention];
-      return attentionDifference || right.lastEventAt - left.lastEventAt;
+        rank[left.priority] - rank[right.priority];
+      return (
+        attentionDifference ||
+        right.lastEventAt - left.lastEventAt ||
+        compareSessionKeys(left.sessionKey, right.sessionKey)
+      );
     });
 
   setHidden("action-section", actionSessions.length === 0);
@@ -1335,7 +1388,11 @@ function renderCompact(sessions) {
   if (!compactList) return;
   const compactSessions = [...sessions].sort((left, right) => {
     const rankDifference = compactRank(left) - compactRank(right);
-    return rankDifference || right.lastEventAt - left.lastEventAt;
+    return (
+      rankDifference ||
+      right.lastEventAt - left.lastEventAt ||
+      compareSessionKeys(left.sessionKey, right.sessionKey)
+    );
   });
   compactList.replaceChildren(
     ...compactSessions.map((session) => createCompactSessionRow(session)),
@@ -1515,12 +1572,14 @@ export function serializeDashboardSession(
   session: AgentSession,
   now: number,
 ): DashboardSession {
-  const attention = getDashboardAttention(session.status);
+  const attention = evaluateAttention({
+    currentSession: session,
+    now,
+  });
   const taskTitle = getDashboardTaskTitle(session);
   const activityLabel = getDashboardActivityLabel(session);
   const shortSessionKey = getShortSessionKey(session.sessionKey);
   const lastEventAgeMs = getLastEventAgeMs(session.lastEventAt, now);
-  const staleState = getDashboardStaleState(session.status, lastEventAgeMs);
 
   return {
     sessionKey: session.sessionKey,
@@ -1530,14 +1589,21 @@ export function serializeDashboardSession(
     status: session.status,
     lastEventAt: session.lastEventAt,
     lastEventAgeMs,
-    ...staleState,
+    priority: attention.priority,
+    ...(attention.visibleUntil !== undefined
+      ? { visibleUntil: attention.visibleUntil }
+      : {}),
     displayName: getDisplayName(session.source),
     displayWorkspace: getDisplayWorkspace(session),
     identityLine: getDashboardIdentityLine(session),
     ...(taskTitle ? { taskTitle } : {}),
     ...(activityLabel ? { activityLabel } : {}),
     durationMs: getDashboardDurationMs(session, now),
-    ...attention,
+    ...(session.status === "waiting_input"
+      ? { actionKind: "input" as const }
+      : session.status === "waiting_permission"
+        ? { actionKind: "permission" as const }
+        : {}),
     ...(session.sessionId ? { sessionId: session.sessionId } : {}),
     ...(session.projectPath ? { projectPath: session.projectPath } : {}),
     ...(session.workspaceName ? { workspaceName: session.workspaceName } : {}),
@@ -1621,9 +1687,11 @@ export async function handleDashboardRequest(
         uptimeMs: Math.max(0, now - startedAt),
       },
       notifier: options.notifier,
-      sessions: service
-        .listSessions()
-        .map((session) => serializeDashboardSession(session, now)),
+      sessions: sortDashboardSessions(
+        service
+          .listSessions()
+          .map((session) => serializeDashboardSession(session, now)),
+      ),
       setup: options.setup,
       doctor: await doctorReport(options),
     };

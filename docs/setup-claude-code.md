@@ -8,9 +8,11 @@ Claude Code command hooks send JSON to Crewlight through stdin.
 crewlight setup claude-code --print
 ```
 
-The command prints a JSON snippet. It does not inspect or modify
-`~/.claude/settings.json`, `.claude/settings.json`, or any other Claude
-configuration.
+The CLI command prints a JSON snippet and does not inspect or modify Claude
+configuration. Desktop's Connect flow is the separate, fixed-path installer;
+it only targets `%USERPROFILE%\.claude\settings.json` (or the equivalent
+user home path), merges unrelated handlers, validates a same-directory
+temporary file, and rolls back on failure.
 
 The generated hook command uses the absolute current Crewlight standalone
 binary. When invoked through `node packages/cli/dist/index.js`, it instead uses
@@ -56,8 +58,8 @@ The snippet registers:
 - `Stop`
 - `StopFailure`
 
-It intentionally does not register `SessionEnd`. Crewlight v0.2 ignores that
-event to avoid replacing `completed`, `failed`, or `rate_limited` with `idle`.
+It intentionally does not register `SessionEnd`. Crewlight ignores that event
+to avoid replacing `completed`, `failed`, or `rate_limited` with `idle`.
 
 The command hook does not return a permission decision. Delivery failures only
 produce a warning and return zero, so Crewlight does not block Claude Code or

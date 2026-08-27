@@ -1,15 +1,11 @@
-import type {
-  AgentEvent,
-  AgentEventInput,
-  AgentSession,
-} from "@crewlight/core";
+import type { AgentEvent, AgentEventInput } from "@crewlight/core";
 import {
   CrewlightService,
   startDaemon,
   type DaemonInstance,
   type IngestResult,
 } from "@crewlight/daemon";
-import type { Notifier } from "@crewlight/notifier";
+import type { Notifier, NotificationRequest } from "@crewlight/notifier";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { DaemonClient, type CrewlightClient } from "../src/daemon-client.js";
@@ -24,7 +20,7 @@ import type { CommandIo } from "../src/commands/types.js";
 import { isMainModule } from "../src/index.js";
 
 class SilentNotifier implements Notifier {
-  notify(_event: AgentEvent, _session: AgentSession): void {}
+  notify(_request: NotificationRequest): void {}
 }
 
 function captureIo() {

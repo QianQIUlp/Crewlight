@@ -1,66 +1,40 @@
-# v0.5.0 Dogfood Report
+# v0.5.0 Verification Record
 
-This report separates evidence by verification method. Do not promote an item to **verified manually** unless the full workflow was exercised in a suitable local environment.
+This record distinguishes repository evidence from acceptance evidence. It is
+not a claim that v0.5.0 has been released or that Windows support has passed.
 
-## Verification status
+## Current status
 
-| Workflow                   | Status                                            | Evidence                                                                                                   |
-| -------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Claude Code hook ingest    | Verified manually, automatically, and by fixture  | A real Claude Code `Stop` hook reached the daemon; sanitized fixture and adapter/CLI tests cover mapping.  |
-| Codex CLI notify ingest    | Verified manually, automatically, and by fixture  | A real Codex `agent-turn-complete` notify reached the daemon; fixture and adapter/CLI tests cover mapping. |
-| Gemini / Copilot / agy     | Verified manually and by automated tests          | Gemini CLI, Copilot CLI, and Antigravity (agy) hooks translate to local dashboard status.                  |
-| 12 Longtail Adapters       | Verified automatically by test suite              | Codebuddy, Kiro, Kimi, Qwen, Codewhale, Mimo, Pi, Openclaw, Hermes, Qoder, Qoderwork, Reasonix tests pass. |
-| SSH Remote Tunneling       | Verified manually and by automated tests          | Config parsing, port-forward mapping, connection heartbeats, retry limits, and CLI check verification.     |
-| Daemon startup             | Verified manually and by automated tests          | Console and OS modes started on loopback; server/configuration tests cover startup behavior.               |
-| Console notifier           | Verified manually and by automated tests          | Real and synthetic terminal events appeared in daemon output; unit tests cover policy.                     |
-| OS notifier                | Not verified / requires local desktop environment | The module loaded, but the headless environments report delivery failure.                                  |
-| Setup snippet generation   | Verified manually and by automated tests          | Setup prints valid config JSONs and verification scripts for all 20 active adapters.                       |
-| Theme/Accent customization | Verified manually and by automated tests          | Settings panel persists theme, accent color, and density tokens to local preference store.                 |
+| Area                                                  | Current evidence                                                                            | Release state                         |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Core normalization, retention, Attention Engine       | Automated unit tests and type checks                                                        | Ready for targeted review             |
+| Claude Code and Codex adapters                        | Sanitized fixtures plus adapter/CLI tests; Codex Hooks and legacy notify are separate paths | Ready for real-turn verification      |
+| Daemon, dashboard, notifier fallback                  | Automated service, HTTP, dashboard, and notifier tests                                      | Ready for targeted review             |
+| Desktop preferences, onboarding, companion projection | Automated state, sanitization, lifecycle, and installer tests                               | Ready for Windows GUI verification    |
+| SSH Remote                                            | Existing automated tests; Remote remains Beta                                               | Not a v0.5 Supported claim            |
+| Native OS notifications                               | Mocked and fallback-tested; no local delivery claim here                                    | Requires Windows desktop verification |
+| Installer and Portable artifacts                      | CI scripts pin and verify inputs, names, sidecars, and manifest                             | Requires CI plus Windows acceptance   |
 
-## Verified manually
+## Required release evidence
 
-Record the exact environment, command, observed output, and date.
+Before publishing, attach evidence from the same frozen artifacts for both a
+physical Windows 11 x64 machine and a clean Azure Windows 11 x64 VM. Record the
+OS build, commit, artifact SHA-256, time, and results for install/upgrade,
+managed daemon start/stop, tray behavior, Claude Code and Codex real turns,
+notifications, Inbox ordering, onboarding, keyboard access, forced colors,
+reduced motion, and 200% text scaling.
 
-- **Environment**: Linux x86_64, Node.js 22.16.0, pnpm 10.11.0, July 20, 2026.
-- **Claude Code version**: 2.1.183. Verified that setup commands print clean JSON configuration. Session states successfully sync with the companion.
-- **Gemini CLI / Copilot CLI**: Verified `crewlight setup gemini-cli --print` and `crewlight setup copilot-cli --print` emit correct hook structures.
-- **SSH Remote Tunneling**: Setup configuration annotated with `# CrewlightRemote: yes` in `~/.ssh/config` is successfully parsed. Host connection attempts route to proxy servers, check for remote CLI, and lazy-initialize tunnels on 127.0.0.1:3768.
-- **Desktop Preferences**: Verified light/dark/system theme settings toggle HTML `data-theme` attribute correctly and persist values across reboots.
+Automated green checks do not substitute for that evidence. Until it exists,
+`release-policy.json` remains `candidate`, Windows remains an unsigned target,
+and the site/README must not show a download CTA.
 
-## Verified by automated tests
+## Safe manual checklist
 
-- All 20 adapters (Claude, Codex, Gemini CLI, Copilot CLI, Antigravity, and the 12 longtail adapters) map correctly under `packages/adapters/*/test/*.test.ts`.
-- Data leak prevention asserts that prompt parameters, transcripts, and inputs are never propagated to normalized structures.
-- SSH config parser logic, SSH tunnel connection states, retry limitations, port forwarding failures, and heartbeats.
-- Preferences store serialization, sanitization, default boundaries, and remote host mappings.
-
-## Verified by fixture tests
-
-Sanitized representative fixtures are checked for:
-
-- `packages/adapters/claude-code/test/fixtures/stop.sanitized.json`
-- `packages/adapters/codex/test/fixtures/agent-turn-complete.sanitized.json`
-
-## Manual verification procedure
-
-### 1. Diagnose and Verify Local Subcommands
-
-```bash
-crewlight doctor
-crewlight setup gemini-cli --print
-crewlight setup copilot-cli --print
-crewlight setup codebuddy --print
-```
-
-### 2. Verify Remote Config Scanning
-
-Annotate a host in `~/.ssh/config`:
-
-```text
-Host my-remote-box
-  HostName 192.168.1.100
-  User root
-  # CrewlightRemote: yes
-```
-
-Launch Crewlight Desktop and verify `my-remote-box` is scanned and listed under the Remote settings tab.
+1. Start the local daemon and confirm the loopback health endpoint.
+2. Inspect/install only the fixed Claude Code or Codex user-level hook path.
+3. Review Codex definitions in `/hooks`; installation alone is not a live-event
+   assertion.
+4. Run a real turn, then verify waiting, failure, stale, completed/ready, and
+   reopen transitions without exposing prompts, transcripts, reasoning, or tool
+   I/O.
+5. Capture platform-specific evidence separately from repository test output.

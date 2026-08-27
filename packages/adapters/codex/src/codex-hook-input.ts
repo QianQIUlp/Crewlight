@@ -5,6 +5,7 @@ export const codexHookInputSchema = z.object({
   hook_event_name: z.string().min(1).optional().catch(undefined),
   prompt: z.string().min(1).optional().catch(undefined),
   session_id: z.string().min(1).optional().catch(undefined),
+  turn_id: z.string().min(1).optional().catch(undefined),
   tool_name: z.string().min(1).optional().catch(undefined),
 });
 

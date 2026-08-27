@@ -19,10 +19,13 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const packageJson = JSON.parse(
   await readFile(join(root, "package.json"), "utf8"),
 );
+const releasePolicy = JSON.parse(
+  await readFile(join(root, "release-policy.json"), "utf8"),
+);
 const version = packageJson.version;
 const platform = process.platform;
 const architecture = process.arch;
-const nodeMajor = Number(process.versions.node.split(".")[0]);
+const requiredNodeVersion = releasePolicy.supplyChain?.nodeVersion;
 
 const targetPlatform =
   platform === "win32" ? "windows" : platform === "darwin" ? "macos" : "linux";
@@ -48,9 +51,72 @@ if (!verifiedTargets.includes(currentTarget)) {
   );
 }
 
-if (nodeMajor !== 22) {
+if (process.versions.node !== requiredNodeVersion) {
   throw new Error(
-    `Standalone release builds require an available Node 22.x runtime; received ${process.version}.`,
+    `Standalone release builds require Node ${requiredNodeVersion}; received ${process.version}.`,
+  );
+}
+
+const expectedNodeArchive =
+  releasePolicy.supplyChain?.nodeArchives?.[currentTarget];
+const verifiedNodeCache = join(
+  root,
+  "release",
+  ".verified-node",
+  currentTarget,
+);
+const verifiedNodeArchivePath =
+  process.env.CREWLIGHT_NODE_ARCHIVE_PATH ??
+  (expectedNodeArchive?.file
+    ? join(verifiedNodeCache, expectedNodeArchive.file)
+    : undefined);
+const verifiedNodeLicensePath =
+  process.env.CREWLIGHT_NODE_LICENSE_PATH ?? join(verifiedNodeCache, "LICENSE");
+const verifiedNodeBinaryPath =
+  process.env.CREWLIGHT_NODE_BINARY_PATH ??
+  join(
+    verifiedNodeCache,
+    "extracted",
+    expectedNodeArchive?.file?.endsWith("win-x64.zip")
+      ? `node-v${requiredNodeVersion}-win-x64`
+      : `node-v${requiredNodeVersion}-${
+          targetPlatform === "macos" ? "darwin" : targetPlatform
+        }-${targetArch}`,
+    targetPlatform === "windows" ? "node.exe" : "bin/node",
+  );
+if (
+  !expectedNodeArchive?.sha256 ||
+  !verifiedNodeArchivePath ||
+  !verifiedNodeLicensePath ||
+  !verifiedNodeBinaryPath
+) {
+  throw new Error(
+    "Standalone release builds require a verified Node archive, binary, and extracted LICENSE (CREWLIGHT_NODE_ARCHIVE_PATH, CREWLIGHT_NODE_BINARY_PATH, and CREWLIGHT_NODE_LICENSE_PATH).",
+  );
+}
+const verifiedNodeArchiveHash = createHash("sha256")
+  .update(await readFile(verifiedNodeArchivePath))
+  .digest("hex");
+if (verifiedNodeArchiveHash !== expectedNodeArchive.sha256) {
+  throw new Error(
+    `Verified Node archive hash mismatch for ${currentTarget}; expected ${expectedNodeArchive.sha256}.`,
+  );
+}
+const verifiedNodeLicense = await readFile(verifiedNodeLicensePath, "utf8");
+if (!verifiedNodeLicense.trim()) {
+  throw new Error("The verified Node archive LICENSE is empty.");
+}
+const verifiedNodeVersion = execFileSync(
+  verifiedNodeBinaryPath,
+  ["--version"],
+  {
+    cwd: root,
+    encoding: "utf8",
+  },
+).trim();
+if (verifiedNodeVersion !== `v${requiredNodeVersion}`) {
+  throw new Error(
+    `Verified Node binary version mismatch; expected v${requiredNodeVersion}, received ${verifiedNodeVersion}.`,
   );
 }
 
@@ -92,6 +158,9 @@ await mkdir(workDirectory, { recursive: true });
 
 await build({
   bundle: true,
+  define: {
+    CREWLIGHT_BUILD_VERSION: JSON.stringify(version),
+  },
   entryPoints: [join(root, "packages/cli/dist/standalone.js")],
   format: "cjs",
   legalComments: "none",
@@ -117,12 +186,16 @@ await writeFile(
   )}\n`,
 );
 
-execFileSync(process.execPath, ["--experimental-sea-config", seaConfigPath], {
-  cwd: root,
-  stdio: "inherit",
-});
+execFileSync(
+  verifiedNodeBinaryPath,
+  ["--experimental-sea-config", seaConfigPath],
+  {
+    cwd: root,
+    stdio: "inherit",
+  },
+);
 
-await copyFile(process.execPath, binaryPath);
+await copyFile(verifiedNodeBinaryPath, binaryPath);
 
 if (platform === "win32") {
   const located = spawnSync("where.exe", ["signtool.exe"], {
@@ -164,12 +237,18 @@ if (platform !== "win32") {
   await chmod(binaryPath, 0o755);
 }
 
-await copyFile(join(root, "LICENSE"), join(stagingDirectory, "LICENSE"));
+await copyFile(verifiedNodeLicensePath, join(stagingDirectory, "LICENSE"));
+await copyFile(
+  join(root, "LICENSE"),
+  join(stagingDirectory, "CREWLIGHT-LICENSE"),
+);
 await writeFile(
   join(stagingDirectory, "BUILD-INFO.txt"),
   [
     `Crewlight version: ${version}`,
     `Node version: ${process.version}`,
+    `Node archive: ${expectedNodeArchive.file}`,
+    `Node archive SHA256: ${verifiedNodeArchiveHash}`,
     `Platform: ${targetPlatform}`,
     `Architecture: ${architecture}`,
     `Commit: ${commit}`,

@@ -24,6 +24,7 @@ export interface DaemonCommandOptions {
   config: DaemonConfig;
   dashboard: boolean;
   dashboardTaskTitleMode: DashboardTaskTitleMode;
+  managedStdio: boolean;
 }
 
 export function resolveDaemonCommandOptions(
@@ -34,6 +35,7 @@ export function resolveDaemonCommandOptions(
     args: [...args],
     options: {
       dashboard: { type: "boolean", default: false },
+      "managed-stdio": { type: "boolean", default: false },
       "dashboard-task-titles": { type: "string" },
       host: { type: "string" },
       notifier: { type: "string" },
@@ -77,6 +79,7 @@ export function resolveDaemonCommandOptions(
     config,
     dashboard: values.dashboard,
     dashboardTaskTitleMode,
+    managedStdio: values["managed-stdio"],
   };
 }
 
@@ -154,30 +157,62 @@ export async function executeDaemonCommand(
   return new Promise<number>((resolve, reject) => {
     let closing = false;
 
+    const signals: NodeJS.Signals[] = ["SIGINT", "SIGTERM"];
+    if (process.platform === "win32") {
+      signals.push("SIGBREAK");
+    }
+
+    let stdinBuffer = "";
+    const onStdinData = (chunk: string): void => {
+      stdinBuffer += chunk;
+      const lines = stdinBuffer.split(/\r?\n/u);
+      stdinBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line === "shutdown") {
+          shutdown();
+          return;
+        }
+      }
+    };
+    const onStdinError = (): void => {
+      // A managed daemon must remain alive when its parent closes or errors
+      // its stdin. Shutdown is explicit and only accepts a complete line.
+    };
+    const removeSignalHandlers = (): void => {
+      for (const signal of signals) {
+        process.off(signal, shutdown);
+      }
+      if (options.managedStdio) {
+        process.stdin.off("data", onStdinData);
+        process.stdin.off("error", onStdinError);
+      }
+    };
+
     const shutdown = () => {
       if (closing) {
         return;
       }
       closing = true;
-      void daemon.close().then(() => {
-        removeSignalHandlers();
-        io.write("Crewlight daemon stopped");
-        resolve(0);
-      }, reject);
+      void daemon.close().then(
+        () => {
+          removeSignalHandlers();
+          io.write("Crewlight daemon stopped");
+          resolve(0);
+        },
+        (error) => {
+          removeSignalHandlers();
+          reject(error);
+        },
+      );
     };
 
-    const signals: NodeJS.Signals[] = ["SIGINT", "SIGTERM"];
-    if (process.platform === "win32") {
-      signals.push("SIGBREAK");
-    }
     for (const signal of signals) {
       process.on(signal, shutdown);
     }
-
-    const removeSignalHandlers = () => {
-      for (const signal of signals) {
-        process.off(signal, shutdown);
-      }
-    };
+    if (options.managedStdio) {
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", onStdinData);
+      process.stdin.on("error", onStdinError);
+    }
   });
 }

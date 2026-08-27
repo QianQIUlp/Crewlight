@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 
-import { utils } from "ssh2";
+import ssh2 from "ssh2";
+
+const { utils } = ssh2;
 
 export type LoadedSshIdentity =
   | { ok: true; privateKey?: Buffer }

@@ -13,8 +13,8 @@ Supported events include session and prompt starts, tool start/completion,
 permission requests, actionable notifications, turn completion, and API
 failure. Unsupported events are ignored.
 
-`SessionEnd` is intentionally ignored in v0.2 because mapping it to `idle`
-could overwrite a terminal session state. The setup snippet does not register
+`SessionEnd` is intentionally ignored because mapping it to `idle` could
+overwrite a terminal-like session state. The setup snippet does not register
 that hook.
 
 When the daemon explicitly enables `--dashboard-task-titles prompt-preview`,
@@ -43,13 +43,13 @@ input, tool response/output, assistant messages, or complete payloads. With
 explicit prompt-preview opt-in, only `UserPromptSubmit.prompt` is read in
 memory, and only the bounded derived `taskTitle` leaves the hook process. The
 event and field are documented in the official
-[Codex hooks reference](https://developers.openai.com/codex/hooks).
+[Codex hooks reference](https://learn.chatgpt.com/docs/hooks).
 
 ## Narrow official integration: Codex notify
 
 The Codex adapter consumes the documented external `notify` JSON argument.
 Codex currently documents only `agent-turn-complete` for this interface, so
-v0.2 maps only that event to `completed`.
+Crewlight maps only that event to `completed`.
 
 The notify interface by itself does not claim Codex `running`, `waiting_input`,
 or `waiting_permission`. Built-in TUI notifications and the app-server protocol

@@ -20,7 +20,10 @@ export function truncateCodexMessage(message: string): string {
   return `${trimmed.slice(0, CODEX_MESSAGE_LIMIT - 1)}…`;
 }
 
-function stableTurnEventId(threadId: string, turnId: string): string {
+export function stableCodexTurnEventId(
+  threadId: string,
+  turnId: string,
+): string {
   const digest = createHash("sha256")
     .update(JSON.stringify([threadId, turnId]))
     .digest("hex")
@@ -44,7 +47,10 @@ export function mapCodexNotification(input: unknown): CodexAdapterResult {
     event: {
       ...(payload["thread-id"] && payload["turn-id"]
         ? {
-            id: stableTurnEventId(payload["thread-id"], payload["turn-id"]),
+            id: stableCodexTurnEventId(
+              payload["thread-id"],
+              payload["turn-id"],
+            ),
           }
         : {}),
       source: "codex",

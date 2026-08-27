@@ -94,12 +94,13 @@ vi.mock("ssh2", () => {
     }
   }
 
-  return {
+  const mockedSsh2 = {
     Client: MockClient,
     utils: {
       parseKey: () => ({ getPrivatePEM: () => "private-key" }),
     },
   };
+  return { ...mockedSsh2, default: mockedSsh2 };
 });
 
 describe("ssh tunnel", () => {

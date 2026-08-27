@@ -1,26 +1,26 @@
 # Install Crewlight Without Node.js
 
-Crewlight v0.4.0 is desktop-first on Windows. The primary ordinary-user path is
-the portable Windows desktop app, with the unsigned installer as a secondary
-convenience artifact.
+Crewlight v0.5.0 is a Windows-first Attention Inbox candidate. It is not
+published yet; do not present a download CTA until the Windows 11 acceptance
+record and GitHub Release exist. v0.4.0 was an archived prototype and did not
+publish a portable Desktop ZIP.
 
 ## Windows Desktop
 
-Primary download:
+Expected v0.5.0 assets after publication:
 
-- `crewlight-v0.4.0-windows-x64-desktop.zip`
-
-Secondary installer:
-
-- `Crewlight-Setup-v0.4.0.exe`
+- `crewlight-v0.5.0-windows-x64-desktop.zip` (Portable)
+- `crewlight-v0.5.0-windows-x64-installer.exe` (Installer)
 
 Portable desktop flow:
 
-1. Extract `crewlight-v0.4.0-windows-x64-desktop.zip`
-2. Open the extracted folder
-3. Double-click `Crewlight.exe`
-4. Use the onboarding flow to start the local service, run the demo, and show
-   the companion
+1. Download the exact asset named by the published `release-manifest.json`.
+2. Verify its adjacent `.sha256` sidecar.
+3. Extract `crewlight-v0.5.0-windows-x64-desktop.zip`.
+4. Open the extracted folder and double-click `Crewlight.exe`.
+5. Use onboarding to start the local service, choose Claude Code or Codex,
+   trust the hook definition, and run a real turn. Demo data is optional and
+   does not complete onboarding.
 
 The desktop package includes the Electron app, the bundled local Crewlight CLI
 resource used for daemon control and setup actions, and the desktop UI assets.
@@ -30,8 +30,8 @@ Users do not need Node.js, pnpm, Corepack, or the source repository.
 
 The CLI artifacts still exist for advanced usage:
 
-- `crewlight-v0.4.0-linux-x64.tar.gz`
-- `crewlight-v0.4.0-windows-x64.zip`
+- `crewlight-v0.5.0-linux-x64.tar.gz`
+- `crewlight-v0.5.0-windows-x64.zip`
 
 Use them for scripting, hook integration, manual ingest, CI, or daemon-only
 workflows.
@@ -48,7 +48,7 @@ Desktop verification remains a GUI step:
 
 - `Crewlight.exe` launches the main window
 - the app can start, stop, and restart the local service
-- the demo populates Home, Demo, and Companion
+- the optional demo populates deterministic sessions in Home and Companion
 - the floating companion can be shown from the desktop app
 
 CLI standalone verification remains covered by the existing standalone smoke

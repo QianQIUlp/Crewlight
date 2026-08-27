@@ -1,10 +1,10 @@
-# v0.4.0 Release Checklist
+# v0.4.0 Archived Prototype Record
 
-Status: **Unreleased**
+Status: **Published 2026-06-23; archived prototype**
 
 ## Identity and desktop positioning
 
-- [ ] Root and workspace package versions are `0.4.0`
+- [x] Root and workspace package versions were `0.4.0` at the archived release
 - [ ] CLI help displays `Crewlight v0.4.0`
 - [ ] Desktop docs present Crewlight Desktop as the primary user-facing surface
 - [ ] Browser dashboard docs describe the dashboard as a secondary developer surface
@@ -15,9 +15,7 @@ Status: **Unreleased**
 
 - [ ] `crewlight-v0.4.0-linux-x64.tar.gz`
 - [ ] `crewlight-v0.4.0-windows-x64.zip`
-- [ ] `crewlight-v0.4.0-windows-x64-desktop.zip`
-- [ ] `Crewlight-Setup-v0.4.0.exe`
-- [ ] The desktop zip extracts to a folder containing `Crewlight.exe`
+- [x] No portable Windows Desktop ZIP was published for v0.4.0
 
 ## Validation
 
@@ -40,7 +38,7 @@ Status: **Unreleased**
 - [ ] Settings persist only bounded local UI preferences
 - [ ] No prompts, transcripts, tool I/O, raw events, or session history are persisted
 
-## Screenshot gate
+## Screenshot gate (historical, not a v0.5 acceptance claim)
 
 - [ ] `assets/readme/crewlight-desktop-overview.png`
 - [ ] `assets/readme/crewlight-desktop-agents.png`

@@ -1,4 +1,8 @@
-# Crewlight MVP Plan
+# Crewlight MVP Plan (Historical)
+
+This document records the v0.1/v0.2 milestones that led to the current
+v0.5.0 contract. It is not the current release plan; see the root README and
+`docs/release-checklist-v0.5.md` for present behavior and gates.
 
 ## v0.1 foundation
 

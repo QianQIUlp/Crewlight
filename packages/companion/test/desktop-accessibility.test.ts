@@ -25,12 +25,55 @@ describe("desktop accessibility regressions", () => {
     expect(html).not.toContain('v<span id="sidebar-version"');
   });
 
+  it("loads ESM renderers and keeps hidden content out of the layout", async () => {
+    const desktopHtml = await readFile(
+      join(sourceDirectory, "desktop.html"),
+      "utf8",
+    );
+    const companionHtml = await readFile(
+      join(sourceDirectory, "index.html"),
+      "utf8",
+    );
+    const css = await readFile(join(sourceDirectory, "desktop.css"), "utf8");
+    expect(desktopHtml).toContain(
+      '<script src="./desktop-renderer.js" type="module"></script>',
+    );
+    expect(companionHtml).toContain(
+      '<script src="./renderer.js" type="module"></script>',
+    );
+    expect(desktopHtml).not.toContain("style=");
+    expect(css).toContain("[hidden]");
+    expect(css).toContain("#lg-svg-defs");
+  });
+
+  it("offers grouped single-panel navigation", async () => {
+    const desktopRenderer = await readFile(
+      join(sourceDirectory, "desktop-renderer.ts"),
+      "utf8",
+    );
+    expect(desktopRenderer).toContain('group: "Inbox"');
+    expect(desktopRenderer).toContain('group: "Preferences"');
+    expect(desktopRenderer).toContain("button.dataset.panel = panel.id");
+    expect(desktopRenderer).toContain(
+      "setHidden(`${panel.id}-section`, panel.id !== activePanel)",
+    );
+  });
+
   it("keeps recurring attention motion inside the no-preference query", async () => {
     const css = await readFile(join(sourceDirectory, "desktop.css"), "utf8");
     const noPreference = css.indexOf("prefers-reduced-motion: no-preference");
     const attentionAnimation = css.indexOf("animation: pulse-border-desktop");
     expect(noPreference).toBeGreaterThanOrEqual(0);
     expect(attentionAnimation).toBeGreaterThan(noPreference);
+  });
+
+  it("uses a theme-aware sidebar surface without a clipped glass layer", async () => {
+    const css = await readFile(join(sourceDirectory, "desktop.css"), "utf8");
+    expect(css).toContain("--sidebar-surface:");
+    expect(css).toContain("background: var(--sidebar-surface)");
+    expect(css).toMatch(
+      /\.sidebar::before,\s*\.sidebar::after\s*\{\s*display: none;/,
+    );
   });
 
   it("uses native disclosure buttons and preserves their state across polls", async () => {
@@ -57,5 +100,8 @@ describe("desktop accessibility regressions", () => {
     expect(main).toContain("await serviceManager.dispose()");
     expect(main).toContain("getCompanionDismissAction(trayAvailable)");
     expect(main).toContain("canStopManagedService(serviceState)");
+    expect(
+      main.match(/icon: join\(outputDirectory, "crewlight-icon.png"\)/g),
+    ).toHaveLength(2);
   });
 });

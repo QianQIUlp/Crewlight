@@ -5,8 +5,6 @@ import type {
   SanitizedSession,
 } from "./sanitize.js";
 
-export const RECENT_COMPLETION_MS = 5 * 60 * 1000;
-
 export type CompanionGlobalState =
   | "offline"
   | "api-unavailable"
@@ -87,7 +85,7 @@ const STATUS_LABELS: Record<CompanionStatus, string> = {
   using_tool: "Using tool",
   waiting_input: "Waiting for input",
   waiting_permission: "Permission needed",
-  completed: "Completed",
+  completed: "Turn finished",
   failed: "Failed",
   rate_limited: "Rate limited",
   unknown: "Unknown",
@@ -122,25 +120,23 @@ function isFailed(session: SanitizedSession): boolean {
 }
 
 function isStaleRunning(session: SanitizedSession): boolean {
-  return session.isStale && isRunning(session);
+  return session.priority === "stale";
 }
 
 function isRecentlyCompleted(session: SanitizedSession): boolean {
-  return (
-    session.status === "completed" &&
-    session.lastEventAgeMs <= RECENT_COMPLETION_MS
-  );
+  return session.status === "completed" && session.priority === "ready";
 }
 
 export function getSessionPriority(session: SanitizedSession): number {
-  if (session.status === "waiting_permission") return 0;
-  if (session.status === "waiting_input") return 1;
-  if (isFailed(session)) return 2;
-  if (isStaleRunning(session)) return 3;
-  if (isRunning(session)) return 4;
-  if (isRecentlyCompleted(session)) return 5;
-  if (session.status === "idle" || session.status === "completed") return 6;
-  return 7;
+  const ranks = {
+    needs_action: 0,
+    error: 1,
+    stale: 2,
+    active: 3,
+    ready: 4,
+    hidden: 5,
+  } as const;
+  return ranks[session.priority];
 }
 
 export function sortSessions(
@@ -149,8 +145,20 @@ export function sortSessions(
   return [...sessions].sort((left, right) => {
     const priorityDifference =
       getSessionPriority(left) - getSessionPriority(right);
-    return priorityDifference || right.lastEventAt - left.lastEventAt;
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+    const eventDifference = right.lastEventAt - left.lastEventAt;
+    return (
+      eventDifference || compareSessionKeys(left.sessionKey, right.sessionKey)
+    );
   });
+}
+
+function compareSessionKeys(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 export function filterSessionViews(
@@ -189,13 +197,20 @@ function formatAge(milliseconds: number): string {
 }
 
 function getTone(session: SanitizedSession): CompanionSessionTone {
-  if (needsAction(session)) return "action";
-  if (isFailed(session)) return "error";
-  if (isStaleRunning(session)) return "stale";
-  if (isRunning(session)) return "active";
-  if (isRecentlyCompleted(session)) return "done";
-  if (session.status === "unknown") return "unknown";
-  return "idle";
+  switch (session.priority) {
+    case "needs_action":
+      return "action";
+    case "error":
+      return "error";
+    case "stale":
+      return "stale";
+    case "active":
+      return "active";
+    case "ready":
+      return "done";
+    case "hidden":
+      return session.status === "unknown" ? "unknown" : "idle";
+  }
 }
 
 function getDiagnosticHint(session: SanitizedSession): string | undefined {
@@ -204,7 +219,7 @@ function getDiagnosticHint(session: SanitizedSession): string | undefined {
   if (session.status === "rate_limited") return "Rate limit reported";
   if (session.status === "failed") return "Agent reported a failure";
   if (isStaleRunning(session)) {
-    return session.staleReason ?? "No recent event; session may be stale";
+    return "No recent event; session may be stale";
   }
   return undefined;
 }
@@ -222,7 +237,7 @@ function toSessionView(session: SanitizedSession): CompanionSessionView {
     activity: session.activityLabel ?? STATUS_LABELS[session.status],
     lastEventLabel: formatAge(session.lastEventAgeMs),
     needsAction: needsAction(session),
-    isStale: isStaleRunning(session),
+    isStale: session.priority === "stale",
     tone: getTone(session),
     elapsedMs: session.durationMs,
     stuckWarning: isRunning(session) && session.lastEventAgeMs >= 5 * 60 * 1000,
@@ -274,7 +289,9 @@ export function deriveCompanionViewModel(
     );
   }
 
-  const sorted = sortSessions(result.data.sessions);
+  const sorted = sortSessions(
+    result.data.sessions.filter((session) => session.priority !== "hidden"),
+  );
   const sessionViews = sorted.map(toSessionView);
   const counts = {
     running: sorted.filter(isRunning).length,
@@ -307,14 +324,13 @@ export function deriveCompanionViewModel(
   } else if (stale) {
     state = "stale";
     summary = "Possibly stale";
-    diagnostic =
-      stale.staleReason ?? `${stale.displayName} has no recent events`;
+    diagnostic = `${stale.displayName} has no recent events`;
   } else if (counts.running > 0) {
     state = "running";
     summary = `${counts.running} running`;
   } else if (recentCompletion) {
     state = "completed";
-    summary = "Recently completed";
+    summary = "Ready for review";
   }
 
   const mostImportant = sessionViews[0];

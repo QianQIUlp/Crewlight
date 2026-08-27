@@ -1,7 +1,8 @@
 # Set up Codex CLI
 
 Codex can invoke one external notification program with a JSON payload supplied
-as a single argument.
+as a single argument. For the v0.5 lifecycle path, Codex Hooks are preferred;
+the legacy `notify` command remains a completion-only compatibility input.
 
 ## Print the snippet
 
@@ -46,9 +47,9 @@ dispatcher designed to accept and invoke additional notifier targets.
 
 ## Supported event
 
-Crewlight v0.2 supports only the officially documented
-`agent-turn-complete -> completed` event. It does not claim Codex running,
-input-waiting, or permission-waiting states.
+Crewlight maps the officially documented `agent-turn-complete -> completed`
+event. It does not claim Codex running, input-waiting, or permission-waiting
+states from `notify`.
 
 ## Verify
 
@@ -101,5 +102,6 @@ arrives.
 For lifecycle states before turn completion, separately configure the
 observation-only [Codex hooks integration](setup-codex-hooks.md).
 
-For the upstream configuration contract, see
-[Codex advanced configuration](https://developers.openai.com/codex/config-advanced#notifications).
+For the upstream configuration contract, see the
+[Codex Hooks reference](https://learn.chatgpt.com/docs/hooks) and
+[configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).

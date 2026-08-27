@@ -1,7 +1,7 @@
 {
   "name": "crewlight",
   "version": "0.5.0",
-  "description": "Crewlight is a local-first companion surface for multi-agent coding workflows.",
+  "description": "Crewlight is a local-first Agent Attention Inbox for concurrent coding work.",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.11.0",
@@ -26,12 +26,17 @@
     "package:desktop:linux": "node scripts/package-desktop.mjs linux",
     "package:desktop:windows": "node scripts/package-desktop.mjs windows",
     "release:verify": "node scripts/verify-release.mjs",
+    "release:node-runtime": "node scripts/prepare-node-runtime.mjs",
+    "release:manifest": "node scripts/release-manifest.mjs",
+    "release:manifest:verify": "node scripts/release-manifest.mjs --verify",
+    "release:contract": "node scripts/release-contract.mjs --write",
+    "release:contract:check": "node scripts/release-contract.mjs",
     "smoke:standalone": "bash scripts/smoke-standalone.sh",
-    "smoke:standalone:windows": "pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-standalone.ps1",
+    "smoke:standalone:windows": "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-standalone.ps1",
     "test": "tsc -b --pretty false && vitest run --passWithNoTests",
     "test:run": "vitest run --passWithNoTests",
     "typecheck": "tsc -b --pretty false",
-    "validate": "pnpm format:check && pnpm typecheck && pnpm test:run && pnpm build"
+    "validate": "pnpm format:check && pnpm release:contract:check && pnpm typecheck && pnpm test:run && pnpm build"
   },
   "devDependencies": {
     "@types/node": "^22.15.29",

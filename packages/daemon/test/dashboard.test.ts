@@ -138,7 +138,7 @@ describe("dashboard session derivation", () => {
       identityLine: "Crewlight · IDE extension · #rewlight",
       taskTitle: "Cursor needs review",
       activityLabel: "Input requested",
-      attention: "action",
+      priority: "needs_action",
       actionKind: "input",
     });
   });
@@ -172,7 +172,7 @@ describe("dashboard session derivation", () => {
         source: "codex",
         title: "Stop",
       }),
-    ).toBe("Session completed");
+    ).toBe("Turn finished");
     expect(
       getDashboardActivityLabel({
         ...baseSession,
@@ -350,9 +350,7 @@ describe("dashboard session derivation", () => {
       activityLabel: "Permission requested",
       durationMs: 600_400,
       lastEventAgeMs: 600_000,
-      isStale: true,
-      staleReason: "No event for at least 10 minutes.",
-      attention: "action",
+      priority: "needs_action",
       actionKind: "input",
       lastMessage: "Safe status",
     });
@@ -370,7 +368,7 @@ describe("dashboard session derivation", () => {
 
     expect(serialized).toMatchObject({
       lastEventAgeMs: 400,
-      isStale: false,
+      priority: "active",
     });
     expect(serialized).not.toHaveProperty("staleReason");
     expect(serialized).not.toHaveProperty("taskTitle");

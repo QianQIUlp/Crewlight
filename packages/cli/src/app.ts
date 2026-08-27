@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+
 import { DaemonClient } from "./daemon-client.js";
 import { executeDaemonCommand } from "./commands/daemon.js";
 import { executeDemoCommand } from "./commands/demo.js";
@@ -9,10 +11,21 @@ import { executeSetupCommand } from "./commands/setup.js";
 import { executeStatusCommand } from "./commands/status.js";
 import { consoleIo, readStdin, type CommandIo } from "./commands/types.js";
 
-const USAGE = `Crewlight v0.5.0
+declare const CREWLIGHT_BUILD_VERSION: string | undefined;
+
+const CREWLIGHT_VERSION =
+  typeof CREWLIGHT_BUILD_VERSION === "string"
+    ? CREWLIGHT_BUILD_VERSION
+    : ((
+        createRequire(import.meta.url)("../package.json") as {
+          version?: string;
+        }
+      ).version ?? "unknown");
+
+const USAGE = `Crewlight v${CREWLIGHT_VERSION}
 
 Usage:
-  crewlight daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard] [--dashboard-task-titles prompt-preview]
+  crewlight daemon [--host HOST] [--port PORT] [--notifier KIND] [--dashboard] [--managed-stdio] [--dashboard-task-titles prompt-preview]
   crewlight demo [multi-agent]
   crewlight demo --scenario multi-agent
   crewlight doctor [--json] [--notifier KIND]

@@ -4,16 +4,16 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Crewlight Desktop</title>
     <meta
       name="description"
-      content="Crewlight — Local activity radar for AI coding agents"
+      content="Crewlight - Local-first Agent Attention Inbox for Claude Code and Codex"
     />
     <link rel="stylesheet" href="./desktop.css" />
-    <script src="./desktop-renderer.js" defer></script>
+    <script src="./desktop-renderer.js" type="module"></script>
   </head>
   <body data-theme="system" data-accent="teal" data-density="comfortable">
     <!--
@@ -21,18 +21,7 @@
       Uses a static SVG feTurbulence + feDisplacementMap for restrained
       refractive texture without continuous decorative motion.
     -->
-    <svg
-      id="lg-svg-defs"
-      aria-hidden="true"
-      focusable="false"
-      style="
-        position: absolute;
-        width: 0;
-        height: 0;
-        overflow: hidden;
-        pointer-events: none;
-      "
-    >
+    <svg id="lg-svg-defs" aria-hidden="true" focusable="false">
       <defs>
         <!-- Sidebar liquid glass: gentle slow flow, scale=10 -->
         <filter
@@ -89,13 +78,17 @@
     <div id="app-shell" class="app-shell">
       <aside class="sidebar">
         <div class="brand-lockup">
-          <span class="product-mark" aria-hidden="true">
-            <span></span>
-          </span>
+          <img
+            class="product-mark"
+            src="./crewlight-icon.png"
+            alt=""
+            width="46"
+            height="46"
+          />
           <div>
             <p class="brand-eyebrow">Crewlight Desktop</p>
             <h1>Crewlight</h1>
-            <p class="brand-copy">AI agent activity radar, local-first.</p>
+            <p class="brand-copy">Agent Attention Inbox, local-first.</p>
           </div>
         </div>
 
@@ -177,11 +170,18 @@
                     type="button"
                   ></button>
                   <button
-                    id="home-open-dashboard"
-                    class="secondary-button"
+                    data-action="home:clear-ready"
+                    class="text-button"
                     type="button"
                   >
-                    Open browser dashboard
+                    Clear ready turns
+                  </button>
+                  <button
+                    data-action="demo:run"
+                    class="text-button"
+                    type="button"
+                  >
+                    Run local demo
                   </button>
                 </div>
               </article>
@@ -209,8 +209,8 @@
             <article class="panel-card">
               <div class="card-heading card-heading-inline">
                 <div>
-                  <p class="section-eyebrow">Live session preview</p>
-                  <h3>Current local activity</h3>
+                  <p class="section-eyebrow">Attention Inbox</p>
+                  <h3>All visible sessions</h3>
                 </div>
               </div>
               <div id="home-preview-sessions" class="session-grid"></div>
@@ -280,7 +280,7 @@
             <div class="panel-grid two-up">
               <article class="panel-card">
                 <div class="card-heading">
-                  <p class="section-eyebrow">Doctor</p>
+                  <p class="section-eyebrow">Troubleshooting</p>
                   <h3>Local diagnostics</h3>
                   <p id="doctor-summary" class="section-copy"></p>
                 </div>
@@ -332,21 +332,45 @@
               </div>
               <div id="doctor-checks" class="check-list"></div>
             </article>
+
+            <details class="panel-card developer-disclosure">
+              <summary>Developer tools</summary>
+              <p class="section-copy">
+                The browser dashboard is retained for local diagnostics and
+                developer inspection; Home and Companion are the primary daily
+                surfaces.
+              </p>
+              <button
+                id="home-open-dashboard"
+                class="secondary-button"
+                type="button"
+              >
+                Open browser dashboard
+              </button>
+            </details>
           </section>
 
           <section id="agents-section" class="section-view" hidden>
             <article class="panel-card">
               <div class="card-heading">
-                <p class="section-eyebrow">Integrations</p>
-                <h3>Choose a setup path</h3>
+                <p class="section-eyebrow">Connect</p>
+                <h3>Claude Code and Codex</h3>
                 <p class="section-copy">
-                  Crewlight stays local-first and read-only. Integration cards
-                  expose setup snippets, verification commands, and honest
-                  boundaries.
+                  These are the only supported one-click integrations in v0.5.
+                  Installation changes user-level hook files only; review and
+                  trust the definition in the tool before running a real turn.
                 </p>
               </div>
               <div id="agent-cards" class="integration-grid"></div>
             </article>
+            <details class="panel-card">
+              <summary>Experimental integrations</summary>
+              <p class="section-copy">
+                OpenCode, Cursor, and Manual ingest remain copy-only developer
+                paths and are not part of the Supported Windows contract.
+              </p>
+              <div id="experimental-agent-cards" class="integration-grid"></div>
+            </details>
           </section>
 
           <section id="companion-section" class="section-view" hidden>
@@ -557,6 +581,14 @@
                       <option value="os">OS</option>
                     </select>
                   </label>
+                  <label class="field">
+                    <span>Desktop language</span>
+                    <select id="locale-select">
+                      <option value="system">System</option>
+                      <option value="en">English</option>
+                      <option value="zh-CN">简体中文</option>
+                    </select>
+                  </label>
                   <label class="toggle-field">
                     <input id="auto-start-toggle" type="checkbox" />
                     <span
@@ -574,6 +606,10 @@
                   <p class="section-copy">
                     Reset only desktop UI preferences. No prompts, transcripts,
                     sessions, or raw payloads are persisted.
+                  </p>
+                  <p class="section-copy">
+                    Remote is Beta: connecting trusts the remote host's local
+                    process through your SSH configuration.
                   </p>
                 </div>
                 <div class="button-column">
@@ -600,7 +636,7 @@
             <article class="panel-card">
               <div class="card-heading">
                 <p class="section-eyebrow">About</p>
-                <h3 id="about-title">Crewlight v0.4.0</h3>
+                <h3 id="about-title">Crewlight Candidate</h3>
                 <p id="about-tagline" class="section-copy"></p>
               </div>
               <div id="about-migration" class="bullet-list"></div>

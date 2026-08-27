@@ -1,4 +1,5 @@
 import {
+  evaluateAttention,
   normalizeAgentEvent,
   SessionStore,
   type AgentEvent,
@@ -29,13 +30,26 @@ export class CrewlightService {
 
   async ingest(input: AgentEventInput): Promise<IngestResult> {
     const event = normalizeAgentEvent(input);
+    const previousSession = this.#sessions.get(event.sessionKey);
     const { applied, session } = this.#sessions.applyWithResult(event);
 
     if (applied) {
+      const attention = evaluateAttention({
+        currentSession: session,
+        previousSession,
+        event,
+        now: Date.now(),
+      });
       try {
-        const delivery = this.#notifier.notify(event, session);
-        if (delivery) {
-          void delivery.catch(() => undefined);
+        if (attention.shouldNotify && attention.notificationKind) {
+          const delivery = this.#notifier.notify({
+            event,
+            kind: attention.notificationKind,
+            session,
+          });
+          if (delivery) {
+            void delivery.catch(() => undefined);
+          }
         }
       } catch {
         // Notification failures must not change an already-applied ingest.

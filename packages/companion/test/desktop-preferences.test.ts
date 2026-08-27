@@ -68,4 +68,16 @@ describe("desktop preferences", () => {
       installPromptDismissed: undefined,
     });
   });
+
+  it("migrates legacy section names case-insensitively", () => {
+    expect(
+      sanitizeDesktopPreferences({ lastSection: "Agents" }).lastSection,
+    ).toBe("connect");
+    expect(
+      sanitizeDesktopPreferences({ lastSection: "About" }).lastSection,
+    ).toBe("settings");
+    expect(
+      sanitizeDesktopPreferences({ lastSection: "not-a-section" }).lastSection,
+    ).toBe("home");
+  });
 });

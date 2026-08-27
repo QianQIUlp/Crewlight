@@ -102,13 +102,13 @@ const PARSER_ONLY_SETUP_PLATFORMS = {
   "pi-agent": "Pi Agent",
   "reasonix-cli": "Reasonix CLI",
 } as const satisfies Partial<Record<SetupPlatform, string>>;
-const WINDOWS_CODEX_HOOK_SIMPLE_TOKEN = /^[\p{L}\p{N}:\\/._-]+$/u;
+const WINDOWS_CODEX_HOOK_UNSAFE_CHARACTERS = /[%!&()<>^\r\n\u0000]/u;
 const WINDOWS_CODEX_HOOKS_UNAVAILABLE: SetupUnavailableReason = {
   code: "windows-codex-hooks-unsafe-command",
   message:
-    "Codex hooks setup is unavailable because Codex CLI 0.141.0 on Windows cannot reliably run a leading quoted executable command, and the resolved Crewlight command is not a simple unquoted path.",
+    "Codex hooks setup is unavailable because the resolved Windows command cannot be represented safely for commandWindows.",
   action:
-    "Install Crewlight into a simple no-space path such as C:\\Users\\<user>\\Tools\\Crewlight\\crewlight.exe, then rerun `crewlight setup codex-hooks --print`.",
+    "Copy the generated setup snippet and review the command path before trusting it in Codex.",
 };
 
 function currentSetupRuntime(): SetupRuntime {
@@ -669,7 +669,7 @@ function createCodexHooksSnippet(
 ): CodexHooksSetupResult {
   const windowsCommandAvailable =
     platform !== "win32" ||
-    command.every((token) => WINDOWS_CODEX_HOOK_SIMPLE_TOKEN.test(token));
+    command.every((token) => !WINDOWS_CODEX_HOOK_UNSAFE_CHARACTERS.test(token));
   if (!windowsCommandAvailable) {
     return {
       available: false,
@@ -688,7 +688,8 @@ function createCodexHooksSnippet(
       surface,
     ];
     const rendered = renderHookCommand(argv, platform);
-    const commandWindows = platform === "win32" ? argv.join(" ") : undefined;
+    const commandWindows =
+      platform === "win32" ? renderHookCommand(argv, "win32") : undefined;
     return hookGroup(rendered, undefined, commandWindows);
   };
 
@@ -1152,7 +1153,9 @@ Codex requires non-managed command hooks to be reviewed and trusted. Open \`/hoo
 Crewlight observes hook events only. It does not return permission decisions, context, or turn-control output, and it does not bypass Codex hook trust.
 Each generated command passes its matching lifecycle event through \`--hook <EventName>\`; stdin is treated as optional payload data.
 The default setup marks events as \`--surface cli\`, which preserves the verified Codex CLI path. Use \`--surface desktop\` only for an explicit local Codex Desktop verification.
-On Windows, Codex hooks execute the \`commandWindows\` field. Codex CLI 0.141.0 requires Crewlight to be installed at a simple no-space path so this field can use an unquoted executable command.
+On Windows, Codex hooks execute the official \`commandWindows\` field. Paths or
+characters that cannot be represented safely are downgraded to Copy setup
+before any configuration file is changed.
 Use \`--binary crewlight\` only when Codex can reliably resolve Crewlight from PATH.`;
 
 const OPENCODE_SETUP_GUIDANCE = `Crewlight only printed an OpenCode plugin file; it did not read or modify OpenCode configuration.

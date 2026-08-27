@@ -6,7 +6,7 @@ release evidence explicit.
 
 ## Prerequisites
 
-Use Node.js 22 and the package manager version declared in the root
+Use Node.js 22.23.2 and the package manager version declared in the root
 `package.json`:
 
 ```bash
@@ -56,14 +56,18 @@ pnpm release:verify
 This is a native build, not a cross-compilation command. Supported hosts and
 outputs are:
 
-| Host        | Standalone output               | Desktop output               |
-| ----------- | ------------------------------- | ---------------------------- |
-| Linux x64   | `.tar.gz` plus SHA-256 checksum | AppImage and deb             |
-| Windows x64 | `.zip` plus SHA-256 checksum    | portable zip and NSIS `.exe` |
-| macOS arm64 | `.tar.gz` plus SHA-256 checksum | arm64 DMG                    |
-| macOS x64   | `.tar.gz` plus SHA-256 checksum | x64 DMG                      |
+| Host        | Standalone output              | Desktop output                                                    |
+| ----------- | ------------------------------ | ----------------------------------------------------------------- |
+| Linux x64   | `.tar.gz` plus SHA-256 sidecar | AppImage and deb                                                  |
+| Windows x64 | `.zip` plus SHA-256 sidecar    | portable zip and `crewlight-v<version>-windows-x64-installer.exe` |
+| macOS arm64 | `.tar.gz` plus SHA-256 sidecar | arm64 DMG                                                         |
+| macOS x64   | `.tar.gz` plus SHA-256 sidecar | x64 DMG                                                           |
 
-The command reuses the existing standalone and desktop packaging scripts,
+Before `pnpm release:verify`, run `pnpm release:node-runtime` on the native
+runner. It downloads the pinned official Node archive, verifies its SHA-256,
+and extracts the Node binary and `LICENSE` from that same archive for the SEA
+build. The
+command reuses the existing standalone and desktop packaging scripts,
 smoke-tests the standalone executable with Node/npm/pnpm absent from its
 runtime `PATH`, and rejects missing or empty expected artifacts. The Unix smoke
 path supports both Linux and macOS and uses either `sha256sum` or the macOS
@@ -71,7 +75,9 @@ path supports both Linux and macOS and uses either `sha256sum` or the macOS
 
 On Windows, the combined desktop packaging mode creates the portable archive
 and installer after a single standalone build. CI uploads standalone and
-desktop outputs under distinct artifact names; each macOS architecture runs in
+desktop outputs under distinct artifact names; every distributable receives a
+`.sha256` sidecar and the aggregate gate verifies `release-manifest.json`.
+Each macOS architecture runs in
 its own native job, so one job cannot upload the other architecture's DMG.
 
 ## What remains manual
@@ -88,3 +94,7 @@ release, verify on real target systems:
 
 Record those results in the versioned release checklist. A successful CI
 artifact job must not be described as successful GUI verification.
+
+`release-manifest.json` is generated from actual files and is not a
+hand-maintained release list. A release is incomplete until its manifest,
+sidecars, and downloaded-file recheck all pass.

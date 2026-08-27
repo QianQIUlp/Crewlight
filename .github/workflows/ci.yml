@@ -16,7 +16,7 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.16.0
+          node-version: 22.23.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm site:check
@@ -48,7 +48,7 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 22.23.2
           cache: pnpm
           architecture: ${{ matrix.architecture }}
       - run: pnpm install --frozen-lockfile
@@ -66,10 +66,13 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 22.23.2
           cache: pnpm
           architecture: x64
       - run: pnpm install --frozen-lockfile
+      - id: version
+        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+      - run: pnpm release:node-runtime
       - name: Build and verify current-platform release artifacts
         run: pnpm release:verify
       - name: Record build provenance
@@ -77,23 +80,25 @@ jobs:
           {
             echo "## Linux x64 release build"
             echo '```text'
-            cat release/crewlight-v0.5.0-linux-x64/BUILD-INFO.txt
+            cat release/crewlight-v${{ steps.version.outputs.value }}-linux-x64/BUILD-INFO.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-linux-x64
+          name: crewlight-v${{ steps.version.outputs.value }}-linux-x64
           if-no-files-found: error
           path: |
-            release/crewlight-v0.5.0-linux-x64.tar.gz
-            release/crewlight-v0.5.0-linux-x64.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
+            release/crewlight-v${{ steps.version.outputs.value }}-linux-x64.tar.gz
+            release/crewlight-v${{ steps.version.outputs.value }}-linux-x64.tar.gz.sha256
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-linux-x64-desktop
+          name: crewlight-v${{ steps.version.outputs.value }}-linux-x64-desktop
           if-no-files-found: error
           path: |
             release/desktop-builder/Crewlight-*.AppImage
+            release/desktop-builder/Crewlight-*.AppImage.sha256
             release/desktop-builder/Crewlight-*.deb
+            release/desktop-builder/Crewlight-*.deb.sha256
 
   release-windows-x64:
     name: Release artifacts (windows-x64)
@@ -106,10 +111,16 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 22.23.2
           cache: pnpm
           architecture: x64
       - run: pnpm install --frozen-lockfile
+      - id: version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - run: pnpm release:node-runtime
       - name: Build and verify current-platform release artifacts
         run: pnpm release:verify
       - name: Record build provenance
@@ -118,23 +129,25 @@ jobs:
           @(
             "## Windows x64 release build"
             '```text'
-            (Get-Content release/crewlight-v0.5.0-windows-x64/BUILD-INFO.txt -Raw)
+            (Get-Content release/crewlight-v${{ steps.version.outputs.value }}-windows-x64/BUILD-INFO.txt -Raw)
             '```'
           ) | Add-Content $env:GITHUB_STEP_SUMMARY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-windows-x64
+          name: crewlight-v${{ steps.version.outputs.value }}-windows-x64
           if-no-files-found: error
           path: |
-            release/crewlight-v0.5.0-windows-x64.zip
-            release/crewlight-v0.5.0-windows-x64.zip.sha256
-      - uses: actions/upload-artifact@v4
+            release/crewlight-v${{ steps.version.outputs.value }}-windows-x64.zip
+            release/crewlight-v${{ steps.version.outputs.value }}-windows-x64.zip.sha256
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-windows-x64-desktop
+          name: crewlight-v${{ steps.version.outputs.value }}-windows-x64-desktop
           if-no-files-found: error
           path: |
-            release/crewlight-v0.5.0-windows-x64-desktop.zip
-            release/desktop-builder/Crewlight-Setup-v0.5.0.exe
+            release/crewlight-v${{ steps.version.outputs.value }}-windows-x64-desktop.zip
+            release/crewlight-v${{ steps.version.outputs.value }}-windows-x64-desktop.zip.sha256
+            release/desktop-builder/crewlight-v${{ steps.version.outputs.value }}-windows-x64-installer.exe
+            release/desktop-builder/crewlight-v${{ steps.version.outputs.value }}-windows-x64-installer.exe.sha256
 
   release-macos:
     name: Release artifacts (${{ matrix.target }})
@@ -157,10 +170,13 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 22.23.2
           cache: pnpm
           architecture: ${{ matrix.architecture }}
       - run: pnpm install --frozen-lockfile
+      - id: version
+        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+      - run: pnpm release:node-runtime
       - name: Build and verify current-platform release artifacts
         run: pnpm release:verify
         env:
@@ -170,18 +186,51 @@ jobs:
           {
             echo "## ${{ matrix.target }} release build"
             echo '```text'
-            cat release/crewlight-v0.5.0-${{ matrix.target }}/BUILD-INFO.txt
+            cat release/crewlight-v${{ steps.version.outputs.value }}-${{ matrix.target }}/BUILD-INFO.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-${{ matrix.target }}
+          name: crewlight-v${{ steps.version.outputs.value }}-${{ matrix.target }}
           if-no-files-found: error
           path: |
-            release/crewlight-v0.5.0-${{ matrix.target }}.tar.gz
-            release/crewlight-v0.5.0-${{ matrix.target }}.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
+            release/crewlight-v${{ steps.version.outputs.value }}-${{ matrix.target }}.tar.gz
+            release/crewlight-v${{ steps.version.outputs.value }}-${{ matrix.target }}.tar.gz.sha256
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-${{ matrix.target }}-desktop
+          name: crewlight-v${{ steps.version.outputs.value }}-${{ matrix.target }}-desktop
           if-no-files-found: error
-          path: release/desktop-builder/Crewlight-0.5.0-${{ matrix.architecture }}.dmg
+          path: |
+            release/desktop-builder/Crewlight-${{ steps.version.outputs.value }}-${{ matrix.architecture }}.dmg
+            release/desktop-builder/Crewlight-${{ steps.version.outputs.value }}-${{ matrix.architecture }}.dmg.sha256
+
+  release-gate:
+    name: Aggregate release gate
+    needs: [release-linux-x64, release-windows-x64, release-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: crewlight-v*-*
+          path: release
+          merge-multiple: true
+      - run: pnpm release:manifest
+      - run: pnpm release:manifest:verify
+        env:
+          CREWLIGHT_RELEASE_AGGREGATE: "true"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: crewlight-release-manifest
+          if-no-files-found: error
+          path: |
+            release/release-manifest.json
+            release/*.sha256
