@@ -45,51 +45,54 @@ CI runs `pnpm validate` on these native source targets:
 The fixed macOS labels keep architecture-sensitive behavior explicit instead
 of relying on a moving `macos-latest` architecture.
 
-## Current-platform release verification
+## Windows release verification
 
-Build and verify the release outputs supported by the current host:
+Build and verify the v0.5 release outputs on Windows x64:
 
 ```bash
 pnpm release:verify
 ```
 
-This is a native build, not a cross-compilation command. Supported hosts and
-outputs are:
+The supported v0.5 outputs are:
 
-| Host        | Standalone output              | Desktop output                                                    |
-| ----------- | ------------------------------ | ----------------------------------------------------------------- |
-| Linux x64   | `.tar.gz` plus SHA-256 sidecar | AppImage and deb                                                  |
-| Windows x64 | `.zip` plus SHA-256 sidecar    | portable zip and `crewlight-v<version>-windows-x64-installer.exe` |
-| macOS arm64 | `.tar.gz` plus SHA-256 sidecar | arm64 DMG                                                         |
-| macOS x64   | `.tar.gz` plus SHA-256 sidecar | x64 DMG                                                           |
+| Kind       | Output                                           |
+| ---------- | ------------------------------------------------ |
+| Standalone | `crewlight-v<version>-windows-x64.zip`           |
+| Portable   | `crewlight-v<version>-windows-x64-desktop.zip`   |
+| Installer  | `crewlight-v<version>-windows-x64-installer.exe` |
 
-Before `pnpm release:verify`, run `pnpm release:node-runtime` on the native
-runner. It downloads the pinned official Node archive, verifies its SHA-256,
-and extracts the Node binary and `LICENSE` from that same archive for the SEA
-build. The
-command reuses the existing standalone and desktop packaging scripts,
+Each output has an adjacent SHA-256 sidecar and appears exactly once in the
+generated `release-manifest.json`.
+
+Before `pnpm release:verify`, run `pnpm release:node-runtime`. It downloads the
+pinned official Node archive, verifies its SHA-256, and extracts the Node
+binary and `LICENSE` from that same archive for the SEA build. Verification
 smoke-tests the standalone executable with Node/npm/pnpm absent from its
-runtime `PATH`, and rejects missing or empty expected artifacts. The Unix smoke
-path supports both Linux and macOS and uses either `sha256sum` or the macOS
-`shasum` implementation.
+runtime `PATH` and rejects missing or empty expected artifacts.
 
-On Windows, the combined desktop packaging mode creates the portable archive
-and installer after a single standalone build. CI uploads standalone and
-desktop outputs under distinct artifact names; every distributable receives a
-`.sha256` sidecar and the aggregate gate verifies `release-manifest.json`.
-Each macOS architecture runs in
-its own native job, so one job cannot upload the other architecture's DMG.
+CI uploads standalone and desktop outputs separately. A fresh Windows evidence
+runner downloads both uploads into an empty `release/` directory, verifies the
+original manifest and sidecars without regenerating them, and expands the
+Portable archive to require `Crewlight.exe`, `resources/app.asar`, and
+`resources/crewlight-cli/crewlight.exe`.
+
+Linux x64, macOS arm64, and macOS x64 remain blocking source-validation
+targets. They do not run native release jobs and do not publish v0.5 binaries.
 
 ## What remains manual
 
-Artifact verification is not desktop acceptance testing. Before publishing a
-release, verify on real target systems:
+Artifact verification is not desktop acceptance testing. Before publishing,
+verify the same frozen files on a daily Windows 11 x64 machine and a clean
+Azure Windows 11 x64 VM:
 
 - desktop launch and lifecycle behavior;
 - onboarding, service controls, companion controls, and preference persistence;
 - installer and uninstall behavior;
 - native notification delivery;
-- platform signing, macOS notarization, and operating-system trust prompts;
+- unsigned installer and operating-system trust prompts;
+- manual Claude Code and Codex setup without configuration mutation;
+- waiting, completed, failed, stale, and notification-deduplication behavior;
+- keyboard access, visible focus, forced colors, and 200% text scaling;
 - screenshots from the actual GUI.
 
 Record those results in the versioned release checklist. A successful CI
@@ -97,4 +100,5 @@ artifact job must not be described as successful GUI verification.
 
 `release-manifest.json` is generated from actual files and is not a
 hand-maintained release list. A release is incomplete until its manifest,
-sidecars, and downloaded-file recheck all pass.
+sidecars, downloaded-file recheck, and two-machine Windows acceptance all
+pass. Any artifact-affecting change invalidates the frozen evidence.

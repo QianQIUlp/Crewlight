@@ -413,7 +413,7 @@ function integrationCards(
       observed: observedSources.has("cursor") ? "Observed" : "Not connected",
       observes: "Manual or source-specific events only.",
       setupCommand: setup.cursor,
-      setupStatus: "Experimental; no one-click install",
+      setupStatus: "Experimental; copy-only setup",
       title: "Cursor",
       verificationCommand: setup.verification.cursor,
     },
@@ -427,7 +427,7 @@ function integrationCards(
       observed: observedSources.has("opencode") ? "Observed" : "Not connected",
       observes: "Documented local plugin events when manually configured.",
       setupCommand: setup.openCode,
-      setupStatus: "Experimental; no one-click install",
+      setupStatus: "Experimental; copy-only setup",
       title: "OpenCode",
     },
     {
@@ -444,7 +444,7 @@ function integrationCards(
           : "Not connected",
       observes: "Explicit normalized events only.",
       setupCommand: setup.antigravityProbe,
-      setupStatus: "Experimental; no one-click install",
+      setupStatus: "Experimental; copy-only setup",
       title: "Manual ingest",
       verificationCommand: setup.verification.antigravityProbe,
     },
@@ -598,7 +598,7 @@ export function deriveDesktopViewModel(
       id: "trust-or-setup",
       title: "Check and trust the definition",
       description:
-        "Install the safe user-level hook, then review it in Claude Code or Codex /hooks. Installation is not a connection test.",
+        "Copy the setup snippet, then review it in Claude Code or Codex /hooks. Copying is not a connection test.",
       complete: input.preferences.integrationSetupCompleted,
     },
     {

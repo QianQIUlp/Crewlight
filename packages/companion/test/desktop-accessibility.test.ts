@@ -104,4 +104,27 @@ describe("desktop accessibility regressions", () => {
       main.match(/icon: join\(outputDirectory, "crewlight-icon.png"\)/g),
     ).toHaveLength(2);
   });
+
+  it("keeps local integration setup read-only while preserving inspect and copy", async () => {
+    const [bridge, main, renderer, html, installer] = await Promise.all(
+      [
+        "desktop-bridge.ts",
+        "main.ts",
+        "desktop-renderer.ts",
+        "desktop.html",
+        "integration-installer.ts",
+      ].map((file) => readFile(join(sourceDirectory, file), "utf8")),
+    );
+    for (const source of [bridge, main, renderer, html, installer]) {
+      expect(source).not.toContain("integration:install");
+      expect(source).not.toContain("Install safely");
+    }
+    expect(html).not.toContain("one-click");
+    expect(html).toContain("does not modify");
+    expect(bridge).toContain('type: "integration:inspect"');
+    expect(bridge).toContain('type: "copy:text"');
+    expect(renderer).toContain('type: "integration:inspect"');
+    expect(renderer).toContain('type: "copy:text"');
+    expect(installer).not.toMatch(/\b(?:copyFile|mkdir|rename|writeFile)\b/u);
+  });
 });

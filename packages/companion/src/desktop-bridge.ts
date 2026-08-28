@@ -6,7 +6,7 @@ import type {
   DesktopTheme,
   PreferredIntegration,
 } from "./desktop-preferences.js";
-import type { InstallableIntegration } from "./integration-installer.js";
+import type { InspectableIntegration } from "./integration-installer.js";
 import type { DesktopViewModel } from "./desktop-state.js";
 
 export type DesktopAction =
@@ -19,8 +19,7 @@ export type DesktopAction =
   | { type: "copy:text"; text: string }
   | { type: "demo:run" }
   | { type: "home:clear-ready" }
-  | { type: "integration:inspect"; integration: InstallableIntegration }
-  | { type: "integration:install"; integration: InstallableIntegration }
+  | { type: "integration:inspect"; integration: InspectableIntegration }
   | { type: "onboarding:complete" }
   | { type: "onboarding:skip-step" }
   | { type: "onboarding:start-over" }

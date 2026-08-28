@@ -197,7 +197,7 @@ const integrations = {
       source: "Codex notify",
       level: "Compatibility",
       boundary:
-        "Documented turn-complete input; not the full one-click lifecycle path.",
+        "Documented turn-complete input; not the full lifecycle hook path.",
       tone: "narrow",
     },
     {
@@ -400,8 +400,8 @@ function makeCopy(language: "en" | "zh") {
         : "v0.4.0 archived prototype",
       platformLabel: zh ? "平台策略" : "PLATFORM POLICY",
       platformValue: zh
-        ? "Windows Supported/Unsigned；Linux/macOS Preview"
-        : "Windows Supported/Unsigned; Linux/macOS Preview",
+        ? "Windows Supported/Unsigned；Linux/macOS 仅源码验证"
+        : "Windows Supported/Unsigned; Linux/macOS source validation only",
       licenseLabel: zh ? "许可证" : "LICENSE",
       licenseValue: "MIT",
     },

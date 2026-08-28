@@ -25,10 +25,11 @@ loopback browser dashboard.
 ## Product contract
 
 - Formal integrations: Claude Code and Codex Hooks. Existing Codex `notify`
-  remains a compatibility completion input, not the full one-click path.
+  remains a compatibility completion input, not the full lifecycle hook path.
 - Windows Desktop includes Installer and Portable distribution paths; all
-  release artifacts are unsigned or explicitly marked not notarized.
-- Linux/macOS remain Preview and Remote remains Beta.
+  v0.5 release artifacts are unsigned.
+- Linux/macOS remain source-validated Preview targets without v0.5 native
+  binaries. Remote remains Beta.
 - Crewlight is read-only: it does not control agents, approve permissions,
   inspect worktrees, store cloud history, or scan JSONL/transcripts.
 - Prompt Preview is off by default. Prompts, transcripts, reasoning, tool I/O,
@@ -48,17 +49,16 @@ stores only a global timestamp and does not delete sessions.
 
 ## Integration setup
 
-The Desktop installer writes only fixed user-level files:
+Desktop Connect checks only these fixed user-level files, read-only:
 
 - Claude Code: `%USERPROFILE%\\.claude\\settings.json`
 - Codex Hooks: `%CODEX_HOME%\\hooks.json`, or `%USERPROFILE%\\.codex\\hooks.json`
 
-Codex `config.toml` is inspected read-only. Writes use parse/merge,
-same-directory temporary files, readback validation, backup, controlled replacement,
-and byte-for-byte rollback on failure. Paths that cannot be safely represented
-by the platform command contract fall back to Copy setup without partial writes.
-After installation, review and trust the definition in Codex `/hooks`; an
-installed definition is not proof that a live event has arrived.
+Codex `config.toml` is also inspected read-only for the compatibility `notify`
+path. Use **Copy setup snippet**, merge it manually while preserving unrelated
+configuration, then use **Check status**. Crewlight never writes these files.
+Review and trust the definition in Codex `/hooks`; a detected definition is not
+proof that a live event has arrived.
 
 ## Running from source
 
@@ -77,18 +77,20 @@ crewlight daemon --managed-stdio --notifier none
 crewlight status --json
 ```
 
-Build and verify native release artifacts with the pinned Node input (the SEA
-binary and `LICENSE` come from the same verified archive):
+On Windows, build and verify the v0.5 release artifacts with the pinned Node
+input (the SEA binary and `LICENSE` come from the same verified archive):
 
 ```bash
 pnpm release:node-runtime
 pnpm release:verify
 ```
 
-The release process produces a generated `release-manifest.json` and a
-`.sha256` sidecar for every distributable. Do not describe CI artifact success
-as Windows GUI acceptance; the final release requires real Windows 11 and
-clean Azure VM evidence.
+The Windows release process produces standalone, Portable, and Installer
+artifacts, a `.sha256` sidecar for each, and a generated
+`release-manifest.json`. Linux/macOS remain in the source-validation matrix but
+do not publish v0.5 binaries. Do not describe CI artifact success as Windows
+GUI acceptance; the final release requires real Windows 11 and clean Azure VM
+evidence.
 
 ## Data and limits
 

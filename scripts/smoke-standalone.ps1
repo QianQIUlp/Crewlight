@@ -303,7 +303,17 @@ try {
 
   $checksumText = (Get-Content $Checksum -Raw).Trim()
   $expected = ($checksumText -split "\s+")[0].ToLowerInvariant()
-  $actual = (Get-FileHash -Algorithm SHA256 $Archive).Hash.ToLowerInvariant()
+  $sha256 = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $archiveStream = [System.IO.File]::OpenRead($Archive)
+    try {
+      $actual = [System.BitConverter]::ToString($sha256.ComputeHash($archiveStream)).Replace("-", "").ToLowerInvariant()
+    } finally {
+      $archiveStream.Dispose()
+    }
+  } finally {
+    $sha256.Dispose()
+  }
   if ($actual -ne $expected) {
     throw "Windows archive checksum mismatch."
   }

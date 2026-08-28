@@ -15,8 +15,8 @@
     "remote": { "tier": "Beta", "signatureStatus": "not applicable" }
   },
   "artifacts": {
-    "standalone": 4,
-    "desktop": 6,
+    "standalone": 1,
+    "desktop": 2,
     "sidecar": ".sha256",
     "manifest": "release-manifest.json"
   },

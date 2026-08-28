@@ -1,15 +1,15 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  installIntegration,
-  inspectIntegration,
-  type IntegrationInstallerOptions,
-} from "../src/integration-installer.js";
 import type { SetupSnippets } from "@crewlight/cli";
+
+import {
+  inspectIntegration,
+  type IntegrationInspectionOptions,
+} from "../src/integration-installer.js";
 
 const tempRoots: string[] = [];
 
@@ -36,7 +36,7 @@ function snippets(): SetupSnippets {
 }
 
 async function options(): Promise<
-  IntegrationInstallerOptions & { root: string }
+  IntegrationInspectionOptions & { root: string }
 > {
   const root = await mkdtemp(join(tmpdir(), "crewlight-integration-"));
   tempRoots.push(root);
@@ -45,7 +45,6 @@ async function options(): Promise<
     homeDirectory: root,
     codexHome: join(root, "codex"),
     snippets: snippets(),
-    now: () => new Date("2026-08-09T00:00:00.000Z"),
   };
 }
 
@@ -57,121 +56,159 @@ afterEach(async () => {
   );
 });
 
-describe("integration installer", () => {
-  it("installs Claude hooks into the user file and is idempotent", async () => {
+describe("integration inspection", () => {
+  it("reports a missing Claude file without creating it", async () => {
     const setup = await options();
-    const first = await installIntegration("claude-code", setup);
-    expect(first.status).toBe("installed");
+    const result = await inspectIntegration("claude-code", setup);
     const path = join(setup.root, ".claude", "settings.json");
-    const firstSource = await readFile(path, "utf8");
-    expect(JSON.parse(firstSource)).toMatchObject({
+
+    expect(result.status).toBe("not-configured");
+    expect(result.targets).toEqual([
+      expect.objectContaining({ path, state: "missing" }),
+    ]);
+    await expect(readFile(path, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("recognizes configured Claude hooks", async () => {
+    const setup = await options();
+    const path = join(setup.root, ".claude", "settings.json");
+    const source = JSON.stringify({
       hooks: {
-        Stop: [{ hooks: [{ command: "crewlight ingest claude-code" }] }],
+        Stop: [
+          {
+            hooks: [
+              { type: "command", command: "crewlight ingest claude-code" },
+            ],
+          },
+        ],
       },
     });
+    await mkdir(join(setup.root, ".claude"), { recursive: true });
+    await writeFile(path, source);
 
-    const second = await installIntegration("claude-code", setup);
-    expect(second.status).toBe("unchanged");
-    expect(second.files.every((file) => file.backupPath === undefined)).toBe(
-      true,
-    );
-    expect(await readFile(path, "utf8")).toBe(firstSource);
+    const result = await inspectIntegration("claude-code", setup);
+
+    expect(result.status).toBe("configured");
+    expect(result.targets).toEqual([
+      expect.objectContaining({ path, state: "configured" }),
+    ]);
+    expect(await readFile(path, "utf8")).toBe(source);
   });
 
-  it("preserves unrelated hooks and replaces an older Crewlight handler", async () => {
+  it("reports stale hooks without changing their bytes", async () => {
     const setup = await options();
     const path = join(setup.root, ".claude", "settings.json");
-    await (
-      await import("node:fs/promises")
-    ).mkdir(join(setup.root, ".claude"), {
-      recursive: true,
+    const source = JSON.stringify({
+      hooks: {
+        Stop: [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: "crewlight ingest claude-code --old",
+              },
+            ],
+          },
+        ],
+      },
     });
-    await writeFile(
-      path,
-      JSON.stringify({
-        hooks: {
-          Stop: [
-            {
-              matcher: "*",
-              hooks: [{ type: "command", command: "echo keep" }],
-            },
-            {
-              hooks: [
-                {
-                  type: "command",
-                  command: "crewlight ingest claude-code --old",
-                },
-              ],
-            },
-          ],
-        },
-      }),
-    );
+    await mkdir(join(setup.root, ".claude"), { recursive: true });
+    await writeFile(path, source);
 
-    const result = await installIntegration("claude-code", setup);
-    expect(result.status).toBe("installed");
-    const parsed = JSON.parse(await readFile(path, "utf8")) as {
-      hooks: { Stop: { hooks: { command: string }[] }[] };
-    };
-    expect(parsed.hooks.Stop).toHaveLength(2);
-    expect(parsed.hooks.Stop[0]?.hooks[0]?.command).toBe("echo keep");
-    expect(parsed.hooks.Stop[1]?.hooks[0]?.command).toBe(
-      "crewlight ingest claude-code",
-    );
+    const result = await inspectIntegration("claude-code", setup);
+
+    expect(result.status).toBe("not-configured");
+    expect(result.targets).toEqual([
+      expect.objectContaining({ path, state: "needs-update" }),
+    ]);
+    expect(await readFile(path, "utf8")).toBe(source);
   });
 
-  it("refuses malformed and conflicting files without writing", async () => {
+  it("leaves malformed and conflicting files byte-for-byte unchanged", async () => {
     const setup = await options();
     const path = join(setup.root, ".claude", "settings.json");
-    await (
-      await import("node:fs/promises")
-    ).mkdir(join(setup.root, ".claude"), {
-      recursive: true,
-    });
-    await writeFile(path, "not-json");
+    await mkdir(join(setup.root, ".claude"), { recursive: true });
+
+    const malformedSource = "not-json\n";
+    await writeFile(path, malformedSource);
     const malformed = await inspectIntegration("claude-code", setup);
     expect(malformed.status).toBe("conflict");
-    expect(await readFile(path, "utf8")).toBe("not-json");
+    expect(malformed.targets).toEqual([
+      expect.objectContaining({ path, state: "malformed" }),
+    ]);
+    expect(await readFile(path, "utf8")).toBe(malformedSource);
 
-    await writeFile(path, JSON.stringify({ hooks: "wrong" }));
-    const conflict = await installIntegration("claude-code", setup);
-    expect(conflict.status).toBe("refused");
-    expect(await readFile(path, "utf8")).toBe(
-      JSON.stringify({ hooks: "wrong" }),
-    );
+    const conflictSource = JSON.stringify({ hooks: "wrong" });
+    await writeFile(path, conflictSource);
+    const conflict = await inspectIntegration("claude-code", setup);
+    expect(conflict.status).toBe("conflict");
+    expect(conflict.targets).toEqual([
+      expect.objectContaining({ path, state: "conflict" }),
+    ]);
+    expect(await readFile(path, "utf8")).toBe(conflictSource);
   });
 
-  it("keeps Codex config.toml read-only while installing hooks", async () => {
+  it("preserves the Codex config.toml while inspecting hooks", async () => {
     const setup = await options();
-    const configPath = join(setup.root, "codex", "config.toml");
-    await (
-      await import("node:fs/promises")
-    ).mkdir(setup.codexHome!, {
-      recursive: true,
+    const configPath = join(setup.codexHome!, "config.toml");
+    const source = 'notify = ["legacy"]\n';
+    await mkdir(setup.codexHome!, { recursive: true });
+    await writeFile(configPath, source);
+
+    const result = await inspectIntegration("codex", setup);
+
+    expect(result.status).toBe("not-configured");
+    expect(await readFile(configPath, "utf8")).toBe(source);
+    expect(result.targets.find((target) => target.path === configPath)).toEqual(
+      expect.objectContaining({ state: "configured" }),
+    );
+    await expect(
+      readFile(join(setup.codexHome!, "hooks.json"), "utf8"),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("recognizes configured Codex hooks without changing either file", async () => {
+    const setup = await options();
+    const configPath = join(setup.codexHome!, "config.toml");
+    const hooksPath = join(setup.codexHome!, "hooks.json");
+    const configSource = 'notify = ["legacy"]\n';
+    const hooksSource = JSON.stringify({
+      hooks: {
+        Stop: [
+          {
+            hooks: [
+              { type: "command", command: "crewlight ingest codex-hook" },
+            ],
+          },
+        ],
+      },
     });
-    await writeFile(configPath, 'notify = ["legacy"]\n');
-    const result = await installIntegration("codex", setup);
-    expect(result.status).toBe("installed");
-    expect(await readFile(configPath, "utf8")).toBe('notify = ["legacy"]\n');
-    expect(
-      await readFile(join(setup.codexHome!, "hooks.json"), "utf8"),
-    ).toContain("codex-hook");
+    await mkdir(setup.codexHome!, { recursive: true });
+    await writeFile(configPath, configSource);
+    await writeFile(hooksPath, hooksSource);
+
+    const result = await inspectIntegration("codex", setup);
+
+    expect(result.status).toBe("configured");
+    expect(await readFile(configPath, "utf8")).toBe(configSource);
+    expect(await readFile(hooksPath, "utf8")).toBe(hooksSource);
   });
 
-  it("serializes concurrent installs and never duplicates the handler", async () => {
+  it("rejects oversized and non-file integration targets without mutation", async () => {
     const setup = await options();
-    const results = await Promise.all([
-      installIntegration("claude-code", setup),
-      installIntegration("claude-code", setup),
-    ]);
-    expect(results.map((result) => result.status).sort()).toEqual([
-      "installed",
-      "unchanged",
-    ]);
-    const content = await readFile(
-      join(setup.root, ".claude", "settings.json"),
-      "utf8",
-    );
-    expect(content.match(/crewlight ingest claude-code/gu)).toHaveLength(1);
+    const path = join(setup.root, ".claude", "settings.json");
+    await mkdir(join(setup.root, ".claude"), { recursive: true });
+    const oversized = "x".repeat(512 * 1024 + 1);
+    await writeFile(path, oversized);
+    const oversizedResult = await inspectIntegration("claude-code", setup);
+    expect(oversizedResult.status).toBe("error");
+    expect(await readFile(path, "utf8")).toBe(oversized);
+
+    await rm(path);
+    await mkdir(path);
+    const directoryResult = await inspectIntegration("claude-code", setup);
+    expect(directoryResult.status).toBe("error");
   });
 });

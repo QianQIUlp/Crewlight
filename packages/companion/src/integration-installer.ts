@@ -1,16 +1,6 @@
-import { randomUUID } from "node:crypto";
-import {
-  copyFile,
-  lstat,
-  mkdir,
-  readFile,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { lstat, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import {
@@ -19,7 +9,7 @@ import {
   type SetupSnippets,
 } from "@crewlight/cli";
 
-export type InstallableIntegration = "claude-code" | "codex";
+export type InspectableIntegration = "claude-code" | "codex";
 
 export interface IntegrationPaths {
   readonly claudeCodeSettings: string;
@@ -32,9 +22,8 @@ export interface IntegrationPathOptions {
   readonly codexHome?: string;
 }
 
-export interface IntegrationInstallerOptions extends IntegrationPathOptions {
+export interface IntegrationInspectionOptions extends IntegrationPathOptions {
   readonly binary?: string;
-  readonly now?: () => Date;
   readonly platform?: NodeJS.Platform;
   readonly snippets?: SetupSnippets;
 }
@@ -55,7 +44,7 @@ export interface IntegrationTargetInspection {
 }
 
 export interface IntegrationInspectionResult {
-  readonly integration: InstallableIntegration;
+  readonly integration: InspectableIntegration;
   readonly message: string;
   readonly status:
     | "configured"
@@ -66,41 +55,18 @@ export interface IntegrationInspectionResult {
   readonly targets: readonly IntegrationTargetInspection[];
 }
 
-export interface IntegrationFileInstallResult {
-  readonly backupPath?: string;
-  readonly message: string;
-  readonly path: string;
-  readonly status: "installed" | "unchanged" | "failed";
-}
-
-export interface IntegrationInstallResult {
-  readonly files: readonly IntegrationFileInstallResult[];
-  readonly integration: InstallableIntegration;
-  readonly message: string;
-  readonly ok: boolean;
-  readonly status:
-    | "installed"
-    | "unchanged"
-    | "refused"
-    | "unavailable"
-    | "failed";
-}
-
 interface ExistingFile {
   readonly exists: boolean;
-  readonly mode?: number;
   readonly source: string;
 }
 
-interface PreparedFile extends ExistingFile {
+interface InspectedFile extends ExistingFile {
   readonly message: string;
-  readonly output?: string;
   readonly path: string;
   readonly state: IntegrationTargetState;
 }
 
 const MAX_READ_BYTES = 512 * 1024;
-const locks = new Map<InstallableIntegration, Promise<void>>();
 
 export function discoverIntegrationPaths(
   options: IntegrationPathOptions = {},
@@ -121,57 +87,11 @@ export function discoverIntegrationPaths(
 }
 
 export async function inspectIntegration(
-  integration: InstallableIntegration,
-  options: IntegrationInstallerOptions = {},
+  integration: InspectableIntegration,
+  options: IntegrationInspectionOptions = {},
 ): Promise<IntegrationInspectionResult> {
-  const prepared = await prepareIntegration(integration, options);
-  return inspectionFromPrepared(integration, prepared);
-}
-
-export function inspectClaudeCodeIntegration(
-  options: IntegrationInstallerOptions = {},
-): Promise<IntegrationInspectionResult> {
-  return inspectIntegration("claude-code", options);
-}
-
-export function inspectCodexIntegration(
-  options: IntegrationInstallerOptions = {},
-): Promise<IntegrationInspectionResult> {
-  return inspectIntegration("codex", options);
-}
-
-export async function installIntegration(
-  integration: InstallableIntegration,
-  options: IntegrationInstallerOptions = {},
-): Promise<IntegrationInstallResult> {
-  const previous = locks.get(integration) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolveLock) => {
-    release = resolveLock;
-  });
-  const queued = previous.then(() => current);
-  locks.set(integration, queued);
-  await previous;
-  try {
-    return await installIntegrationUnlocked(integration, options);
-  } finally {
-    release();
-    if (locks.get(integration) === queued) {
-      locks.delete(integration);
-    }
-  }
-}
-
-export function installClaudeCodeIntegration(
-  options: IntegrationInstallerOptions = {},
-): Promise<IntegrationInstallResult> {
-  return installIntegration("claude-code", options);
-}
-
-export function installCodexIntegration(
-  options: IntegrationInstallerOptions = {},
-): Promise<IntegrationInstallResult> {
-  return installIntegration("codex", options);
+  const inspected = await inspectIntegrationFiles(integration, options);
+  return inspectionFromFiles(integration, inspected);
 }
 
 function requireAbsoluteDirectory(value: string, label: string): string {
@@ -195,7 +115,7 @@ function setupRuntime(platform: NodeJS.Platform): SetupRuntime {
   };
 }
 
-function loadSnippets(options: IntegrationInstallerOptions): SetupSnippets {
+function loadSnippets(options: IntegrationInspectionOptions): SetupSnippets {
   return (
     options.snippets ??
     createSetupSnippets(
@@ -206,16 +126,16 @@ function loadSnippets(options: IntegrationInstallerOptions): SetupSnippets {
   );
 }
 
-async function prepareIntegration(
-  integration: InstallableIntegration,
-  options: IntegrationInstallerOptions,
-): Promise<PreparedFile[]> {
+async function inspectIntegrationFiles(
+  integration: InspectableIntegration,
+  options: IntegrationInspectionOptions,
+): Promise<InspectedFile[]> {
   let paths: IntegrationPaths;
   try {
     paths = discoverIntegrationPaths(options);
   } catch {
     return [
-      failedPreparation(
+      failedInspection(
         "",
         "unavailable",
         "The integration path cannot be represented safely. Copy setup is required.",
@@ -229,14 +149,14 @@ async function prepareIntegration(
   } catch {
     return integration === "claude-code"
       ? [
-          failedPreparation(
+          failedInspection(
             paths.claudeCodeSettings,
             "unavailable",
             "Crewlight could not produce a safe Claude Code command.",
           ),
         ]
       : [
-          failedPreparation(
+          failedInspection(
             paths.codexHooks,
             "unavailable",
             "Crewlight could not produce a safe Codex hooks command. Copy setup is required.",
@@ -246,110 +166,40 @@ async function prepareIntegration(
 
   if (integration === "claude-code") {
     return [
-      await prepareJsonHooksFile(paths.claudeCodeSettings, snippets.claudeCode),
+      await inspectJsonHooksFile(
+        paths.claudeCodeSettings,
+        snippets.claudeCode,
+        integration,
+      ),
     ];
   }
 
   if (!snippets.codexHooks.available) {
     return [
       await inspectCodexNotifyFile(paths.codexConfig),
-      failedPreparation(
+      failedInspection(
         paths.codexHooks,
         "unavailable",
-        "Codex hooks are not safe to install automatically. Copy setup is required.",
+        "Codex hooks are not safe to inspect automatically. Copy setup is required.",
       ),
     ];
   }
 
   return [
     await inspectCodexNotifyFile(paths.codexConfig),
-    await prepareJsonHooksFile(paths.codexHooks, snippets.codexHooks.snippet),
+    await inspectJsonHooksFile(
+      paths.codexHooks,
+      snippets.codexHooks.snippet,
+      integration,
+    ),
   ];
 }
 
-async function installIntegrationUnlocked(
-  integration: InstallableIntegration,
-  options: IntegrationInstallerOptions,
-): Promise<IntegrationInstallResult> {
-  const prepared = await prepareIntegration(integration, options);
-  const inspection = inspectionFromPrepared(integration, prepared);
-  if (
-    inspection.status !== "configured" &&
-    inspection.status !== "not-configured"
-  ) {
-    return {
-      files: [],
-      integration,
-      message: inspection.message,
-      ok: false,
-      status:
-        inspection.status === "unavailable"
-          ? "unavailable"
-          : inspection.status === "error"
-            ? "failed"
-            : "refused",
-    };
-  }
-
-  const files: IntegrationFileInstallResult[] = [];
-  for (const target of prepared) {
-    if (target.state === "configured") {
-      if (target.output === undefined) {
-        // Read-only Codex config inspection is never written.
-        continue;
-      }
-      files.push({
-        message: target.message,
-        path: target.path,
-        status: "unchanged",
-      });
-      continue;
-    }
-    if (target.path === "" || target.output === undefined) {
-      continue;
-    }
-    if (target.state !== "missing" && target.state !== "needs-update") {
-      return {
-        files,
-        integration,
-        message: target.message,
-        ok: false,
-        status: "failed",
-      };
-    }
-    const result = await writePreparedFile(
-      target,
-      options.now ?? (() => new Date()),
-    );
-    files.push(result);
-    if (result.status === "failed") {
-      return {
-        files,
-        integration,
-        message:
-          "Crewlight could not safely update the integration file; the original was restored when possible.",
-        ok: false,
-        status: "failed",
-      };
-    }
-  }
-  const changed = files.some((file) => file.status === "installed");
-  return {
-    files,
-    integration,
-    message: changed
-      ? `Crewlight ${integration} configuration was installed. Review and trust the definition in the tool's hooks UI.`
-      : `Crewlight ${integration} configuration is already installed.`,
-    ok: true,
-    status: changed ? "installed" : "unchanged",
-  };
-}
-
-function inspectionFromPrepared(
-  integration: InstallableIntegration,
-  prepared: readonly PreparedFile[],
+function inspectionFromFiles(
+  integration: InspectableIntegration,
+  inspected: readonly InspectedFile[],
 ): IntegrationInspectionResult {
-  const targets = prepared.map(({ message, path, state }) => ({
+  const targets = inspected.map(({ message, path, state }) => ({
     message,
     path,
     state,
@@ -372,8 +222,8 @@ function inspectionFromPrepared(
     message:
       problem?.message ??
       (status === "configured"
-        ? `Crewlight ${integration} configuration is installed.`
-        : `Crewlight ${integration} can be installed in the fixed user configuration path.`),
+        ? `Crewlight ${integration} hooks are configured.`
+        : `Crewlight ${integration} setup is not configured in the fixed user configuration path.`),
     status,
     targets,
   };
@@ -385,13 +235,11 @@ async function readExistingFile(path: string): Promise<ExistingFile> {
     if (metadata.isSymbolicLink() || !metadata.isFile()) {
       throw new Error("not-regular-file");
     }
-    const file = await stat(path);
-    if (file.size > MAX_READ_BYTES) {
+    if (metadata.size > MAX_READ_BYTES) {
       throw new Error("too-large");
     }
     return {
       exists: true,
-      mode: file.mode,
       source: await readFile(path, "utf8"),
     };
   } catch (error) {
@@ -402,15 +250,16 @@ async function readExistingFile(path: string): Promise<ExistingFile> {
   }
 }
 
-async function prepareJsonHooksFile(
+async function inspectJsonHooksFile(
   path: string,
   desiredSnippet: string,
-): Promise<PreparedFile> {
+  integration: InspectableIntegration,
+): Promise<InspectedFile> {
   let existing: ExistingFile;
   try {
     existing = await readExistingFile(path);
   } catch {
-    return failedPreparation(
+    return failedInspection(
       path,
       "error",
       "The existing integration file is not a regular readable JSON file.",
@@ -424,7 +273,7 @@ async function prepareJsonHooksFile(
       current = JSON.parse(existing.source) as unknown;
     }
   } catch {
-    return failedPreparation(
+    return failedInspection(
       path,
       "malformed",
       "Crewlight could not parse the integration definition.",
@@ -432,40 +281,37 @@ async function prepareJsonHooksFile(
   }
   const root = asRecordOrUndefined(current);
   if (root === undefined) {
-    return failedPreparation(
+    return failedInspection(
       path,
       "conflict",
       "The integration definition has an incompatible top-level type.",
     );
   }
-  const merged = { ...(root ?? {}) };
   const desiredHooks = asRecord(desired.hooks);
-  const existingHooks = merged.hooks;
+  const existingHooks = root.hooks;
   if (
     existingHooks !== undefined &&
     asRecordOrUndefined(existingHooks) === undefined
   ) {
-    return failedPreparation(
+    return failedInspection(
       path,
       "conflict",
       "The existing hooks field has an incompatible type.",
     );
   }
-  const mergedHooks: Record<string, unknown> = {
-    ...(asRecordOrUndefined(existingHooks) ?? {}),
-  };
+  const existingHookMap = asRecordOrUndefined(existingHooks) ?? {};
   let changed = !existing.exists;
   for (const [eventName, rawDesiredGroups] of Object.entries(desiredHooks)) {
     if (!Array.isArray(rawDesiredGroups)) {
-      return failedPreparation(
+      return failedInspection(
         path,
         "conflict",
         "Crewlight generated an invalid hook definition.",
       );
     }
-    const existingGroups = mergedHooks[eventName];
+    const existingGroups = existingHookMap[eventName];
     if (existingGroups !== undefined && !Array.isArray(existingGroups)) {
-      return failedPreparation(
+      return failedInspection(
         path,
         "conflict",
         "An existing hook event has an incompatible type.",
@@ -477,7 +323,7 @@ async function prepareJsonHooksFile(
       let exact = false;
       let replaced = false;
       for (const group of groups) {
-        if (isCrewlightGroup(group, integrationFromDesired(desiredHooks))) {
+        if (isCrewlightGroup(group, integration)) {
           if (!replaced) {
             nextGroups.push(desiredGroup);
             replaced = true;
@@ -496,9 +342,7 @@ async function prepareJsonHooksFile(
       }
       groups = nextGroups;
     }
-    mergedHooks[eventName] = groups;
   }
-  merged.hooks = mergedHooks;
   if (!changed) {
     return {
       ...existing,
@@ -510,24 +354,16 @@ async function prepareJsonHooksFile(
   return {
     ...existing,
     message: existing.exists
-      ? "Crewlight hooks can be merged without replacing unrelated handlers."
-      : "Crewlight hooks can be installed at the fixed user configuration path.",
-    output: `${JSON.stringify(merged, null, 2)}\n`,
+      ? "Crewlight hooks are stale but can be updated without replacing unrelated handlers."
+      : "Crewlight hooks are missing from the fixed user configuration path.",
     path,
     state: existing.exists ? "needs-update" : "missing",
   };
 }
 
-function integrationFromDesired(
-  hooks: Record<string, unknown>,
-): InstallableIntegration {
-  const serialized = JSON.stringify(hooks);
-  return serialized.includes("codex-hook") ? "codex" : "claude-code";
-}
-
 function isCrewlightGroup(
   value: unknown,
-  integration: InstallableIntegration,
+  integration: InspectableIntegration,
 ): boolean {
   const group = asRecordOrUndefined(value);
   if (!group || !Array.isArray(group.hooks) || group.hooks.length !== 1) {
@@ -547,7 +383,7 @@ function isCrewlightGroup(
   );
 }
 
-async function inspectCodexNotifyFile(path: string): Promise<PreparedFile> {
+async function inspectCodexNotifyFile(path: string): Promise<InspectedFile> {
   try {
     const existing = await readExistingFile(path);
     if (!existing.exists) {
@@ -564,12 +400,12 @@ async function inspectCodexNotifyFile(path: string): Promise<PreparedFile> {
       ...existing,
       message: hasNotify
         ? "Existing Codex notify configuration was detected and left unchanged."
-        : "Codex config.toml was inspected read-only; hooks installation does not modify it.",
+        : "Codex config.toml was inspected read-only; hooks setup does not modify it.",
       path,
       state: "configured",
     };
   } catch {
-    return failedPreparation(
+    return failedInspection(
       path,
       "error",
       "Crewlight could not safely inspect Codex config.toml.",
@@ -577,78 +413,14 @@ async function inspectCodexNotifyFile(path: string): Promise<PreparedFile> {
   }
 }
 
-async function writePreparedFile(
-  target: PreparedFile,
-  now: () => Date,
-): Promise<IntegrationFileInstallResult> {
-  if (target.output === undefined) {
-    return { message: target.message, path: target.path, status: "unchanged" };
-  }
-  const directory = dirname(target.path);
-  const temporaryPath = join(directory, `.crewlight-${randomUUID()}.tmp`);
-  const backupPath = target.exists
-    ? join(directory, `.crewlight-${now().getTime()}-${randomUUID()}.bak`)
-    : undefined;
-  let backupCreated = false;
-  try {
-    await mkdir(directory, { recursive: true });
-    await writeFile(temporaryPath, target.output, {
-      encoding: "utf8",
-      mode: target.mode,
-      flag: "wx",
-    });
-    const readBack = await readFile(temporaryPath, "utf8");
-    if (!isDeepStrictEqual(JSON.parse(readBack), JSON.parse(target.output))) {
-      throw new Error("readback-mismatch");
-    }
-    if (backupPath && target.exists) {
-      await copyFile(target.path, backupPath);
-      backupCreated = true;
-    }
-    try {
-      await rename(temporaryPath, target.path);
-    } catch (error) {
-      if (!backupPath) {
-        throw error;
-      }
-      // Windows does not replace an existing file with rename(). The original
-      // is already backed up, so remove only that exact target before retrying.
-      await rm(target.path, { force: true });
-      await rename(temporaryPath, target.path);
-    }
-    return {
-      ...(backupPath ? { backupPath } : {}),
-      message:
-        "Crewlight configuration was written and read back successfully.",
-      path: target.path,
-      status: "installed",
-    };
-  } catch {
-    await rm(temporaryPath, { force: true }).catch(() => undefined);
-    if (backupPath && backupCreated) {
-      await rm(target.path, { force: true }).catch(() => undefined);
-      await rename(backupPath, target.path).catch(() => undefined);
-    } else if (backupPath) {
-      // A failed backup must never turn into deletion of the only original.
-      await rm(backupPath, { force: true }).catch(() => undefined);
-    }
-    return {
-      message:
-        "Crewlight could not write the integration file; no partial configuration was retained.",
-      path: target.path,
-      status: "failed",
-    };
-  }
-}
-
-function failedPreparation(
+function failedInspection(
   path: string,
   state: Extract<
     IntegrationTargetState,
     "error" | "unavailable" | "conflict" | "malformed"
   >,
   message: string,
-): PreparedFile {
+): InspectedFile {
   return { exists: false, message, path, source: "", state };
 }
 

@@ -55,7 +55,8 @@ const DESKTOP_PANELS: readonly DesktopPanelDefinition[] = [
     id: "agents",
     label: "Claude Code & Codex",
     section: "connect",
-    subtitle: "Inspect or install the two supported local integrations.",
+    subtitle:
+      "Copy setup snippets and inspect the two supported local integrations.",
   },
   {
     group: "System",
@@ -429,7 +430,7 @@ function renderDoctor(state: DesktopViewModel): void {
 
 function integrationButton(
   card: DesktopIntegrationCard,
-  kind: "setup" | "verification" | "select" | "install" | "inspect",
+  kind: "setup" | "verification" | "select" | "inspect",
 ): HTMLButtonElement {
   const button = createElement(
     "button",
@@ -447,13 +448,11 @@ function integrationButton(
       ? card.copySetupLabel
       : kind === "verification"
         ? (card.copyVerificationLabel ?? "Copy verification command")
-        : kind === "install"
-          ? "Install safely"
-          : kind === "inspect"
-            ? "Check status"
-            : card.highlight
-              ? "Selected"
-              : "Choose this path";
+        : kind === "inspect"
+          ? "Check status"
+          : card.highlight
+            ? "Selected"
+            : "Choose this path";
   button.disabled = kind === "verification" && !card.verificationCommand;
   return button;
 }
@@ -482,7 +481,6 @@ function renderIntegrationCard(
   const actions = createElement("div", "integration-actions");
   actions.append(integrationButton(card, "setup"));
   if (card.id === "claude-code" || card.id === "codex") {
-    actions.append(integrationButton(card, "install"));
     actions.append(integrationButton(card, "inspect"));
   }
   if (card.verificationCommand) {
@@ -783,7 +781,7 @@ function onboardingBody(
       "section-copy",
       step.id === "choose-integration"
         ? "Choose Claude Code or Codex. You can change this later in Connect."
-        : "Install safely, then open the tool's /hooks view and trust the definition before running a real turn.",
+        : "Copy the setup snippet, then open the tool's /hooks view and trust the definition before running a real turn.",
     );
     const grid = createElement("div", "integration-grid");
     grid.append(
@@ -815,7 +813,7 @@ function onboardingBody(
       step.id === "start-service"
         ? state.header.serviceBadge.label
         : step.id === "first-real-event"
-          ? "Run a real turn; installation and demo data do not complete onboarding."
+          ? "Run a real turn; copied setup and demo data do not complete onboarding."
           : "Run a real turn; demo data is optional and never completes onboarding.",
     ),
   );
@@ -1153,10 +1151,7 @@ document.addEventListener("click", async (event) => {
       integrationAction.dataset.integration === "codex")
   ) {
     await window.crewlightDesktop.perform({
-      type:
-        integrationAction.dataset.integrationAction === "install"
-          ? "integration:install"
-          : "integration:inspect",
+      type: "integration:inspect",
       integration: integrationAction.dataset.integration,
     });
     return;

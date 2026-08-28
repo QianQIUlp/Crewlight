@@ -72,8 +72,7 @@ import {
 } from "./service-manager.js";
 import {
   inspectIntegration,
-  installIntegration,
-  type InstallableIntegration,
+  type InspectableIntegration,
 } from "./integration-installer.js";
 import {
   parseCrewlightRemoteHosts,
@@ -934,63 +933,40 @@ async function runDemo(): Promise<boolean> {
   return true;
 }
 
-function isInstallableIntegration(
+function isInspectableIntegration(
   value: unknown,
-): value is InstallableIntegration {
+): value is InspectableIntegration {
   return value === "claude-code" || value === "codex";
 }
 
 async function handleIntegrationAction(
-  action: Extract<
-    DesktopAction,
-    { type: "integration:inspect" | "integration:install" }
-  >,
+  action: Extract<DesktopAction, { type: "integration:inspect" }>,
 ): Promise<boolean> {
-  if (!isInstallableIntegration(action.integration)) {
+  if (!isInspectableIntegration(action.integration)) {
     return false;
   }
   const options = {
     platform: process.platform,
     snippets: setupBase,
   };
-  if (action.type === "integration:inspect") {
-    const result = await inspectIntegration(action.integration, options);
-    if (result.status === "configured") {
-      await updatePreferences({
-        integrationSetupCompleted: true,
-        preferredIntegration: action.integration,
-      });
-    }
-    setNotice(
-      result.status === "configured" ? "success" : "info",
-      result.status === "configured"
-        ? `${action.integration === "codex" ? "Codex" : "Claude Code"} integration is configured.`
-        : `${action.integration === "codex" ? "Codex" : "Claude Code"} integration is not connected yet.`,
-    );
-    return result.status !== "error";
-  }
-
-  const result = await installIntegration(action.integration, options);
-  if (result.ok) {
+  const result = await inspectIntegration(action.integration, options);
+  if (result.status === "configured") {
     await updatePreferences({
       integrationSetupCompleted: true,
       preferredIntegration: action.integration,
     });
-    setNotice(
-      "success",
-      action.integration === "codex"
-        ? "Codex hooks were installed. Open Codex /hooks to review and trust the definition; installation is not a connection test."
-        : "Claude Code hooks were installed. Run a real session to confirm the first event.",
-    );
-    return true;
   }
   setNotice(
-    result.status === "unavailable" ? "info" : "error",
-    result.status === "unavailable"
-      ? "Automatic integration setup is unavailable for this command path. Copy setup instead."
-      : "Crewlight refused to change the integration file. Check Troubleshooting for a safe setup path.",
+    result.status === "configured"
+      ? "success"
+      : result.status === "error" || result.status === "conflict"
+        ? "error"
+        : "info",
+    result.status === "configured"
+      ? `${action.integration === "codex" ? "Codex" : "Claude Code"} integration is configured.`
+      : result.message,
   );
-  return false;
+  return result.status !== "error";
 }
 
 async function applyServiceSettingUpdate(
@@ -1038,10 +1014,7 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
     );
     return true;
   }
-  if (
-    action.type === "integration:inspect" ||
-    action.type === "integration:install"
-  ) {
+  if (action.type === "integration:inspect") {
     return await handleIntegrationAction(action);
   }
   if (action.type === "companion:show") {
@@ -1176,7 +1149,7 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
     if (!hasFormalRealEvent) {
       setNotice(
         "info",
-        "Run a real Claude Code or Codex turn first. Demo data and installation alone do not complete onboarding.",
+        "Run a real Claude Code or Codex turn first. Copied setup and demo data alone do not complete onboarding.",
       );
       return false;
     }

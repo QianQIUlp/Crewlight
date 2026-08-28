@@ -8,16 +8,17 @@ Notable Crewlight changes are recorded here.
   Codex sessions.
 - One Attention Engine with needs-action, error, stale, active, ready, and
   hidden priorities, plus duplicate-safe notifications.
-- Safe user-level Claude Code and Codex Hooks installation with atomic writes,
-  rollback, `/hooks` trust guidance, and no transcript or prompt retention.
+- Read-only user-level Claude Code and Codex Hooks inspection, copyable manual
+  setup snippets, `/hooks` trust guidance, and no configuration mutation.
 - Managed Windows daemon lifecycle and a compact Home / Connect /
   Troubleshooting / Settings Desktop information architecture.
-- Pinned Node 22.23.2 release inputs, generated manifests, and SHA-256 sidecars
-  for every distributable.
+- Pinned Node 22.23.2 release inputs, a generated manifest, and SHA-256
+  sidecars for the Windows standalone, Portable, and Installer artifacts.
 
 Release policy: Windows 11 x64 is Supported but unsigned; Linux and macOS are
-Preview; Remote is Beta. v0.5.0 remains Unreleased until the physical Windows 11
-and clean Azure VM acceptance gates pass.
+source-validated Preview targets without v0.5 native binaries; Remote is Beta.
+v0.5.0 remains Unreleased until the physical Windows 11 and clean Azure VM
+acceptance gates pass.
 
 ## v0.4.0 — Archived prototype, published 2026-06-23
 

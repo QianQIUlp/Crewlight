@@ -19,22 +19,26 @@ Portable desktop flow:
 3. Extract `crewlight-v0.5.0-windows-x64-desktop.zip`.
 4. Open the extracted folder and double-click `Crewlight.exe`.
 5. Use onboarding to start the local service, choose Claude Code or Codex,
-   trust the hook definition, and run a real turn. Demo data is optional and
-   does not complete onboarding.
+   copy and manually merge the setup snippet, check its status, trust the hook
+   definition, and run a real turn. Demo data is optional and does not complete
+   onboarding.
 
 The desktop package includes the Electron app, the bundled local Crewlight CLI
-resource used for daemon control and setup actions, and the desktop UI assets.
+resource used for daemon control, snippet generation, and diagnostics, plus the
+desktop UI assets.
 Users do not need Node.js, pnpm, Corepack, or the source repository.
 
 ## CLI Standalone Artifacts
 
-The CLI artifacts still exist for advanced usage:
+The Windows standalone artifact is available for advanced usage:
 
-- `crewlight-v0.5.0-linux-x64.tar.gz`
 - `crewlight-v0.5.0-windows-x64.zip`
 
 Use them for scripting, hook integration, manual ingest, CI, or daemon-only
 workflows.
+
+Linux/macOS remain source-validation targets and do not have v0.5 native
+release assets.
 
 ## Browser Dashboard
 
@@ -50,6 +54,7 @@ Desktop verification remains a GUI step:
 - the app can start, stop, and restart the local service
 - the optional demo populates deterministic sessions in Home and Companion
 - the floating companion can be shown from the desktop app
+- copying setup and checking status do not modify Claude or Codex configuration
 
 CLI standalone verification remains covered by the existing standalone smoke
 tests and Windows CI job.

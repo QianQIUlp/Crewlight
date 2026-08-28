@@ -36,10 +36,11 @@ function isPrimaryArtifact(path) {
   const name = basename(path);
   if (name.endsWith(".sha256") || name === "release-manifest.json")
     return false;
+  if (name === `crewlight-v${version}-windows-x64-installer.exe`) return true;
   if (name.startsWith(`crewlight-v${version}-`)) {
     return /\.(zip|tar\.gz)$/u.test(name);
   }
-  return /^(?:Crewlight-\d+\.\d+\.\d+-(?:x64|arm64)\.(?:AppImage|deb|dmg)|crewlight-v\d+\.\d+\.\d+-windows-x64-installer\.exe)$/u.test(
+  return /^Crewlight-\d+\.\d+\.\d+-(?:x64|arm64)\.(?:AppImage|deb|dmg)$/u.test(
     name,
   );
 }

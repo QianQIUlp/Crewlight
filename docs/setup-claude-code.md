@@ -9,10 +9,10 @@ crewlight setup claude-code --print
 ```
 
 The CLI command prints a JSON snippet and does not inspect or modify Claude
-configuration. Desktop's Connect flow is the separate, fixed-path installer;
-it only targets `%USERPROFILE%\.claude\settings.json` (or the equivalent
-user home path), merges unrelated handlers, validates a same-directory
-temporary file, and rolls back on failure.
+configuration. Desktop Connect uses the same snippet and can check the fixed
+user-level `%USERPROFILE%\.claude\settings.json` path read-only. Copy the
+snippet, merge it manually, then use **Check status**; neither path writes the
+configuration file.
 
 The generated hook command uses the absolute current Crewlight standalone
 binary. When invoked through `node packages/cli/dist/index.js`, it instead uses
