@@ -1,7 +1,5 @@
-import type { AgentEvent, AgentSession } from "@crewlight/core";
-
 import type { Notifier } from "./notifier.js";
-import { shouldNotify } from "./notification-policy.js";
+import type { NotificationRequest } from "./notifier.js";
 
 export type ConsoleWriter = (line: string) => void;
 
@@ -26,11 +24,7 @@ export class ConsoleNotifier implements Notifier {
     this.#write = write;
   }
 
-  notify(event: AgentEvent, session: AgentSession): void {
-    if (!shouldNotify(event)) {
-      return;
-    }
-
+  notify({ event, kind, session }: NotificationRequest): void {
     const location = safeConsoleField(
       session.workspaceName ?? session.projectPath ?? session.sessionKey,
     );
@@ -39,7 +33,22 @@ export class ConsoleNotifier implements Notifier {
     );
 
     this.#write(
-      `[Crewlight][${safeConsoleField(event.urgency)}] ${safeConsoleField(event.source)} ${safeConsoleField(event.status)} ${location}: ${detail}`,
+      `[Crewlight][${safeConsoleField(kind)}] ${safeConsoleField(event.source)} ${safeConsoleField(notificationLabel(kind))} ${location}: ${detail}`,
     );
+  }
+}
+
+function notificationLabel(kind: NotificationRequest["kind"]): string {
+  switch (kind) {
+    case "input":
+      return "Input needed";
+    case "permission":
+      return "Permission needed";
+    case "failed":
+      return "Agent failed";
+    case "rate_limit":
+      return "Rate limited";
+    case "ready":
+      return "Ready for review";
   }
 }

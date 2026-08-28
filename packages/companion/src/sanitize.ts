@@ -11,7 +11,13 @@ export const COMPANION_STATUSES = [
 ] as const;
 
 export type CompanionStatus = (typeof COMPANION_STATUSES)[number];
-export type CompanionAttention = "passive" | "done" | "action" | "error";
+export type CompanionPriority =
+  | "needs_action"
+  | "error"
+  | "stale"
+  | "active"
+  | "ready"
+  | "hidden";
 export type CompanionActionKind = "input" | "permission";
 
 export interface SanitizedSession {
@@ -23,13 +29,12 @@ export interface SanitizedSession {
   lastEventAt: number;
   lastEventAgeMs: number;
   durationMs: number;
-  isStale: boolean;
   displayName: string;
   displayWorkspace: string;
-  attention: CompanionAttention;
+  priority: CompanionPriority;
+  visibleUntil?: number;
   taskTitle?: string;
   activityLabel?: string;
-  staleReason?: string;
   actionKind?: CompanionActionKind;
   remoteAlias?: string;
 }
@@ -91,12 +96,14 @@ function isStatus(value: unknown): value is CompanionStatus {
   );
 }
 
-function isAttention(value: unknown): value is CompanionAttention {
+function isPriority(value: unknown): value is CompanionPriority {
   return (
-    value === "passive" ||
-    value === "done" ||
-    value === "action" ||
-    value === "error"
+    value === "needs_action" ||
+    value === "error" ||
+    value === "stale" ||
+    value === "active" ||
+    value === "ready" ||
+    value === "hidden"
   );
 }
 
@@ -106,22 +113,38 @@ function isActionKind(value: unknown): value is CompanionActionKind {
 
 function hasValidPresentationState(
   status: CompanionStatus,
-  attention: CompanionAttention,
+  priority: CompanionPriority,
   actionKind: unknown,
+  visibleUntil: unknown,
 ): boolean {
+  if (
+    visibleUntil !== undefined &&
+    (status !== "completed" || priority !== "ready")
+  ) {
+    return false;
+  }
   if (status === "waiting_input") {
-    return attention === "action" && actionKind === "input";
+    return priority === "needs_action" && actionKind === "input";
   }
   if (status === "waiting_permission") {
-    return attention === "action" && actionKind === "permission";
+    return priority === "needs_action" && actionKind === "permission";
   }
   if (status === "completed") {
-    return attention === "done" && actionKind === undefined;
+    return (
+      (priority === "ready" || priority === "hidden") &&
+      actionKind === undefined
+    );
   }
   if (status === "failed" || status === "rate_limited") {
-    return attention === "error" && actionKind === undefined;
+    return priority === "error" && actionKind === undefined;
   }
-  return attention === "passive" && actionKind === undefined;
+  if (status === "running" || status === "using_tool") {
+    return (
+      (priority === "active" || priority === "stale") &&
+      actionKind === undefined
+    );
+  }
+  return priority === "hidden" && actionKind === undefined;
 }
 
 function sanitizeSession(
@@ -150,9 +173,16 @@ function sanitizeSession(
     Number(value.lastEventAgeMs) < 0 ||
     (value.durationMs !== undefined &&
       (!Number.isFinite(value.durationMs) || Number(value.durationMs) < 0)) ||
-    typeof value.isStale !== "boolean" ||
-    !isAttention(value.attention) ||
-    !hasValidPresentationState(value.status, value.attention, value.actionKind)
+    !isPriority(value.priority) ||
+    (value.visibleUntil !== undefined &&
+      (!Number.isFinite(value.visibleUntil) ||
+        Number(value.visibleUntil) < 0)) ||
+    !hasValidPresentationState(
+      value.status,
+      value.priority,
+      value.actionKind,
+      value.visibleUntil,
+    )
   ) {
     return undefined;
   }
@@ -163,7 +193,8 @@ function sanitizeSession(
     value.durationMs !== undefined ? Number(value.durationMs) : 0;
   const taskTitle = safeString(value.taskTitle, 120);
   const activityLabel = safeString(value.activityLabel, 120);
-  const staleReason = safeString(value.staleReason, 180);
+  const visibleUntil =
+    value.visibleUntil !== undefined ? Number(value.visibleUntil) : undefined;
   const actionKind = isActionKind(value.actionKind)
     ? value.actionKind
     : undefined;
@@ -180,13 +211,12 @@ function sanitizeSession(
     lastEventAt,
     lastEventAgeMs,
     durationMs,
-    isStale: value.isStale,
     displayName,
     displayWorkspace,
-    attention: value.attention,
+    priority: value.priority,
+    ...(visibleUntil !== undefined ? { visibleUntil } : {}),
     ...(taskTitle ? { taskTitle } : {}),
     ...(activityLabel ? { activityLabel } : {}),
-    ...(staleReason ? { staleReason } : {}),
     ...(actionKind ? { actionKind } : {}),
     ...(remoteAlias ? { remoteAlias } : {}),
   };

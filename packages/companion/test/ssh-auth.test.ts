@@ -2,10 +2,12 @@ import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { utils } from "ssh2";
+import ssh2 from "ssh2";
 import { describe, expect, it } from "vitest";
 
 import { loadSshIdentity } from "../src/ssh-auth.js";
+
+const { utils } = ssh2;
 
 function generatePrivateKey(): Promise<string> {
   return new Promise((resolve, reject) => {

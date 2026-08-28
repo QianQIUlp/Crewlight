@@ -244,7 +244,14 @@ function ConvertFrom-CodexNotify {
 
       $arrayText = $trimmedLine.Substring($equalsIndex + 1).Trim()
       try {
-        return @($arrayText | ConvertFrom-Json)
+        $parsed = $arrayText | ConvertFrom-Json
+        if (-not ($parsed -is [array])) {
+          throw "expected-array"
+        }
+        foreach ($item in $parsed) {
+          $item
+        }
+        return
       } catch {
         throw "Codex notify argv could not be parsed. Expected binary path: $Bin"
       }
@@ -296,20 +303,30 @@ try {
 
   $checksumText = (Get-Content $Checksum -Raw).Trim()
   $expected = ($checksumText -split "\s+")[0].ToLowerInvariant()
-  $actual = (Get-FileHash -Algorithm SHA256 $Archive).Hash.ToLowerInvariant()
+  $sha256 = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $archiveStream = [System.IO.File]::OpenRead($Archive)
+    try {
+      $actual = [System.BitConverter]::ToString($sha256.ComputeHash($archiveStream)).Replace("-", "").ToLowerInvariant()
+    } finally {
+      $archiveStream.Dispose()
+    }
+  } finally {
+    $sha256.Dispose()
+  }
   if ($actual -ne $expected) {
     throw "Windows archive checksum mismatch."
   }
 
   Expand-Archive -Path $Archive -DestinationPath $Extracted
-  foreach ($name in @("crewlight.exe", "LICENSE", "BUILD-INFO.txt")) {
+  foreach ($name in @("crewlight.exe", "LICENSE", "CREWLIGHT-LICENSE", "BUILD-INFO.txt")) {
     if (-not (Test-Path (Join-Path $Extracted $name))) {
       throw "Archive is missing $name."
     }
   }
   $entries = @(Get-ChildItem $Extracted)
-  if ($entries.Count -ne 3) {
-    throw "Archive must contain exactly crewlight.exe, LICENSE, and BUILD-INFO.txt."
+  if ($entries.Count -ne 4) {
+    throw "Archive must contain exactly crewlight.exe, LICENSE, CREWLIGHT-LICENSE, and BUILD-INFO.txt."
   }
 
   $buildInfo = Get-Content (Join-Path $Extracted "BUILD-INFO.txt") -Raw
@@ -320,7 +337,6 @@ try {
   }
 
   $env:PATH = $Extracted
-  $env:HOME = $HomeDir
   $env:USERPROFILE = $HomeDir
   $env:CREWLIGHT_PORT = $Port
   Remove-Item Env:CREWLIGHT_HOST -ErrorAction SilentlyContinue
@@ -370,10 +386,9 @@ try {
   foreach ($hookEventName in @("Stop", "PreToolUse")) {
     $codexHooksCommand = Get-HookCommand -Parsed $codexHooksSetup -EventName $hookEventName -FieldName "commandWindows"
     Assert-SetupCommand -Command $codexHooksCommand -Description "Codex hooks $hookEventName setup" -IngestTarget "codex-hook"
-    $expectedCodexHooksCommand = "$Bin ingest codex-hook --hook $hookEventName --surface cli"
-    if ($codexHooksCommand.StartsWith('"', [System.StringComparison]::Ordinal) -or
-        -not $codexHooksCommand.Equals($expectedCodexHooksCommand, [System.StringComparison]::OrdinalIgnoreCase)) {
-      throw "Codex hooks $hookEventName commandWindows must use the unquoted standalone executable path and matching --hook argument. Expected: $expectedCodexHooksCommand. Actual: $codexHooksCommand"
+    $expectedCodexHooksCommand = "`"$Bin`" `"ingest`" `"codex-hook`" `"--hook`" `"$hookEventName`" `"--surface`" `"cli`""
+    if (-not $codexHooksCommand.Equals($expectedCodexHooksCommand, [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw "Codex hooks $hookEventName commandWindows must use the quoted standalone executable path and matching --hook argument. Expected: $expectedCodexHooksCommand. Actual: $codexHooksCommand"
     }
   }
 
@@ -445,7 +460,11 @@ try {
     "--session-id", "windows-standalone-smoke", "--message", "done"
   ) | Out-Null
   $status = Invoke-Crewlight -Arguments @("status", "--json")
-  $sessions = @($status.Stdout | ConvertFrom-Json)
+  $parsedSessions = $status.Stdout | ConvertFrom-Json
+  $sessions = @()
+  foreach ($session in $parsedSessions) {
+    $sessions += $session
+  }
   $hookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-hook" })
   $toolHookSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-codex-tool-hook" })
   $openCodeSessions = @($sessions | Where-Object { $_.sessionId -ceq "windows-opencode" })

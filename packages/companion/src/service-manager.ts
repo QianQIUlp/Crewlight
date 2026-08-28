@@ -82,11 +82,14 @@ export function createDaemonServiceManager(
   const events = new EventEmitter();
   let child: ChildProcessWithoutNullStreams | undefined;
   let startPromise: Promise<boolean> | undefined;
+  let queuedStartPromise: Promise<boolean> | undefined;
   let settlePendingStart: ((result: boolean) => void) | undefined;
   let stopTimer: NodeJS.Timeout | undefined;
   let stopPromise: Promise<boolean> | undefined;
+  let restartPromise: Promise<boolean> | undefined;
   let settlePendingStop: ((result: boolean) => void) | undefined;
   let expectedStop = false;
+  let disposing = false;
   let currentSettings = { ...defaults };
   let state: ManagedServiceState = {
     phase: "stopped",
@@ -227,18 +230,11 @@ export function createDaemonServiceManager(
       const onExit = () => {
         finish(true);
       };
-      settlePendingStop = finish;
-      activeChild.once("exit", onExit);
-      try {
-        if (!activeChild.kill("SIGTERM")) {
-          failStop();
+      let terminationRequested = false;
+      const forceStop = (): void => {
+        if (child !== activeChild) {
           return;
         }
-      } catch {
-        failStop();
-        return;
-      }
-      stopTimer = setTimeout(() => {
         try {
           if (!activeChild.kill("SIGKILL")) {
             failStop();
@@ -249,7 +245,43 @@ export function createDaemonServiceManager(
           return;
         }
         stopTimer = setTimeout(failStop, FORCE_STOP_GRACE_MS);
-      }, STOP_TIMEOUT_MS);
+      };
+      const terminate = (): void => {
+        if (child !== activeChild || terminationRequested) {
+          return;
+        }
+        terminationRequested = true;
+        clearStopTimer();
+        try {
+          if (!activeChild.kill("SIGTERM")) {
+            failStop();
+            return;
+          }
+        } catch {
+          failStop();
+          return;
+        }
+        stopTimer = setTimeout(forceStop, FORCE_STOP_GRACE_MS);
+      };
+      settlePendingStop = finish;
+      activeChild.once("exit", onExit);
+      stopTimer = setTimeout(terminate, STOP_TIMEOUT_MS);
+      try {
+        if (
+          !activeChild.stdin ||
+          typeof activeChild.stdin.write !== "function"
+        ) {
+          terminate();
+        } else {
+          activeChild.stdin.write("shutdown\n", (error?: Error | null) => {
+            if (error) {
+              terminate();
+            }
+          });
+        }
+      } catch {
+        terminate();
+      }
     });
     stopPromise = operation;
     try {
@@ -263,8 +295,42 @@ export function createDaemonServiceManager(
 
   function start(settings: ManagedServiceSettings): Promise<boolean> {
     currentSettings = { ...settings };
+    if (disposing) {
+      return Promise.resolve(false);
+    }
+    if (stopPromise) {
+      if (queuedStartPromise) {
+        return queuedStartPromise;
+      }
+      const operation = stopPromise.then((stopped) => {
+        if (!stopped) {
+          return false;
+        }
+        if (queuedStartPromise === operation) {
+          queuedStartPromise = undefined;
+        }
+        return start(settings);
+      });
+      queuedStartPromise = operation;
+      void operation.then(
+        () => {
+          if (queuedStartPromise === operation) {
+            queuedStartPromise = undefined;
+          }
+        },
+        () => {
+          if (queuedStartPromise === operation) {
+            queuedStartPromise = undefined;
+          }
+        },
+      );
+      return operation;
+    }
     if (startPromise) {
       return startPromise;
+    }
+    if (queuedStartPromise) {
+      return queuedStartPromise;
     }
     if (child) {
       return Promise.resolve(state.phase === "running");
@@ -296,12 +362,14 @@ export function createDaemonServiceManager(
       String(settings.port),
       "--notifier",
       settings.notifier,
+      "--managed-stdio",
     ];
 
     try {
       child = spawn(cli.command, args, {
         env: process.env,
         stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
       });
     } catch (error) {
       applyState({
@@ -361,6 +429,12 @@ export function createDaemonServiceManager(
 
     spawnedChild.stdout.setEncoding("utf8");
     spawnedChild.stderr.setEncoding("utf8");
+    if (spawnedChild.stdin && typeof spawnedChild.stdin.on === "function") {
+      spawnedChild.stdin.on("error", () => {
+        // A closed parent pipe is expected during shutdown; never surface it as
+        // an unhandled stream error in the Desktop process.
+      });
+    }
     spawnedChild.stdout.on("data", (chunk: string) => {
       stdoutCollector(chunk);
       const probeOutput = `${readyProbe}${chunk}`;
@@ -462,18 +536,38 @@ export function createDaemonServiceManager(
 
   return {
     dispose: async () => {
+      disposing = true;
       expectedStop = true;
       if (await stop()) {
         releaseChild();
       }
     },
-    restart: async (settings) => {
-      currentSettings = { ...settings };
-      const stopped = await stop();
-      if (!stopped) {
-        return false;
+    restart: (settings) => {
+      if (restartPromise) {
+        return restartPromise;
       }
-      return await start(currentSettings);
+      currentSettings = { ...settings };
+      const operation = (async () => {
+        const stopped = await stop();
+        if (!stopped) {
+          return false;
+        }
+        return await start(currentSettings);
+      })();
+      restartPromise = operation;
+      void operation.then(
+        () => {
+          if (restartPromise === operation) {
+            restartPromise = undefined;
+          }
+        },
+        () => {
+          if (restartPromise === operation) {
+            restartPromise = undefined;
+          }
+        },
+      );
+      return operation;
     },
     snapshot: () => ({ ...state }),
     start,

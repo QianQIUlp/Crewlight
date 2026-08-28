@@ -19,6 +19,7 @@ export {
 export {
   CODEX_MESSAGE_LIMIT,
   mapCodexNotification,
+  stableCodexTurnEventId,
   truncateCodexMessage,
   type CodexAdapterResult,
 } from "./map-codex-notification.js";

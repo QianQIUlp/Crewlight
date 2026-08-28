@@ -4,7 +4,6 @@ import {
   deriveCompanionViewModel,
   filterSessionViews,
   getSessionPriority,
-  RECENT_COMPLETION_MS,
   sortSessions,
 } from "../src/state.js";
 import { sanitizeDashboardResponse } from "../src/sanitize.js";
@@ -23,10 +22,18 @@ function session(
     lastEventAt: 1_000,
     lastEventAgeMs: 1_000,
     durationMs: 1_000,
-    isStale: false,
     displayName: "Custom",
     displayWorkspace: "Crewlight",
-    attention: "passive",
+    priority:
+      status === "waiting_input" || status === "waiting_permission"
+        ? "needs_action"
+        : status === "failed" || status === "rate_limited"
+          ? "error"
+          : status === "running" || status === "using_tool"
+            ? "active"
+            : status === "completed"
+              ? "ready"
+              : "hidden",
     ...overrides,
   };
 }
@@ -40,17 +47,17 @@ describe("companion state derivation", () => {
     const sessions = [
       session("unknown"),
       session("idle"),
-      session("completed", { lastEventAgeMs: RECENT_COMPLETION_MS }),
+      session("completed", { priority: "ready" }),
       session("running"),
-      session("running", { isStale: true }),
+      session("running", { priority: "stale" }),
       session("failed"),
       session("waiting_input"),
       session("waiting_permission"),
     ];
 
     expect(sortSessions(sessions).map((item) => item.status)).toEqual([
-      "waiting_permission",
       "waiting_input",
+      "waiting_permission",
       "failed",
       "running",
       "running",
@@ -58,7 +65,7 @@ describe("companion state derivation", () => {
       "idle",
       "unknown",
     ]);
-    expect(sessions.map(getSessionPriority)).toEqual([7, 6, 5, 4, 3, 2, 1, 0]);
+    expect(sessions.map(getSessionPriority)).toEqual([5, 5, 4, 3, 2, 1, 0, 0]);
   });
 
   it("breaks equal-priority ties by newest event", () => {
@@ -97,16 +104,14 @@ describe("companion state derivation", () => {
   it("treats five minutes as the inclusive recent-completion boundary", () => {
     expect(
       deriveCompanionViewModel(
-        online([
-          session("completed", { lastEventAgeMs: RECENT_COMPLETION_MS }),
-        ]),
+        online([session("completed", { priority: "ready" })]),
       ).state,
     ).toBe("completed");
     expect(
       deriveCompanionViewModel(
         online([
           session("completed", {
-            lastEventAgeMs: RECENT_COMPLETION_MS + 1,
+            priority: "hidden",
           }),
         ]),
       ).state,
@@ -122,8 +127,7 @@ describe("companion state derivation", () => {
         }),
         session("using_tool", {
           displayName: "Stale",
-          isStale: true,
-          staleReason: "No event for at least 5 minutes.",
+          priority: "stale",
           lastEventAt: 1_000,
         }),
       ]),
@@ -131,7 +135,7 @@ describe("companion state derivation", () => {
 
     expect(view.state).toBe("stale");
     expect(view.mostImportant?.source).toBe("Stale");
-    expect(view.diagnostic).toBe("No event for at least 5 minutes.");
+    expect(view.diagnostic).toBe("Stale has no recent events");
   });
 
   it("identifies the highest-priority failure by agent", () => {
@@ -199,10 +203,9 @@ describe("companion state derivation", () => {
           status: "waiting_permission",
           lastEventAt: 2_000,
           lastEventAgeMs: 1_000,
-          isStale: false,
           displayName: "Codex",
           displayWorkspace: "Crewlight",
-          attention: "action",
+          priority: "needs_action",
           actionKind: "permission",
           activityLabel: "Permission requested",
           lastMessage: "message-secret",
@@ -231,7 +234,7 @@ describe("companion state derivation", () => {
       online([
         session("waiting_input"),
         session("running"),
-        session("using_tool", { isStale: true }),
+        session("using_tool", { priority: "stale" }),
         session("completed"),
         session("failed"),
         session("idle"),
@@ -265,7 +268,7 @@ describe("companion state derivation", () => {
           displayWorkspace: "Crewlight",
           taskTitle: "Cursor needs review",
           activityLabel: "Input requested",
-          attention: "action",
+          priority: "needs_action",
           actionKind: "input",
         }),
       ]),

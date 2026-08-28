@@ -4,6 +4,7 @@ import {
   CODEX_HOOK_TOOL_NAME_LIMIT,
   ingestCodexHookJson,
   mapCodexHook,
+  stableCodexTurnEventId,
 } from "../src/index.js";
 
 describe("Codex hook adapter", () => {
@@ -78,6 +79,25 @@ describe("Codex hook adapter", () => {
         status: "completed",
         title: "Stop",
         sessionId: "override-session",
+      },
+    });
+  });
+
+  it("shares a stable turn id with notify for Codex Stop", () => {
+    const result = mapCodexHook({
+      hook_event_name: "Stop",
+      session_id: "thread-1",
+      turn_id: "turn-7",
+    });
+    expect(result).toEqual({
+      kind: "event",
+      event: {
+        id: stableCodexTurnEventId("thread-1", "turn-7"),
+        source: "codex",
+        surface: "unknown",
+        status: "completed",
+        title: "Stop",
+        sessionId: "thread-1",
       },
     });
   });

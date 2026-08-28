@@ -1,14 +1,14 @@
-import type { AgentEvent, AgentSession } from "@crewlight/core";
-import type { Notifier } from "@crewlight/notifier";
+import type { AgentEvent } from "@crewlight/core";
+import type { Notifier, NotificationRequest } from "@crewlight/notifier";
 import { describe, expect, it } from "vitest";
 
 import { CrewlightService } from "../src/index.js";
 
 class RecordingNotifier implements Notifier {
-  readonly events: AgentEvent[] = [];
+  readonly events: NotificationRequest[] = [];
 
-  notify(event: AgentEvent, _session: AgentSession): void {
-    this.events.push(event);
+  notify(request: NotificationRequest): void {
+    this.events.push(request);
   }
 }
 
@@ -49,7 +49,7 @@ describe("CrewlightService", () => {
     expect(stale.session.status).toBe("completed");
     expect(stale.session.lastEventAt).toBe(200);
     expect(notifier.events).toHaveLength(1);
-    expect(notifier.events[0]?.status).toBe("completed");
+    expect(notifier.events[0]?.event.status).toBe("completed");
   });
 
   it("does not notify twice for repeated terminal events", async () => {
@@ -78,16 +78,52 @@ describe("CrewlightService", () => {
     expect(duplicate.session.lastEventAt).toBe(200);
     expect(notifier.events).toHaveLength(1);
 
-    const nextTurn = await service.ingest({
+    const reopened = await service.ingest({
       id: "terminal-event-2",
       source: "custom",
       surface: "manual",
       sessionId: "duplicate-terminal-session",
-      status: "completed",
+      status: "running",
       timestamp: 400,
+    });
+    expect(reopened.applied).toBe(true);
+    const nextTurn = await service.ingest({
+      id: "terminal-event-3",
+      source: "custom",
+      surface: "manual",
+      sessionId: "duplicate-terminal-session",
+      status: "completed",
+      timestamp: 500,
     });
     expect(nextTurn.applied).toBe(true);
     expect(notifier.events).toHaveLength(2);
+  });
+
+  it("suppresses a Stop plus notify completion for the same turn", async () => {
+    const notifier = new RecordingNotifier();
+    const service = new CrewlightService({ notifier });
+
+    await service.ingest({
+      id: "stop-random-id",
+      source: "codex",
+      surface: "cli",
+      sessionId: "thread-1",
+      status: "completed",
+      title: "Stop",
+      timestamp: 200,
+    });
+    const notify = await service.ingest({
+      id: "stable:codex-turn:turn-1",
+      source: "codex",
+      surface: "cli",
+      sessionId: "thread-1",
+      status: "completed",
+      title: "agent-turn-complete",
+      timestamp: 300,
+    });
+
+    expect(notify.applied).toBe(true);
+    expect(notifier.events).toHaveLength(1);
   });
 
   it("does not keep ingest responses waiting for notification delivery", async () => {

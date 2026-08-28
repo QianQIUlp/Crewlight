@@ -10,8 +10,7 @@ export {
   NOTIFIER_KINDS,
   type NotifierKind,
 } from "./notifier-kind.js";
-export { shouldNotify } from "./notification-policy.js";
-export type { Notifier } from "./notifier.js";
+export type { NotificationRequest, Notifier } from "./notifier.js";
 export {
   formatOsNotification,
   OS_NOTIFICATION_MESSAGE_LIMIT,

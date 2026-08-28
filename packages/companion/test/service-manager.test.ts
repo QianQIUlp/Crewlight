@@ -290,4 +290,58 @@ describe("desktop daemon service manager", () => {
       phase: "stopped",
     });
   });
+
+  it("queues a start requested while stopping until the old child exits", async () => {
+    const firstChild = new FakeChild();
+    const secondChild = new FakeChild();
+    childProcessMocks.spawn
+      .mockReturnValueOnce(firstChild)
+      .mockReturnValueOnce(secondChild);
+    const manager = createDaemonServiceManager(cli, settings);
+    const started = manager.start(settings);
+    emitReady(firstChild);
+    await expect(started).resolves.toBe(true);
+
+    const stopped = manager.stop();
+    const restarted = manager.start(settings);
+    expect(childProcessMocks.spawn).toHaveBeenCalledOnce();
+
+    firstChild.emit("exit", 0, "SIGTERM");
+    await expect(stopped).resolves.toBe(true);
+    for (let index = 0; index < 8; index += 1) {
+      await Promise.resolve();
+    }
+    expect(childProcessMocks.spawn).toHaveBeenCalledTimes(2);
+
+    emitReady(secondChild);
+    await expect(restarted).resolves.toBe(true);
+    expect(manager.snapshot()).toMatchObject({
+      phase: "running",
+      managed: true,
+      pid: 4321,
+    });
+  });
+
+  it("does not restart a queued start while disposing", async () => {
+    const child = new FakeChild();
+    childProcessMocks.spawn.mockReturnValue(child);
+    const manager = createDaemonServiceManager(cli, settings);
+    const started = manager.start(settings);
+    emitReady(child);
+    await expect(started).resolves.toBe(true);
+
+    const stopped = manager.stop();
+    const queuedStart = manager.start(settings);
+    const disposed = manager.dispose();
+    child.emit("exit", 0, "SIGTERM");
+
+    await expect(stopped).resolves.toBe(true);
+    await expect(queuedStart).resolves.toBe(false);
+    await expect(disposed).resolves.toBeUndefined();
+    expect(childProcessMocks.spawn).toHaveBeenCalledOnce();
+    expect(manager.snapshot()).toMatchObject({
+      phase: "stopped",
+      managed: false,
+    });
+  });
 });

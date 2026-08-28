@@ -11,10 +11,9 @@ function dashboardSession() {
     lastEventAt: 2_000,
     lastEventAgeMs: 1_000,
     durationMs: 1_000,
-    isStale: false,
     displayName: "Codex",
     displayWorkspace: "Crewlight",
-    attention: "action",
+    priority: "needs_action",
     actionKind: "permission",
     taskTitle: "Review companion",
     activityLabel: "Permission requested",
@@ -111,7 +110,7 @@ describe("dashboard response sanitization", () => {
         sessions: [
           {
             ...dashboardSession(),
-            attention: "passive",
+            priority: "active",
           },
         ],
       }),

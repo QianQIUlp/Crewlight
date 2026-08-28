@@ -57,6 +57,50 @@ describe("SessionStore", () => {
     expect(failed.completedAt).toBe(200);
   });
 
+  it("does not extend a completed visibility window for a repeated terminal event", () => {
+    const store = new SessionStore();
+    const first = store.apply({
+      ...event("completed", 200, "first"),
+      id: "stable:completed-first",
+    });
+    const repeated = store.apply({
+      ...event("completed", 400, "duplicate report"),
+      id: "stable:completed-second",
+    });
+
+    expect(first.completedAt).toBe(200);
+    expect(repeated.completedAt).toBe(200);
+    expect(repeated.lastEventAt).toBe(400);
+  });
+
+  it("protects rate limited sessions from idle and reopens on active work", () => {
+    const store = new SessionStore();
+    const limited = store.apply(event("rate_limited", 200, "slow down"));
+    expect(store.apply(event("idle", 300))).toEqual(limited);
+
+    const reopened = store.apply(event("running", 400, "retrying"));
+    expect(reopened.status).toBe("running");
+    expect(reopened.startedAt).toBe(400);
+    expect(reopened).not.toHaveProperty("completedAt");
+  });
+
+  it("retains the first rate-limit timestamp across repeated terminal-like reports", () => {
+    const store = new SessionStore();
+    const first = store.apply({
+      ...event("rate_limited", 200, "slow down"),
+      id: "stable:rate-limit-first",
+    });
+    const repeated = store.apply({
+      ...event("rate_limited", 400, "still limited"),
+      id: "stable:rate-limit-second",
+    });
+
+    expect(first.completedAt).toBe(200);
+    expect(repeated.completedAt).toBe(200);
+    expect(repeated.lastEventAt).toBe(400);
+    expect(repeated.error).toBe("still limited");
+  });
+
   it.each(["completed", "failed"] as const)(
     "does not hide a %s terminal state with newer idle or unknown events",
     (terminalStatus) => {

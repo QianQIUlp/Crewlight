@@ -34,7 +34,7 @@ Review the server fingerprint and let OpenSSH add the verified key to `known_hos
 ## Connect from Crewlight Desktop
 
 1. Start the local Crewlight service.
-2. Open **Settings → Remote**.
+2. Open **Settings → Remote Beta**.
 3. Select **Scan** to reload marked hosts.
 4. Select **Connect** for the host.
 
@@ -44,7 +44,10 @@ Rescanning removes connections whose marked host block was removed or materially
 
 The remote host must have the `crewlight` CLI on `PATH`. Crewlight Desktop does not install it automatically and Crewlight does not publish an npm-installable CLI package.
 
-If the desktop app reports that the CLI is missing, open the [Crewlight releases page](https://github.com/QianQIUlp/Crewlight/releases) and download the same Crewlight version shown by the dialog for the remote operating system and architecture. CLI archive names follow these patterns:
+If the desktop app reports that the CLI is missing, use the same-version CLI
+artifact only after the corresponding GitHub Release has been published. The
+v0.5.0 candidate intentionally has no public download CTA yet. CLI archive
+names follow these patterns:
 
 - Linux/macOS: `crewlight-v<version>-<os>-<arch>.tar.gz`
 - Windows: `crewlight-v<version>-windows-<arch>.zip`

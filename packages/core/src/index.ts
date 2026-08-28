@@ -12,6 +12,16 @@ export {
 } from "./schemas.js";
 export { defaultUrgency, normalizeAgentEvent } from "./normalize-event.js";
 export {
+  ATTENTION_PRIORITY_ORDER,
+  ATTENTION_READY_WINDOW_MS,
+  ATTENTION_STALE_AFTER_MS,
+  evaluateAttention,
+  type AttentionEvaluation,
+  type AttentionInput,
+  type AttentionPriority,
+  type NotificationKind,
+} from "./attention.js";
+export {
   formatPromptPreviewTaskTitle,
   PROMPT_PREVIEW_TASK_TITLE_LIMIT,
 } from "./prompt-preview.js";

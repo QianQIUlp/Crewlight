@@ -16,7 +16,7 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.16.0
+          node-version: 22.23.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm site:check
@@ -48,52 +48,12 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 22.23.2
           cache: pnpm
           architecture: ${{ matrix.architecture }}
       - run: pnpm install --frozen-lockfile
       - run: node --version
       - run: pnpm validate
-
-  release-linux-x64:
-    name: Release artifacts (linux-x64)
-    needs: source-validation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22.x
-          cache: pnpm
-          architecture: x64
-      - run: pnpm install --frozen-lockfile
-      - name: Build and verify current-platform release artifacts
-        run: pnpm release:verify
-      - name: Record build provenance
-        run: |
-          {
-            echo "## Linux x64 release build"
-            echo '```text'
-            cat release/crewlight-v0.5.0-linux-x64/BUILD-INFO.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: crewlight-v0.5.0-linux-x64
-          if-no-files-found: error
-          path: |
-            release/crewlight-v0.5.0-linux-x64.tar.gz
-            release/crewlight-v0.5.0-linux-x64.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
-        with:
-          name: crewlight-v0.5.0-linux-x64-desktop
-          if-no-files-found: error
-          path: |
-            release/desktop-builder/Crewlight-*.AppImage
-            release/desktop-builder/Crewlight-*.deb
 
   release-windows-x64:
     name: Release artifacts (windows-x64)
@@ -106,10 +66,16 @@ jobs:
           version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
+          node-version: 22.23.2
           cache: pnpm
           architecture: x64
       - run: pnpm install --frozen-lockfile
+      - id: version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - run: pnpm release:node-runtime
       - name: Build and verify current-platform release artifacts
         run: pnpm release:verify
       - name: Record build provenance
@@ -118,70 +84,60 @@ jobs:
           @(
             "## Windows x64 release build"
             '```text'
-            (Get-Content release/crewlight-v0.5.0-windows-x64/BUILD-INFO.txt -Raw)
+            (Get-Content release/crewlight-v${{ steps.version.outputs.value }}-windows-x64/BUILD-INFO.txt -Raw)
             '```'
           ) | Add-Content $env:GITHUB_STEP_SUMMARY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-windows-x64
+          name: crewlight-v${{ steps.version.outputs.value }}-windows-x64
           if-no-files-found: error
           path: |
-            release/crewlight-v0.5.0-windows-x64.zip
-            release/crewlight-v0.5.0-windows-x64.zip.sha256
-      - uses: actions/upload-artifact@v4
+            release/crewlight-v${{ steps.version.outputs.value }}-windows-x64.zip
+            release/crewlight-v${{ steps.version.outputs.value }}-windows-x64.zip.sha256
+            release/release-manifest.json
+      - uses: actions/upload-artifact@v7
         with:
-          name: crewlight-v0.5.0-windows-x64-desktop
+          name: crewlight-v${{ steps.version.outputs.value }}-windows-x64-desktop
           if-no-files-found: error
           path: |
-            release/crewlight-v0.5.0-windows-x64-desktop.zip
-            release/desktop-builder/Crewlight-Setup-v0.5.0.exe
+            release/crewlight-v${{ steps.version.outputs.value }}-windows-x64-desktop.zip
+            release/crewlight-v${{ steps.version.outputs.value }}-windows-x64-desktop.zip.sha256
+            release/desktop-builder/crewlight-v${{ steps.version.outputs.value }}-windows-x64-installer.exe
+            release/desktop-builder/crewlight-v${{ steps.version.outputs.value }}-windows-x64-installer.exe.sha256
 
-  release-macos:
-    name: Release artifacts (${{ matrix.target }})
-    needs: source-validation
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: macos-arm64
-            os: macos-15
-            architecture: arm64
-          - target: macos-x64
-            os: macos-15-intel
-            architecture: x64
-    runs-on: ${{ matrix.os }}
+  release-gate:
+    name: Windows release evidence
+    needs: release-windows-x64
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.11.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.x
-          cache: pnpm
-          architecture: ${{ matrix.architecture }}
-      - run: pnpm install --frozen-lockfile
-      - name: Build and verify current-platform release artifacts
-        run: pnpm release:verify
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      - name: Record build provenance
+          node-version: 22.23.2
+      - name: Prepare fresh release directory
+        shell: pwsh
         run: |
-          {
-            echo "## ${{ matrix.target }} release build"
-            echo '```text'
-            cat release/crewlight-v0.5.0-${{ matrix.target }}/BUILD-INFO.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+          Remove-Item release -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path release | Out-Null
+      - uses: actions/download-artifact@v4
         with:
-          name: crewlight-v0.5.0-${{ matrix.target }}
-          if-no-files-found: error
-          path: |
-            release/crewlight-v0.5.0-${{ matrix.target }}.tar.gz
-            release/crewlight-v0.5.0-${{ matrix.target }}.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
-        with:
-          name: crewlight-v0.5.0-${{ matrix.target }}-desktop
-          if-no-files-found: error
-          path: release/desktop-builder/Crewlight-0.5.0-${{ matrix.architecture }}.dmg
+          pattern: crewlight-v*-windows-x64*
+          path: release
+          merge-multiple: true
+      - run: node scripts/release-manifest.mjs --verify
+        env:
+          CREWLIGHT_RELEASE_AGGREGATE: "true"
+      - name: Verify downloaded Portable structure
+        shell: pwsh
+        run: |
+          $archives = @(Get-ChildItem release/crewlight-v*-windows-x64-desktop.zip)
+          if ($archives.Count -ne 1) {
+            throw "Expected exactly one Windows Portable archive, found $($archives.Count)."
+          }
+          $destination = Join-Path $env:RUNNER_TEMP "crewlight-portable"
+          Expand-Archive -LiteralPath $archives[0].FullName -DestinationPath $destination
+          foreach ($name in @("Crewlight.exe", "resources/app.asar", "resources/crewlight-cli/crewlight.exe")) {
+            if (-not (Test-Path -LiteralPath (Join-Path $destination $name))) {
+              throw "Downloaded Portable archive is missing $name."
+            }
+          }

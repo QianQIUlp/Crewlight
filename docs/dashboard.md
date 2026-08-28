@@ -1,7 +1,7 @@
 # Browser Dashboard
 
 The browser dashboard remains a local, loopback-only, read-only surface, but it
-is secondary in v0.4.0. Crewlight Desktop is now the primary user-facing
+is secondary in v0.5.0. Crewlight Desktop is now the primary user-facing
 product surface.
 
 ## When To Use It
@@ -54,5 +54,5 @@ Those six sessions are synthetic local demo data only.
 - No cloud service
 - No prompts, transcripts, or tool I/O in the dashboard API
 - No mutation API
-- No SSE or WebSocket in v0.4.0
+- No SSE or WebSocket in v0.5.0
 - No non-loopback binding

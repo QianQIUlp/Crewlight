@@ -1,7 +1,7 @@
 import { normalizeAgentEvent, SessionStore } from "@crewlight/core";
 import { describe, expect, it } from "vitest";
 
-import { ConsoleNotifier, shouldNotify } from "../src/index.js";
+import { ConsoleNotifier } from "../src/index.js";
 
 function event(status: "completed" | "running") {
   return normalizeAgentEvent({
@@ -15,9 +15,16 @@ function event(status: "completed" | "running") {
 }
 
 describe("console notification policy", () => {
-  it("notifies for actionable states and suppresses running", () => {
-    expect(shouldNotify(event("completed"))).toBe(true);
-    expect(shouldNotify(event("running"))).toBe(false);
+  it("formats the notification request kind without owning policy", () => {
+    const completed = event("completed");
+    const session = new SessionStore().apply(completed);
+    const lines: string[] = [];
+    new ConsoleNotifier((line) => lines.push(line)).notify({
+      event: completed,
+      kind: "ready",
+      session,
+    });
+    expect(lines[0]).toContain("Ready for review");
   });
 
   it("prints only the normalized safe event", () => {
@@ -26,7 +33,11 @@ describe("console notification policy", () => {
     const store = new SessionStore();
     const completed = event("completed");
 
-    notifier.notify(completed, store.apply(completed));
+    notifier.notify({
+      event: completed,
+      kind: "ready",
+      session: store.apply(completed),
+    });
 
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain("completed message");
@@ -40,16 +51,17 @@ describe("console notification policy", () => {
     const store = new SessionStore();
     const session = store.apply(completed);
 
-    notifier.notify(
-      {
+    notifier.notify({
+      event: {
         ...completed,
         message: `unsafe\u001b[31m\u009b\n${"detail".repeat(1_000)}`,
       },
-      {
+      kind: "ready",
+      session: {
         ...session,
         workspaceName: `remote\r\n\u2028workspace${"x".repeat(2_000)}`,
       },
-    );
+    });
 
     expect(lines).toHaveLength(1);
     expect(lines[0]).not.toMatch(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/u);

@@ -1,6 +1,7 @@
 # Crewlight Architecture
 
-Crewlight is a local event normalization and session aggregation service.
+Crewlight is a local Agent Attention Inbox: it normalizes safe event fields and
+aggregates concurrent sessions without controlling agents.
 Platform integrations observe documented or explicitly bounded activity,
 translate it to `AgentEventInput`, and submit it to the daemon.
 
@@ -24,9 +25,10 @@ Claude hook / Codex notify / Cursor bridge / wrapper / manual emit
                     +----------+----------+
                     |                     |
                     v                     v
-              SessionStore        selected Notifier
-                    |             /      |       \
-                    v        console     OS      none
+              SessionStore        Attention Engine
+                    |              |       |          |
+                    v              v       v          v
+              dashboard       Companion  console      OS/none
               GET /sessions
               GET /dashboard      (only with --dashboard)
               GET /dashboard/api  (only with --dashboard)
@@ -41,8 +43,8 @@ notification policy, UI, or platform permission decisions.
   in-memory session aggregation.
 - `@crewlight/daemon`: local HTTP receiver, process-lifetime state, optional
   browser dashboard, and daemon configuration.
-- `@crewlight/notifier`: notification policy plus console, OS, and no-op
-  outputs.
+- `@crewlight/notifier`: safe console, OS, and no-op outputs. Attention policy
+  lives only in `@crewlight/core`.
 - `@crewlight/adapter-claude-code`: documented Claude Code hook translation.
 - `@crewlight/adapter-codex`: documented Codex external notify translation.
 - `@crewlight/adapter-cursor`: manual, experimental Cursor bridge
@@ -76,16 +78,27 @@ namespaced by source and surface. Without a session ID, normalized project path
 is used as a stable fallback.
 
 Active states are `running`, `using_tool`, `waiting_input`, and
-`waiting_permission`. Terminal states are `completed` and `failed`.
-`rate_limited` is retained as reported state but is not used as a generic
-terminal transition by the store.
+`waiting_permission`. Terminal-like states are `completed`, `failed`, and
+`rate_limited`. A terminal-like session cannot be hidden by `idle` or
+`unknown`; active activity can reopen it. Repeated terminal events do not
+refresh its ready window.
 
-Claude Code `SessionEnd` is ignored in v0.2. A stateless adapter cannot know
+Claude Code `SessionEnd` remains ignored. A stateless adapter cannot know
 whether sending `idle` would overwrite a more useful `completed`, `failed`, or
 `rate_limited` state already held by the daemon.
 
-The daemon retains sessions in memory for its process lifetime. There is no
-persistence, retention limit, or garbage collection.
+The daemon retains at most 1,000 sessions and 100,000 stable event IDs in
+memory for its process lifetime. There is no persisted history.
+
+## Attention contract
+
+`evaluateAttention` is the single policy used by service, dashboard, Desktop,
+Companion, and local/remote sessions. It maps waiting states to
+`needs_action`, failures and rate limits to `error`, five-minute-silent active
+states to `stale`, recent completed turns to `ready`, and expired/idle/unknown
+states to `hidden`. Notifications occur only when entering a notification
+state; duplicate IDs, duplicate terminal events, and time-only stale/hidden
+changes do not notify.
 
 ## Runtime interfaces
 

@@ -1,7 +1,5 @@
-import type { AgentEvent, AgentSession } from "@crewlight/core";
-
 import type { Notifier } from "./notifier.js";
-import { shouldNotify } from "./notification-policy.js";
+import type { NotificationRequest } from "./notifier.js";
 
 export const OS_NOTIFICATION_TITLE_LIMIT = 80;
 export const OS_NOTIFICATION_MESSAGE_LIMIT = 200;
@@ -112,20 +110,22 @@ export async function probeOsNotifier(
 }
 
 export function formatOsNotification(
-  event: AgentEvent,
-  session: AgentSession,
+  request: NotificationRequest,
 ): OsNotification {
+  const { event, kind, session } = request;
   const location =
     session.workspaceName ?? session.projectPath ?? session.sessionKey;
   const detail = event.message ?? event.title ?? event.status;
 
-  return {
+  const notification: OsNotification = {
     title: truncate(
-      `Crewlight · ${event.source} · ${event.status}`,
+      `Crewlight · ${event.source} · ${notificationLabel(kind)}`,
       OS_NOTIFICATION_TITLE_LIMIT,
     ),
     message: truncate(`${location}: ${detail}`, OS_NOTIFICATION_MESSAGE_LIMIT),
   };
+  notification.title = notificationLabel(kind);
+  return notification;
 }
 
 export class OsNotifier implements Notifier {
@@ -140,12 +140,8 @@ export class OsNotifier implements Notifier {
     this.#warning = options.warning ?? console.warn;
   }
 
-  async notify(event: AgentEvent, session: AgentSession): Promise<void> {
-    if (!shouldNotify(event)) {
-      return;
-    }
-
-    const notification = formatOsNotification(event, session);
+  async notify(request: NotificationRequest): Promise<void> {
+    const notification = formatOsNotification(request);
 
     await new Promise<void>((resolve) => {
       let settled = false;
@@ -238,5 +234,20 @@ export class OsNotifier implements Notifier {
     } catch {
       // Warning output must never turn a notification failure into ingest failure.
     }
+  }
+}
+
+function notificationLabel(kind: NotificationRequest["kind"]): string {
+  switch (kind) {
+    case "input":
+      return "Input needed";
+    case "permission":
+      return "Permission needed";
+    case "failed":
+      return "Agent failed";
+    case "rate_limit":
+      return "Rate limited";
+    case "ready":
+      return "Ready for review";
   }
 }

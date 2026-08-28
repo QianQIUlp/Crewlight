@@ -122,7 +122,7 @@ if (mode === "portable" || mode === "windows") {
       "-NoProfile",
       "-NonInteractive",
       "-Command",
-      "Compress-Archive -Path $env:CREWLIGHT_STAGING -DestinationPath $env:CREWLIGHT_ARCHIVE -CompressionLevel Optimal -Force",
+      "Compress-Archive -Path (Join-Path $env:CREWLIGHT_STAGING '*') -DestinationPath $env:CREWLIGHT_ARCHIVE -CompressionLevel Optimal -Force",
     ],
     root,
     {
@@ -136,7 +136,7 @@ if (mode === "portable" || mode === "windows") {
 if (mode === "installer" || mode === "windows") {
   const installerArtifact = join(
     builderOutput,
-    `Crewlight-Setup-v${version}.exe`,
+    `crewlight-v${version}-windows-x64-installer.exe`,
   );
   runPnpm(
     [

@@ -1,7 +1,7 @@
 import { createConnection } from "node:net";
 
-import type { AgentEvent, AgentSession } from "@crewlight/core";
-import { OsNotifier, type Notifier } from "@crewlight/notifier";
+import type { NotificationRequest, Notifier } from "@crewlight/notifier";
+import { OsNotifier } from "@crewlight/notifier";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -14,7 +14,7 @@ import {
 } from "../src/index.js";
 
 class SilentNotifier implements Notifier {
-  notify(_event: AgentEvent, _session: AgentSession): void {}
+  notify(_request: NotificationRequest): void {}
 }
 
 let instance: DaemonInstance | undefined;
@@ -537,10 +537,9 @@ describe("daemon HTTP server", () => {
       displayName: "Custom",
       displayWorkspace: "safe-project",
       taskTitle: "Review dashboard output",
-      activityLabel: "Session completed",
+      activityLabel: "Turn finished",
       durationMs: 4_000,
-      attention: "done",
-      isStale: false,
+      priority: "hidden",
     });
     expect(completedSession?.shortSessionKey).toBe(
       String(completedSession?.sessionKey).slice(-8),
@@ -555,8 +554,7 @@ describe("daemon HTTP server", () => {
       identityLine: `Stale workspace · Cloud · #${String(
         staleSession?.shortSessionKey,
       )}`,
-      isStale: true,
-      staleReason: "No event for at least 2 minutes.",
+      priority: "hidden",
     });
     expect(staleSession).not.toHaveProperty("taskTitle");
     expect(staleSession).toMatchObject({

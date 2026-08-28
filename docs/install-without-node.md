@@ -1,40 +1,46 @@
 # Install Crewlight Without Node.js
 
-Crewlight v0.4.0 is desktop-first on Windows. The primary ordinary-user path is
-the portable Windows desktop app, with the unsigned installer as a secondary
-convenience artifact.
+Crewlight v0.5.0 is a Windows-first Attention Inbox candidate. Local packaged
+Portable acceptance is recorded on the tested Windows Server 2025 host. The
+artifacts remain unsigned. Claude Code/Codex setup remains a manual product
+instruction; acceptance used read-only fixed-path inspection with no automatic
+config write. v0.4.0 was an archived prototype and did not publish a portable
+Desktop ZIP.
 
 ## Windows Desktop
 
-Primary download:
+Published v0.5.0 prerelease assets:
 
-- `crewlight-v0.4.0-windows-x64-desktop.zip`
-
-Secondary installer:
-
-- `Crewlight-Setup-v0.4.0.exe`
+- `crewlight-v0.5.0-windows-x64-desktop.zip` (Portable)
+- `crewlight-v0.5.0-windows-x64-installer.exe` (Installer)
 
 Portable desktop flow:
 
-1. Extract `crewlight-v0.4.0-windows-x64-desktop.zip`
-2. Open the extracted folder
-3. Double-click `Crewlight.exe`
-4. Use the onboarding flow to start the local service, run the demo, and show
-   the companion
+1. Download the exact asset named by the published `release-manifest.json`.
+2. Verify its adjacent `.sha256` sidecar.
+3. Extract `crewlight-v0.5.0-windows-x64-desktop.zip`.
+4. Open the extracted folder and double-click `Crewlight.exe`.
+5. Use onboarding to start the local service, choose Claude Code or Codex,
+   copy and manually merge the setup snippet, check its status, trust the hook
+   definition, and run a real turn. Demo data is optional and does not complete
+   onboarding.
 
 The desktop package includes the Electron app, the bundled local Crewlight CLI
-resource used for daemon control and setup actions, and the desktop UI assets.
+resource used for daemon control, snippet generation, and diagnostics, plus the
+desktop UI assets.
 Users do not need Node.js, pnpm, Corepack, or the source repository.
 
 ## CLI Standalone Artifacts
 
-The CLI artifacts still exist for advanced usage:
+The Windows standalone artifact is available for advanced usage:
 
-- `crewlight-v0.4.0-linux-x64.tar.gz`
-- `crewlight-v0.4.0-windows-x64.zip`
+- `crewlight-v0.5.0-windows-x64.zip`
 
 Use them for scripting, hook integration, manual ingest, CI, or daemon-only
 workflows.
+
+Linux/macOS remain source-validation targets and do not have v0.5 native
+release assets.
 
 ## Browser Dashboard
 
@@ -47,9 +53,14 @@ not need to open it to experience Crewlight.
 Desktop verification remains a GUI step:
 
 - `Crewlight.exe` launches the main window
-- the app can start, stop, and restart the local service
-- the demo populates Home, Demo, and Companion
+- the app can start and stop the local service
+- a real Codex-shaped event reaches the local Inbox
+- onboarding completes
+- the optional demo populates deterministic sessions in Home and Companion
 - the floating companion can be shown from the desktop app
+- Claude Code and Codex fixed paths are inspected read-only; no automatic config
+  write occurs
+- no raw work content is retained or exposed
 
 CLI standalone verification remains covered by the existing standalone smoke
 tests and Windows CI job.

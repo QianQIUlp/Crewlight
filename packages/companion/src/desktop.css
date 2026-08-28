@@ -11,6 +11,7 @@
   --panel-strong: #141f29;
   --panel-muted: #0d1620;
   --panel-hover: #18232f;
+  --sidebar-surface: linear-gradient(180deg, #0d151d 0%, #0a1118 100%);
 
   /* ── Borders ──────────────────────────────────────────────── */
   --line: rgba(148, 190, 210, 0.1);
@@ -73,6 +74,7 @@ body[data-theme="light"] {
   --panel-strong: #fafcfe;
   --panel-muted: #eef4f8;
   --panel-hover: #f4f9fc;
+  --sidebar-surface: linear-gradient(180deg, #f8fbfd 0%, #edf4f7 100%);
   --line: rgba(40, 80, 100, 0.09);
   --line-strong: rgba(40, 80, 100, 0.17);
   --line-accent: rgba(30, 155, 135, 0.28);
@@ -110,6 +112,7 @@ body[data-theme="light"] {
     --panel-strong: #fafcfe;
     --panel-muted: #eef4f8;
     --panel-hover: #f4f9fc;
+    --sidebar-surface: linear-gradient(180deg, #f8fbfd 0%, #edf4f7 100%);
     --line: rgba(40, 80, 100, 0.09);
     --line-strong: rgba(40, 80, 100, 0.17);
     --line-accent: rgba(30, 155, 135, 0.28);
@@ -191,9 +194,21 @@ body:not([data-density="compact"]) {
 html,
 body {
   margin: 0;
-  min-width: 1024px;
+  min-width: 0;
   min-height: 100%;
   color: var(--text);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#lg-svg-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* ── Inter font import ──────────────────────────────────────── */
@@ -241,8 +256,10 @@ input:focus-visible {
 ══════════════════════════════════════════════════════════════ */
 .app-shell {
   display: grid;
-  grid-template-columns: 256px minmax(0, 1fr);
-  min-height: 100vh;
+  grid-template-columns: 248px minmax(0, 1fr);
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
@@ -253,7 +270,7 @@ input:focus-visible {
   padding: var(--space-5) var(--space-4);
   border-inline-end: 1px solid var(--line);
   /* Background is transparent — the ::before liquid glass layer handles it */
-  background: transparent;
+  background: var(--sidebar-surface);
   position: sticky;
   top: 0;
   height: 100vh;
@@ -301,6 +318,11 @@ input:focus-visible {
   );
 }
 
+.sidebar::before,
+.sidebar::after {
+  display: none;
+}
+
 /* Ensure all sidebar children render above the glass layers */
 .sidebar > * {
   position: relative;
@@ -318,50 +340,11 @@ input:focus-visible {
 }
 
 .product-mark {
-  position: relative;
-  display: grid;
   width: 46px;
   height: 46px;
-  place-items: center;
-  border-radius: 14px;
-  background: linear-gradient(
-    145deg,
-    rgba(80, 210, 190, 0.22),
-    rgba(80, 210, 190, 0.06)
-  );
-  border: 1px solid var(--line-accent);
-  box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.12),
-    var(--glow-accent);
-}
-
-.product-mark::before,
-.product-mark::after,
-.product-mark span {
-  position: absolute;
-  height: 2.5px;
-  border-radius: 3px;
-  background: var(--accent);
-  content: "";
-  box-shadow: 0 0 6px var(--accent);
-}
-
-.product-mark::before {
-  left: 9px;
-  width: 8px;
-  transform: rotate(54deg);
-}
-
-.product-mark span {
-  left: 17px;
-  width: 12px;
-  transform: rotate(-64deg);
-}
-
-.product-mark::after {
-  right: 9px;
-  width: 9px;
-  transform: rotate(42deg);
+  border-radius: 11px;
+  object-fit: contain;
+  box-shadow: var(--shadow-sm);
 }
 
 .brand-lockup h1 {
@@ -395,7 +378,22 @@ input:focus-visible {
 /* ── Sidebar nav ─────────────────────────────────────────────── */
 .sidebar-nav {
   display: grid;
+  gap: var(--space-3);
+}
+
+.nav-group {
+  display: grid;
   gap: 3px;
+}
+
+.nav-group-label {
+  margin: 0 0 0.3rem;
+  padding-inline: 0.85rem;
+  color: var(--quiet);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .nav-button {
@@ -469,8 +467,17 @@ input:focus-visible {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-5);
-  min-height: 100vh;
+  min-width: 0;
+  height: 100vh;
+  padding: var(--space-4) var(--space-5);
+  overflow: hidden;
+}
+
+#app-content {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 /* ── Topbar ──────────────────────────────────────────────────── */
@@ -620,14 +627,23 @@ input:focus-visible {
 .section-view,
 .onboarding-shell {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.section-view {
+  height: 100%;
+  padding: 2px 8px var(--space-5) 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-content: start;
 }
 
 .home-grid,
 .panel-grid.two-up {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
 .metric-grid {
@@ -646,9 +662,9 @@ input:focus-visible {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 16px;
   background: var(--panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   transition:
     border-color 200ms ease,
     box-shadow 200ms ease,
@@ -658,7 +674,7 @@ input:focus-visible {
 .hero-card,
 .panel-card,
 .onboarding-card {
-  padding: var(--space-5);
+  padding: var(--space-4);
 }
 
 /* Subtle top gloss on all cards */
@@ -1183,20 +1199,41 @@ input:focus-visible {
 
 /* ── Onboarding ──────────────────────────────────────────────── */
 .onboarding-progress {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.65rem;
 }
 
 .onboarding-step {
-  display: grid;
-  gap: 0.35rem;
-  padding: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.025);
   transition:
     border-color 180ms ease,
     background-color 180ms ease;
+}
+
+.onboarding-step strong {
+  min-width: 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.onboarding-step-number {
+  display: grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .onboarding-step.active {
@@ -1593,4 +1630,90 @@ button.text-link-button {
 
 button.text-link-button:hover {
   opacity: 0.8;
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 196px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .brand-lockup {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .product-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+  }
+
+  .brand-eyebrow,
+  .brand-copy,
+  .sidebar-footer {
+    display: none;
+  }
+
+  .brand-lockup h1 {
+    font-size: 1rem;
+  }
+
+  .nav-button {
+    padding: 0.62rem 0.7rem;
+    font-size: 0.82rem;
+  }
+
+  .main-shell {
+    padding: var(--space-3);
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .topbar-meta {
+    max-width: 45%;
+  }
+
+  .home-grid,
+  .panel-grid.two-up {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .onboarding-card {
+    padding: var(--space-4);
+  }
+}
+
+@media (max-width: 680px) {
+  .app-shell {
+    grid-template-columns: 168px minmax(0, 1fr);
+  }
+
+  .topbar {
+    display: grid;
+  }
+
+  .topbar-meta {
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .page-subtitle,
+  .last-updated {
+    display: none;
+  }
+
+  .metric-grid,
+  .integration-grid,
+  .session-grid,
+  .remote-grid,
+  .onboarding-progress {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

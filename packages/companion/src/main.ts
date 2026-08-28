@@ -71,6 +71,10 @@ import {
   type ManagedServiceState,
 } from "./service-manager.js";
 import {
+  inspectIntegration,
+  type InspectableIntegration,
+} from "./integration-installer.js";
+import {
   parseCrewlightRemoteHosts,
   type SshConfigHost,
 } from "./ssh-config-parser.js";
@@ -471,9 +475,20 @@ function publishDesktopState(): void {
 }
 
 function refreshViewModels(): void {
+  const companionSessions =
+    latestSnapshot.kind === "online"
+      ? latestSnapshot.data.sessions.filter(
+          (session) =>
+            !(
+              session.priority === "ready" &&
+              preferences.readyDismissedBefore !== undefined &&
+              session.lastEventAt <= preferences.readyDismissedBefore
+            ),
+        )
+      : undefined;
   latestCompanionViewModel = deriveCompanionViewModel(
     latestSnapshot.kind === "online"
-      ? { kind: "online", data: { sessions: latestSnapshot.data.sessions } }
+      ? { kind: "online", data: { sessions: companionSessions ?? [] } }
       : latestSnapshot,
     Date.now(),
     currentCompanionWindowState(),
@@ -711,6 +726,7 @@ function createDesktopWindow(): BrowserWindow {
     minWidth: 980,
     minHeight: 680,
     backgroundColor: "#091117",
+    icon: join(outputDirectory, "crewlight-icon.png"),
     show: false,
     title: "Crewlight Desktop",
     webPreferences: {
@@ -754,6 +770,7 @@ function createCompanionWindow(): BrowserWindow {
     ...companionBounds(COMPANION_COMPACT_SIZE),
     alwaysOnTop: true,
     backgroundColor: "#00000000",
+    icon: join(outputDirectory, "crewlight-icon.png"),
     frame: false,
     maximizable: false,
     minimizable: false,
@@ -916,6 +933,42 @@ async function runDemo(): Promise<boolean> {
   return true;
 }
 
+function isInspectableIntegration(
+  value: unknown,
+): value is InspectableIntegration {
+  return value === "claude-code" || value === "codex";
+}
+
+async function handleIntegrationAction(
+  action: Extract<DesktopAction, { type: "integration:inspect" }>,
+): Promise<boolean> {
+  if (!isInspectableIntegration(action.integration)) {
+    return false;
+  }
+  const options = {
+    platform: process.platform,
+    snippets: setupBase,
+  };
+  const result = await inspectIntegration(action.integration, options);
+  if (result.status === "configured") {
+    await updatePreferences({
+      integrationSetupCompleted: true,
+      preferredIntegration: action.integration,
+    });
+  }
+  setNotice(
+    result.status === "configured"
+      ? "success"
+      : result.status === "error" || result.status === "conflict"
+        ? "error"
+        : "info",
+    result.status === "configured"
+      ? `${action.integration === "codex" ? "Codex" : "Claude Code"} integration is configured.`
+      : result.message,
+  );
+  return result.status !== "error";
+}
+
 async function applyServiceSettingUpdate(
   partial: Partial<DesktopRuntimeSettings>,
 ): Promise<boolean> {
@@ -952,6 +1005,17 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
   }
   if (action.type === "demo:run") {
     return await runDemo();
+  }
+  if (action.type === "home:clear-ready") {
+    await updatePreferences({ readyDismissedBefore: Date.now() });
+    setNotice(
+      "info",
+      "Ready turns before now are hidden from Home; new turns will still appear.",
+    );
+    return true;
+  }
+  if (action.type === "integration:inspect") {
+    return await handleIntegrationAction(action);
   }
   if (action.type === "companion:show") {
     await showCompanion();
@@ -1017,6 +1081,10 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
     await updatePreferences({ density: action.density });
     return true;
   }
+  if (action.type === "preferences:set-locale") {
+    await updatePreferences({ locale: action.locale });
+    return true;
+  }
   if (action.type === "preferences:set-last-section") {
     await updatePreferences({ lastSection: action.section });
     return true;
@@ -1065,11 +1133,26 @@ async function handleDesktopAction(action: DesktopAction): Promise<boolean> {
   if (action.type === "onboarding:start-over") {
     await updatePreferences({
       onboardingCompleted: false,
+      integrationSetupCompleted: false,
       lastSection: "home",
     });
     return true;
   }
   if (action.type === "onboarding:complete") {
+    const hasFormalRealEvent =
+      latestSnapshot.kind === "online" &&
+      latestSnapshot.data.sessions.some(
+        (session) =>
+          !session.sessionKey.includes("demo:") &&
+          (session.source === "claude-code" || session.source === "codex"),
+      );
+    if (!hasFormalRealEvent) {
+      setNotice(
+        "info",
+        "Run a real Claude Code or Codex turn first. Copied setup and demo data alone do not complete onboarding.",
+      );
+      return false;
+    }
     await updatePreferences({ onboardingCompleted: true, lastSection: "home" });
     return true;
   }

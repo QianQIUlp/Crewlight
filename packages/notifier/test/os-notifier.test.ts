@@ -29,6 +29,13 @@ function sessionFor(message = "done") {
   return { event, session: new SessionStore().apply(event) };
 }
 
+function requestFor(
+  event: ReturnType<typeof completedEvent>,
+  session: ReturnType<typeof sessionFor>["session"],
+) {
+  return { event, session, kind: "ready" as const };
+}
+
 describe("OS notifier", () => {
   it("probes module availability without sending a notification", async () => {
     let sends = 0;
@@ -56,7 +63,7 @@ describe("OS notifier", () => {
 
   it("limits notification title and message length", () => {
     const { event, session } = sessionFor("message".repeat(100));
-    const notification = formatOsNotification(event, session);
+    const notification = formatOsNotification(requestFor(event, session));
 
     expect(notification.title.length).toBeLessThanOrEqual(
       OS_NOTIFICATION_TITLE_LIMIT,
@@ -86,18 +93,8 @@ describe("OS notifier", () => {
       },
     });
     const completed = sessionFor();
-    const running = normalizeAgentEvent({
-      source: "custom",
-      surface: "manual",
-      sessionId: "running",
-      status: "running",
-    });
-
-    await notifier.notify(running, new SessionStore().apply(running));
-    expect(loads).toBe(0);
-
-    await notifier.notify(completed.event, completed.session);
-    await notifier.notify(completed.event, completed.session);
+    await notifier.notify(requestFor(completed.event, completed.session));
+    await notifier.notify(requestFor(completed.event, completed.session));
 
     expect(loads).toBe(1);
     expect(sent).toHaveLength(2);
@@ -122,7 +119,9 @@ describe("OS notifier", () => {
       warning: (warning) => warnings.push(warning),
     });
 
-    await expect(notifier.notify(event, session)).resolves.toBeUndefined();
+    await expect(
+      notifier.notify(requestFor(event, session)),
+    ).resolves.toBeUndefined();
     expect(warnings).toEqual([expected]);
     expect(warnings.join("\n")).not.toContain("module detail");
     expect(warnings[0]).toContain("crewlight daemon --notifier console");
@@ -140,7 +139,9 @@ describe("OS notifier", () => {
       warning: (warning) => warnings.push(warning),
     });
 
-    await expect(notifier.notify(event, session)).resolves.toBeUndefined();
+    await expect(
+      notifier.notify(requestFor(event, session)),
+    ).resolves.toBeUndefined();
     expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.runtime]);
     expect(warnings.join("\n")).not.toContain("runtime detail");
   });
@@ -156,7 +157,9 @@ describe("OS notifier", () => {
       warning: (warning) => warnings.push(warning),
     });
 
-    await expect(notifier.notify(event, session)).resolves.toBeUndefined();
+    await expect(
+      notifier.notify(requestFor(event, session)),
+    ).resolves.toBeUndefined();
     expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.callback]);
     expect(warnings.join("\n")).not.toContain("callback detail");
   });
@@ -170,7 +173,9 @@ describe("OS notifier", () => {
       warning: (warning) => warnings.push(warning),
     });
 
-    await expect(notifier.notify(event, session)).resolves.toBeUndefined();
+    await expect(
+      notifier.notify(requestFor(event, session)),
+    ).resolves.toBeUndefined();
     expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.timeout]);
   });
 
@@ -183,7 +188,9 @@ describe("OS notifier", () => {
       warning: (warning) => warnings.push(warning),
     });
 
-    await expect(notifier.notify(event, session)).resolves.toBeUndefined();
+    await expect(
+      notifier.notify(requestFor(event, session)),
+    ).resolves.toBeUndefined();
     expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.timeout]);
   });
 
@@ -200,7 +207,7 @@ describe("OS notifier", () => {
       warning: (warning) => warnings.push(warning),
     });
 
-    await notifier.notify(event, session);
+    await notifier.notify(requestFor(event, session));
     rejectLoader?.(new Error("late import detail"));
     await new Promise<void>((resolve) => setImmediate(resolve));
 
@@ -223,13 +230,13 @@ describe("OS notifier", () => {
       warning: (warning) => warnings.push(warning),
     });
 
-    await notifier.notify(event, session);
+    await notifier.notify(requestFor(event, session));
     resolveLoader?.({ default: {} });
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(warnings).toEqual([OS_NOTIFIER_WARNINGS.timeout]);
 
-    await notifier.notify(event, session);
+    await notifier.notify(requestFor(event, session));
     expect(loads).toBe(1);
     expect(warnings).toEqual([
       OS_NOTIFIER_WARNINGS.timeout,
@@ -248,7 +255,9 @@ describe("OS notifier", () => {
       },
     });
 
-    await expect(notifier.notify(event, session)).resolves.toBeUndefined();
+    await expect(
+      notifier.notify(requestFor(event, session)),
+    ).resolves.toBeUndefined();
   });
 });
 

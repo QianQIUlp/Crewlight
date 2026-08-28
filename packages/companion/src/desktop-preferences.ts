@@ -4,16 +4,12 @@ export const DESKTOP_PREFERENCES_VERSION = 1;
 export const DESKTOP_THEMES = ["system", "light", "dark"] as const;
 export const DESKTOP_ACCENTS = ["teal", "amber", "azure"] as const;
 export const DESKTOP_DENSITIES = ["comfortable", "compact"] as const;
+export const DESKTOP_LOCALES = ["system", "en", "zh-CN"] as const;
 export const DESKTOP_SECTIONS = [
   "home",
-  "remote",
-  "doctor",
-  "agents",
-  "companion",
-  "demo",
-  "appearance",
+  "connect",
+  "troubleshooting",
   "settings",
-  "about",
 ] as const;
 export const INTEGRATION_IDS = [
   "claude-code",
@@ -42,6 +38,7 @@ export const INTEGRATION_IDS = [
 export type DesktopTheme = (typeof DESKTOP_THEMES)[number];
 export type DesktopAccent = (typeof DESKTOP_ACCENTS)[number];
 export type DesktopDensity = (typeof DESKTOP_DENSITIES)[number];
+export type DesktopLocale = (typeof DESKTOP_LOCALES)[number];
 export type DesktopSection = (typeof DESKTOP_SECTIONS)[number];
 export type PreferredIntegration = (typeof INTEGRATION_IDS)[number];
 
@@ -57,11 +54,14 @@ export interface DesktopPreferences {
   theme: DesktopTheme;
   accent: DesktopAccent;
   density: DesktopDensity;
+  locale: DesktopLocale;
   lastSection: DesktopSection;
   companionVisibilityPreference: boolean;
   serviceAutoStart: boolean;
   preferredIntegration?: PreferredIntegration;
+  integrationSetupCompleted: boolean;
   onboardingCompleted: boolean;
+  readyDismissedBefore?: number;
   remoteHosts: RemoteHostPreference[];
 }
 
@@ -76,9 +76,11 @@ export const DEFAULT_DESKTOP_PREFERENCES: DesktopPreferences = {
   theme: "system",
   accent: "teal",
   density: "comfortable",
+  locale: "system",
   lastSection: "home",
   companionVisibilityPreference: false,
   serviceAutoStart: false,
+  integrationSetupCompleted: false,
   onboardingCompleted: false,
   remoteHosts: [],
 };
@@ -104,11 +106,42 @@ function isDensity(value: unknown): value is DesktopDensity {
   );
 }
 
+function isLocale(value: unknown): value is DesktopLocale {
+  return (
+    typeof value === "string" &&
+    (DESKTOP_LOCALES as readonly string[]).includes(value)
+  );
+}
+
 function isSection(value: unknown): value is DesktopSection {
   return (
     typeof value === "string" &&
     (DESKTOP_SECTIONS as readonly string[]).includes(value)
   );
+}
+
+const LEGACY_SECTION_MIGRATION: Record<string, DesktopSection> = {
+  agents: "connect",
+  appearance: "settings",
+  companion: "settings",
+  demo: "home",
+  doctor: "troubleshooting",
+  remote: "settings",
+  about: "settings",
+};
+
+function migrateSection(value: unknown): DesktopSection {
+  if (isSection(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (isSection(normalized)) {
+      return normalized;
+    }
+    return LEGACY_SECTION_MIGRATION[normalized] ?? "home";
+  }
+  return "home";
 }
 
 function isIntegration(value: unknown): value is PreferredIntegration {
@@ -159,9 +192,10 @@ export function sanitizeDesktopPreferences(value: unknown): DesktopPreferences {
     density: isDensity(value.density)
       ? value.density
       : DEFAULT_DESKTOP_PREFERENCES.density,
-    lastSection: isSection(value.lastSection)
-      ? value.lastSection
-      : DEFAULT_DESKTOP_PREFERENCES.lastSection,
+    locale: isLocale(value.locale)
+      ? value.locale
+      : DEFAULT_DESKTOP_PREFERENCES.locale,
+    lastSection: migrateSection(value.lastSection),
     companionVisibilityPreference:
       typeof value.companionVisibilityPreference === "boolean"
         ? value.companionVisibilityPreference
@@ -173,10 +207,19 @@ export function sanitizeDesktopPreferences(value: unknown): DesktopPreferences {
     ...(isIntegration(value.preferredIntegration)
       ? { preferredIntegration: value.preferredIntegration }
       : {}),
+    integrationSetupCompleted:
+      typeof value.integrationSetupCompleted === "boolean"
+        ? value.integrationSetupCompleted
+        : DEFAULT_DESKTOP_PREFERENCES.integrationSetupCompleted,
     onboardingCompleted:
       typeof value.onboardingCompleted === "boolean"
         ? value.onboardingCompleted
         : DEFAULT_DESKTOP_PREFERENCES.onboardingCompleted,
+    ...(typeof value.readyDismissedBefore === "number" &&
+    Number.isFinite(value.readyDismissedBefore) &&
+    value.readyDismissedBefore >= 0
+      ? { readyDismissedBefore: value.readyDismissedBefore }
+      : {}),
     remoteHosts,
   };
 }

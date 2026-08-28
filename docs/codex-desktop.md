@@ -33,7 +33,8 @@ events and payloads as Codex CLI.
 ## Manual verification checklist
 
 1. Start the Crewlight daemon and dashboard.
-2. Install the generated Codex hooks in a trusted config layer.
+2. Copy and manually merge the generated Codex hooks into a trusted config
+   layer.
 3. Review and trust the exact hook commands in Codex.
 4. Open Codex Desktop on the same repository.
 5. Trigger a minimal prompt.

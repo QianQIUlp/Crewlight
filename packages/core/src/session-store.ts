@@ -7,7 +7,11 @@ const ACTIVE_STATUSES = new Set<AgentStatus>([
   "waiting_permission",
 ]);
 
-const TERMINAL_STATUSES = new Set<AgentStatus>(["completed", "failed"]);
+const TERMINAL_LIKE_STATUSES = new Set<AgentStatus>([
+  "completed",
+  "failed",
+  "rate_limited",
+]);
 const TERMINAL_HIDING_STATUSES = new Set<AgentStatus>(["idle", "unknown"]);
 const RECENT_EVENT_ID_LIMIT = 32;
 const DEFAULT_SESSION_LIMIT = 1_000;
@@ -61,17 +65,19 @@ export class SessionStore {
         ? stableEventIds?.has(event.id) === true
         : recentEventIds?.includes(event.id) === true) ||
         event.timestamp < current.lastEventAt ||
-        (TERMINAL_STATUSES.has(current.status) &&
+        (TERMINAL_LIKE_STATUSES.has(current.status) &&
           TERMINAL_HIDING_STATUSES.has(event.status)))
     ) {
       return { applied: false, session: current };
     }
 
     const active = ACTIVE_STATUSES.has(event.status);
-    const terminal = TERMINAL_STATUSES.has(event.status);
+    const terminal = TERMINAL_LIKE_STATUSES.has(event.status);
     const reopening = Boolean(
-      current && active && TERMINAL_STATUSES.has(current.status),
+      current && active && TERMINAL_LIKE_STATUSES.has(current.status),
     );
+    const enteringTerminal =
+      terminal && (current === undefined || current.status !== event.status);
 
     const session: AgentSession = {
       sessionKey: event.sessionKey,
@@ -107,16 +113,20 @@ export class SessionStore {
         : current?.startedAt !== undefined
           ? { startedAt: current.startedAt }
           : {}),
-      ...(terminal
+      ...(enteringTerminal
         ? { completedAt: event.timestamp }
         : !active && current?.completedAt !== undefined
           ? { completedAt: current.completedAt }
           : {}),
       ...(event.status === "failed"
         ? { error: event.message ?? event.title ?? "Agent failed" }
-        : !active && event.status !== "completed" && current?.error
-          ? { error: current.error }
-          : {}),
+        : event.status === "rate_limited"
+          ? {
+              error: event.message ?? event.title ?? "Agent rate limited",
+            }
+          : !active && event.status !== "completed" && current?.error
+            ? { error: current.error }
+            : {}),
     };
 
     this.#sessions.set(event.sessionKey, session);

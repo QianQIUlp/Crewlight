@@ -56,10 +56,18 @@ function session(
     lastEventAt: 1_000,
     lastEventAgeMs: 1_000,
     durationMs: 1_000,
-    isStale: false,
     displayName: "Codex",
     displayWorkspace: "Crewlight",
-    attention: status === "waiting_permission" ? "action" : "passive",
+    priority:
+      status === "waiting_permission"
+        ? "needs_action"
+        : status === "running" || status === "using_tool"
+          ? "active"
+          : status === "completed"
+            ? "ready"
+            : status === "failed" || status === "rate_limited"
+              ? "error"
+              : "hidden",
     ...(status === "waiting_permission"
       ? { actionKind: "permission" as const }
       : {}),
@@ -134,7 +142,7 @@ describe("desktop view-model derivation", () => {
       setup,
     );
 
-    expect(view.home.primaryAction.action).toBe("run-demo");
+    expect(view.home.primaryAction.action).toBe("show-companion");
   });
 
   it("detects deterministic demo sessions and highlights the preferred integration", () => {
@@ -149,7 +157,7 @@ describe("desktop view-model derivation", () => {
         preferences: {
           ...DEFAULT_DESKTOP_PREFERENCES,
           onboardingCompleted: true,
-          preferredIntegration: "cursor",
+          preferredIntegration: "codex",
         },
         runtimeSettings: {
           host: "127.0.0.1",
@@ -187,7 +195,7 @@ describe("desktop view-model derivation", () => {
     expect(view.demo.hasSyntheticSessions).toBe(true);
     expect(view.home.primaryAction.action).toBe("show-companion");
     expect(
-      view.integrations.find((card) => card.id === "cursor")?.highlight,
+      view.integrations.find((card) => card.id === "codex")?.highlight,
     ).toBe(true);
   });
 
@@ -225,6 +233,6 @@ describe("desktop view-model derivation", () => {
       setup,
     );
 
-    expect(view.home.previewSessions[0]?.remoteAlias).toBe("staging-server");
+    expect(view.home.sessions[0]?.remoteAlias).toBe("staging-server");
   });
 });

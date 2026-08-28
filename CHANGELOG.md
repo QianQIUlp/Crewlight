@@ -2,89 +2,42 @@
 
 Notable Crewlight changes are recorded here.
 
-## v0.5.0 — 2026-07-20
+## v0.5.0 — Unreleased candidate (prerelease 2026-08-28)
 
-### Added
+- Windows-first local Agent Attention Inbox for concurrent Claude Code and
+  Codex sessions.
+- One Attention Engine with needs-action, error, stale, active, ready, and
+  hidden priorities, plus duplicate-safe notifications.
+- Read-only user-level Claude Code and Codex Hooks inspection, copyable manual
+  setup snippets, `/hooks` trust guidance, and no configuration mutation.
+- Managed Windows daemon lifecycle and a compact Home / Connect /
+  Troubleshooting / Settings Desktop information architecture.
+- Pinned Node 22.23.2 release inputs, a generated manifest, and SHA-256
+  sidecars for the Windows standalone, Portable, and Installer artifacts.
+- Local packaged Portable acceptance on the tested Windows Server 2025 host
+  covers normal launch, local service start/stop, a real Codex-shaped event,
+  onboarding completion, demo, read-only fixed-path Claude Code and Codex
+  inspection with no automatic config write, the floating companion, and no
+  raw work content.
 
-- Cross-platform desktop packaging support for Windows (NSIS .exe), macOS (DMG universal/Intel), and Linux (AppImage & deb).
-- 14 new dedicated agent adapters: Gemini CLI, Copilot CLI, Antigravity (agy), CodeBuddy, Kiro CLI, Kimi CLI, Qwen Code, CodeWhale, MiMo Code, Pi, OpenClaw, Hermes Agent, Qoder, Qoderwork, and Reasonix CLI.
-- SSH remote tunneling: reverse-port forward events from remote devservers over secure SSH tunnels using an annotate-only config marker `# CrewlightRemote: yes`.
-- UI: Show elapsed time metrics and idle stuck warnings on cards, waiting permission amber pulse-border effects, and detail card expansions.
-- Remote CLI installation guide modal triggered automatically on missing remote binaries.
+Release policy: Windows x64 is Supported but unsigned; Linux and macOS are
+source-validated Preview targets without v0.5 native binaries; Remote is Beta.
+Local packaged Portable acceptance is recorded on the tested Windows Server
+2025 host; v0.5.0 is published as a candidate GitHub prerelease.
 
-### Fixed
-
-- SSH tunnel: resolved infinite reconnect loops caused by failed port forwarding.
-- SSH tunnel: corrected checkRemoteCli check executing commands on unestablished tunnels.
-- CLI: Added gemini-cli, copilot-cli, and antigravity to setup list help text.
-
-## v0.4.0 - Archived prototype release
+## v0.4.0 — Archived prototype, published 2026-06-23
 
 - Breaking rename from AgentPulse to Crewlight.
-- Current CLI/package/artifact identity uses Crewlight.
-- Includes companion UI, Cursor bridge, and multi-agent demo work from the latest main state.
-- Known limitations remain.
-- This repository is archived and not actively maintained.
+- Included the early companion UI, Cursor bridge, and multi-agent demo work.
+- No portable Windows Desktop ZIP was published for this archived prototype.
 
-### Breaking changes
+## v0.3.0
 
-- AgentPulse has been renamed to Crewlight across the product, CLI, packages,
-  artifacts, docs, and release identity.
-- The `agentpulse` command has been replaced by `crewlight`.
-- `AGENTPULSE_*` environment variables have been replaced by
-  `CREWLIGHT_*`.
-- Internal monorepo package identities now use the `@crewlight/*` scope.
+- Setup verification flows, bounded diagnostics, status-first dashboard views,
+  and opt-in prompt-preview task titles.
+- OpenCode local-plugin MVP and explicit Codex CLI/Desktop surface metadata.
 
-### Added
+## v0.2.0
 
-- A productized Crewlight Desktop app with a main control window, onboarding,
-  companion controls, demo flow, local service manager, and desktop-first
-  release positioning.
-- The `crewlight demo multi-agent` scenario for repeatable dashboard and
-  companion verification.
-- A portable Windows desktop artifact and unsigned NSIS installer path for the
-  desktop release.
-
-### Changed
-
-- Release-facing docs now describe the desktop app as the primary user-facing
-  v0.4.0 surface.
-- The browser dashboard is now positioned as a secondary developer surface and
-  the CLI as the advanced / automation surface.
-- Migration guidance now points existing users to regenerate setup snippets and
-  update the Git remote after the repository rename.
-
-### Migration
-
-- Regenerate local setup snippets with `crewlight setup ... --print`.
-- Update the local Git remote after the repository rename:
-
-  ```bash
-  git remote set-url origin https://github.com/QianQIUlp/Crewlight.git
-  ```
-
-## v0.3.0 — 2026-06-21
-
-### Added
-
-- Setup verification flows and expanded read-only doctor diagnostics.
-- Status-first dashboard views, attention states, focused session details, and
-  opt-in prompt-preview task titles.
-- An OpenCode local-plugin MVP with allowlisted event normalization and
-  non-blocking ingest behavior.
-- Explicit Codex CLI and Desktop surface metadata for lifecycle hooks.
-- A sanitized Antigravity research probe with documented evidence boundaries.
-
-### Changed
-
-- Hardened Claude Code and Codex hook setup, command execution, diagnostics,
-  and daemon delivery behavior.
-- Expanded documentation for standalone installation, dashboard operation,
-  supported integration levels, and local verification.
-
-### Known limitations
-
-- OpenCode is implemented but still requires verification against a real local
-  installation before it can be labeled supported.
-- Codex Desktop remains experimental.
-- Antigravity remains research-only and is not a stable adapter or setup path.
+- Added the local daemon, normalized event model, adapters, and CLI ingest
+  commands.

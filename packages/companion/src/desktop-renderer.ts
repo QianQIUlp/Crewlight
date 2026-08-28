@@ -15,6 +15,105 @@ let dialogReturnFocus: HTMLElement | undefined;
 const homeSessionDisclosures = new DisclosureState();
 const demoSessionDisclosures = new DisclosureState();
 
+type DesktopPanelId =
+  | "home"
+  | "demo"
+  | "agents"
+  | "doctor"
+  | "settings"
+  | "companion"
+  | "appearance"
+  | "remote"
+  | "about";
+
+interface DesktopPanelDefinition {
+  group: string;
+  id: DesktopPanelId;
+  label: string;
+  section: DesktopViewModel["selectedSection"];
+  subtitle: string;
+}
+
+const DESKTOP_PANELS: readonly DesktopPanelDefinition[] = [
+  {
+    group: "Inbox",
+    id: "home",
+    label: "Attention Inbox",
+    section: "home",
+    subtitle:
+      "See what needs you, what is active, and what is ready to review.",
+  },
+  {
+    group: "Inbox",
+    id: "demo",
+    label: "Demo preview",
+    section: "home",
+    subtitle: "Preview Crewlight with safe, local synthetic sessions.",
+  },
+  {
+    group: "Integrations",
+    id: "agents",
+    label: "Claude Code & Codex",
+    section: "connect",
+    subtitle:
+      "Copy setup snippets and inspect the two supported local integrations.",
+  },
+  {
+    group: "System",
+    id: "doctor",
+    label: "Troubleshooting",
+    section: "troubleshooting",
+    subtitle: "Check service health, configuration, notifications, and events.",
+  },
+  {
+    group: "Preferences",
+    id: "settings",
+    label: "General",
+    section: "settings",
+    subtitle: "Configure the local service and Desktop behavior.",
+  },
+  {
+    group: "Preferences",
+    id: "companion",
+    label: "Companion",
+    section: "settings",
+    subtitle: "Control the compact floating attention view.",
+  },
+  {
+    group: "Preferences",
+    id: "appearance",
+    label: "Appearance",
+    section: "settings",
+    subtitle: "Adjust theme, density, accent, and launch visibility.",
+  },
+  {
+    group: "Preferences",
+    id: "remote",
+    label: "Remote (Beta)",
+    section: "settings",
+    subtitle: "Manage trusted SSH-forwarded Crewlight connections.",
+  },
+  {
+    group: "Preferences",
+    id: "about",
+    label: "About",
+    section: "settings",
+    subtitle: "Review version, product boundaries, and project information.",
+  },
+] as const;
+
+const DEFAULT_PANEL_BY_SECTION: Record<
+  DesktopViewModel["selectedSection"],
+  DesktopPanelId
+> = {
+  home: "home",
+  connect: "agents",
+  troubleshooting: "doctor",
+  settings: "settings",
+};
+
+let activePanel: DesktopPanelId = "home";
+
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
   if (!element) {
@@ -204,22 +303,36 @@ function openRemoteInstallDialog(alias: string, trigger: HTMLElement): void {
 
 function renderSidebar(state: DesktopViewModel): void {
   const nav = byId("sidebar-nav");
+  const groups = [...new Set(DESKTOP_PANELS.map((panel) => panel.group))];
   nav.replaceChildren(
-    ...state.sections.map((section) => {
-      const button = createElement("button", "nav-button");
-      button.type = "button";
-      button.dataset.section = section.id;
-      button.disabled = state.onboarding.active;
-      button.classList.toggle("active", section.active);
-      button.append(
-        createElement("span", undefined, section.label),
-        createElement(
-          "span",
-          undefined,
-          section.id === "home" ? "Primary" : " ",
-        ),
-      );
-      return button;
+    ...groups.map((groupLabel) => {
+      const group = createElement("div", "nav-group");
+      group.append(createElement("p", "nav-group-label", groupLabel));
+      for (const panel of DESKTOP_PANELS.filter(
+        (candidate) => candidate.group === groupLabel,
+      )) {
+        const button = createElement("button", "nav-button");
+        button.type = "button";
+        button.dataset.panel = panel.id;
+        button.dataset.section = panel.section;
+        button.disabled = state.onboarding.active;
+        button.classList.toggle("active", panel.id === activePanel);
+        if (panel.id === activePanel) {
+          button.setAttribute("aria-current", "page");
+        }
+        button.append(createElement("span", undefined, panel.label));
+        if (panel.id === "home" && state.home.counts.attention > 0) {
+          button.append(
+            createElement(
+              "span",
+              "nav-badge",
+              String(state.home.counts.attention),
+            ),
+          );
+        }
+        group.append(button);
+      }
+      return group;
     }),
   );
 }
@@ -239,8 +352,14 @@ function renderNotice(state: DesktopViewModel): void {
 function applySectionVisibility(state: DesktopViewModel): void {
   setHidden("onboarding-root", !state.onboarding.active);
   byId("app-content").hidden = state.onboarding.active;
-  for (const section of state.sections) {
-    setHidden(`${section.id}-section`, section.id !== state.selectedSection);
+  const activeDefinition = DESKTOP_PANELS.find(
+    (panel) => panel.id === activePanel,
+  );
+  if (!activeDefinition || activeDefinition.section !== state.selectedSection) {
+    activePanel = DEFAULT_PANEL_BY_SECTION[state.selectedSection];
+  }
+  for (const panel of DESKTOP_PANELS) {
+    setHidden(`${panel.id}-section`, panel.id !== activePanel);
   }
 }
 
@@ -261,12 +380,8 @@ function renderHome(state: DesktopViewModel): void {
   primary.dataset.primaryAction = state.home.primaryAction.action;
 
   const preview = byId("home-preview-sessions");
-  replaceSessionCards(
-    preview,
-    state.home.previewSessions,
-    homeSessionDisclosures,
-  );
-  setHidden("home-preview-empty", state.home.previewSessions.length > 0);
+  replaceSessionCards(preview, state.home.sessions, homeSessionDisclosures);
+  setHidden("home-preview-empty", state.home.sessions.length > 0);
 }
 
 function renderDoctor(state: DesktopViewModel): void {
@@ -315,7 +430,7 @@ function renderDoctor(state: DesktopViewModel): void {
 
 function integrationButton(
   card: DesktopIntegrationCard,
-  kind: "setup" | "verification" | "select",
+  kind: "setup" | "verification" | "select" | "inspect",
 ): HTMLButtonElement {
   const button = createElement(
     "button",
@@ -323,15 +438,21 @@ function integrationButton(
   ) as HTMLButtonElement;
   button.type = "button";
   button.dataset.integration = card.id;
-  button.dataset.copyKind = kind;
+  if (kind === "setup" || kind === "verification" || kind === "select") {
+    button.dataset.copyKind = kind;
+  } else {
+    button.dataset.integrationAction = kind;
+  }
   button.textContent =
     kind === "setup"
       ? card.copySetupLabel
       : kind === "verification"
         ? (card.copyVerificationLabel ?? "Copy verification command")
-        : card.highlight
-          ? "Selected"
-          : "Choose this path";
+        : kind === "inspect"
+          ? "Check status"
+          : card.highlight
+            ? "Selected"
+            : "Choose this path";
   button.disabled = kind === "verification" && !card.verificationCommand;
   return button;
 }
@@ -359,6 +480,9 @@ function renderIntegrationCard(
 
   const actions = createElement("div", "integration-actions");
   actions.append(integrationButton(card, "setup"));
+  if (card.id === "claude-code" || card.id === "codex") {
+    actions.append(integrationButton(card, "inspect"));
+  }
   if (card.verificationCommand) {
     actions.append(integrationButton(card, "verification"));
   }
@@ -376,6 +500,14 @@ function renderAgents(state: DesktopViewModel): void {
       renderIntegrationCard(card, { includeSelectButton: false }),
     ),
   );
+  const experimental = document.getElementById("experimental-agent-cards");
+  if (experimental) {
+    experimental.replaceChildren(
+      ...state.experimentalIntegrations.map((card) =>
+        renderIntegrationCard(card, { includeSelectButton: false }),
+      ),
+    );
+  }
 }
 
 function renderCompanion(state: DesktopViewModel): void {
@@ -598,6 +730,7 @@ function renderSettings(state: DesktopViewModel): void {
   byId<HTMLSelectElement>("host-select").value = state.settings.host;
   byId<HTMLInputElement>("port-input").value = String(state.settings.port);
   byId<HTMLSelectElement>("notifier-select").value = state.settings.notifier;
+  byId<HTMLSelectElement>("locale-select").value = state.settings.locale;
   byId<HTMLInputElement>("auto-start-toggle").checked =
     state.settings.serviceAutoStart;
 }
@@ -642,11 +775,13 @@ function onboardingBody(
     return;
   }
 
-  if (step.id === "choose-integration") {
+  if (step.id === "choose-integration" || step.id === "trust-or-setup") {
     const intro = createElement(
       "p",
       "section-copy",
-      "Choose the integration path you want Crewlight to highlight first. You can change this later in Settings.",
+      step.id === "choose-integration"
+        ? "Choose Claude Code or Codex. You can change this later in Connect."
+        : "Copy the setup snippet, then open the tool's /hooks view and trust the definition before running a real turn.",
     );
     const grid = createElement("div", "integration-grid");
     grid.append(
@@ -663,7 +798,7 @@ function onboardingBody(
       createElement(
         "p",
         "section-copy",
-        "Finish into Home with your current local state intact. If you already ran the demo, the desktop and companion stay populated.",
+        "Finish into Home after a real Claude Code or Codex event is visible.",
       ),
     );
     return;
@@ -677,9 +812,9 @@ function onboardingBody(
       "section-copy",
       step.id === "start-service"
         ? state.header.serviceBadge.label
-        : step.id === "run-demo"
-          ? state.demo.summary
-          : "The floating companion mirrors the same safe session model as Home.",
+        : step.id === "first-real-event"
+          ? "Run a real turn; copied setup and demo data do not complete onboarding."
+          : "Run a real turn; demo data is optional and never completes onboarding.",
     ),
   );
   body.append(info);
@@ -705,9 +840,13 @@ function renderOnboarding(state: DesktopViewModel): void {
       const item = createElement("div", "onboarding-step");
       item.classList.toggle("active", index === onboardingStepIndex);
       item.classList.toggle("complete", step.complete);
+      item.setAttribute(
+        "aria-label",
+        `Step ${index + 1} of ${steps.length}: ${step.title}. ${step.description}`,
+      );
       item.append(
+        createElement("span", "onboarding-step-number", String(index + 1)),
         createElement("strong", undefined, step.title),
-        createElement("span", "section-copy", step.description),
       );
       return item;
     }),
@@ -728,9 +867,11 @@ function renderOnboarding(state: DesktopViewModel): void {
             ? "Continue"
             : current.id === "start-service"
               ? "Start local service"
-              : current.id === "run-demo"
-                ? "Run demo"
-                : "Show companion";
+              : current.id === "trust-or-setup"
+                ? "Open Connect"
+                : current.id === "first-real-event"
+                  ? "Run a real turn"
+                  : "Continue";
   secondary.textContent =
     current.id === "finish" ? "Review later" : "Skip for now";
 
@@ -752,12 +893,22 @@ function syncOnboardingProgress(state: DesktopViewModel): void {
 
 function render(state: DesktopViewModel): void {
   latestState = state;
+  const currentPanel = DESKTOP_PANELS.find((panel) => panel.id === activePanel);
+  if (!currentPanel || currentPanel.section !== state.selectedSection) {
+    activePanel = DEFAULT_PANEL_BY_SECTION[state.selectedSection];
+  }
   document.body.dataset.theme = state.appearance.theme;
   document.body.dataset.accent = state.appearance.accent;
   document.body.dataset.density = state.appearance.density;
 
-  setText("page-title", SECTION_LABEL(state.selectedSection));
-  setText("page-subtitle", state.header.summary);
+  const activeDefinition = DESKTOP_PANELS.find(
+    (panel) => panel.id === activePanel,
+  );
+  setText(
+    "page-title",
+    activeDefinition?.label ?? SECTION_LABEL(state.selectedSection),
+  );
+  setText("page-subtitle", activeDefinition?.subtitle ?? state.header.summary);
   setText("service-badge", state.header.serviceBadge.label);
   byId("service-badge").className =
     `status-badge ${state.header.serviceBadge.tone}`;
@@ -827,25 +978,31 @@ async function performOnboardingPrimary(): Promise<void> {
     render(latestState);
     return;
   }
-  if (step.id === "run-demo") {
-    if (!step.complete) {
-      await window.crewlightDesktop.perform({ type: "demo:run" });
-      return;
-    }
-    onboardingStepIndex += 1;
-    render(latestState);
-    return;
-  }
-  if (step.id === "show-companion") {
-    if (!step.complete) {
-      await window.crewlightDesktop.perform({ type: "companion:show" });
-      return;
-    }
-    onboardingStepIndex += 1;
-    render(latestState);
-    return;
-  }
   if (step.id === "choose-integration") {
+    onboardingStepIndex += 1;
+    render(latestState);
+    return;
+  }
+  if (step.id === "trust-or-setup") {
+    await window.crewlightDesktop.perform({
+      type: "preferences:set-last-section",
+      section: "connect",
+    });
+    if (!step.complete) {
+      return;
+    }
+    onboardingStepIndex += 1;
+    render(latestState);
+    return;
+  }
+  if (step.id === "first-real-event") {
+    if (!step.complete) {
+      await window.crewlightDesktop.perform({
+        type: "preferences:set-last-section",
+        section: "home",
+      });
+      return;
+    }
     onboardingStepIndex += 1;
     render(latestState);
     return;
@@ -877,11 +1034,15 @@ document.addEventListener("click", async (event) => {
   }
 
   const navButton = target.closest<HTMLButtonElement>(".nav-button");
-  if (navButton?.dataset.section) {
+  if (navButton?.dataset.section && navButton.dataset.panel) {
+    activePanel = navButton.dataset.panel as DesktopPanelId;
     await window.crewlightDesktop.perform({
       type: "preferences:set-last-section",
       section: navButton.dataset.section as DesktopViewModel["selectedSection"],
     });
+    if (latestState?.selectedSection === navButton.dataset.section) {
+      render(latestState);
+    }
     return;
   }
 
@@ -923,6 +1084,7 @@ document.addEventListener("click", async (event) => {
       },
       "copy:diagnostic-summary": { type: "copy:diagnostic-summary" },
       "demo:run": { type: "demo:run" },
+      "home:clear-ready": { type: "home:clear-ready" },
       "onboarding:start-over": { type: "onboarding:start-over" },
       "preferences:reset": { type: "preferences:reset" },
       "service:restart": { type: "service:restart" },
@@ -977,6 +1139,21 @@ document.addEventListener("click", async (event) => {
         integration: card.id,
       });
     }
+    return;
+  }
+
+  const integrationAction = target.closest<HTMLButtonElement>(
+    "[data-integration-action]",
+  );
+  if (
+    integrationAction?.dataset.integration &&
+    (integrationAction.dataset.integration === "claude-code" ||
+      integrationAction.dataset.integration === "codex")
+  ) {
+    await window.crewlightDesktop.perform({
+      type: "integration:inspect",
+      integration: integrationAction.dataset.integration,
+    });
     return;
   }
 
@@ -1046,6 +1223,13 @@ document.addEventListener("change", async (event) => {
         | "console"
         | "none"
         | "os",
+    });
+    return;
+  }
+  if (target.id === "locale-select") {
+    await window.crewlightDesktop.perform({
+      type: "preferences:set-locale",
+      locale: (target as HTMLSelectElement).value as "system" | "en" | "zh-CN",
     });
     return;
   }

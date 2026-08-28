@@ -5,6 +5,7 @@ import type { DesktopDashboardResult } from "./desktop-client.js";
 import type {
   DesktopAccent,
   DesktopDensity,
+  DesktopLocale,
   DesktopPreferences,
   DesktopSection,
   DesktopTheme,
@@ -24,7 +25,7 @@ const STATUS_LABELS: Record<SanitizedSession["status"], string> = {
   using_tool: "Using tool",
   waiting_input: "Waiting for input",
   waiting_permission: "Permission needed",
-  completed: "Completed",
+  completed: "Turn finished",
   failed: "Failed",
   rate_limited: "Rate limited",
   unknown: "Unknown",
@@ -32,14 +33,9 @@ const STATUS_LABELS: Record<SanitizedSession["status"], string> = {
 
 const SECTION_LABELS: Record<DesktopSection, string> = {
   home: "Home",
-  remote: "Remote",
-  doctor: "Doctor",
-  agents: "Agents",
-  companion: "Companion",
-  demo: "Demo",
-  appearance: "Appearance",
+  connect: "Connect",
+  troubleshooting: "Troubleshooting",
   settings: "Settings",
-  about: "About",
 };
 
 export type DesktopNoticeTone = "info" | "success" | "error";
@@ -112,9 +108,9 @@ export interface DesktopOnboardingStep {
   id:
     | "welcome"
     | "start-service"
-    | "run-demo"
-    | "show-companion"
     | "choose-integration"
+    | "trust-or-setup"
+    | "first-real-event"
     | "finish";
   title: string;
 }
@@ -175,10 +171,11 @@ export interface DesktopViewModel {
       total: number;
     };
     primaryAction: DesktopActionCard;
-    previewSessions: DesktopSessionCard[];
+    sessions: DesktopSessionCard[];
     tagline: string;
   };
   integrations: DesktopIntegrationCard[];
+  experimentalIntegrations: DesktopIntegrationCard[];
   notice?: DesktopNotice;
   onboarding: {
     active: boolean;
@@ -196,9 +193,12 @@ export interface DesktopViewModel {
     host: string;
     notifier: NotifierKind;
     onboardingCompleted: boolean;
+    integrationSetupCompleted: boolean;
     port: number;
     preferredIntegration?: PreferredIntegration;
     serviceAutoStart: boolean;
+    locale: DesktopLocale;
+    readyDismissedBefore?: number;
   };
   remote: {
     hosts: DesktopRemoteHost[];
@@ -287,10 +287,7 @@ function isError(session: SanitizedSession): boolean {
 }
 
 function isDemoSession(session: SanitizedSession): boolean {
-  return (
-    session.taskTitle?.startsWith("[Demo]") === true ||
-    session.activityLabel?.startsWith("[Demo]") === true
-  );
+  return session.sessionKey.includes("demo:");
 }
 
 function sessionTone(session: SanitizedSession): DesktopSessionCard["tone"] {
@@ -300,7 +297,7 @@ function sessionTone(session: SanitizedSession): DesktopSessionCard["tone"] {
   if (isError(session)) {
     return "error";
   }
-  if (session.isStale && isRunning(session)) {
+  if (session.priority === "stale") {
     return "stale";
   }
   if (isRunning(session)) {
@@ -322,8 +319,8 @@ function diagnosticHint(session: SanitizedSession): string | undefined {
   if (session.status === "rate_limited") {
     return "Rate limit reported";
   }
-  if (session.isStale && isRunning(session)) {
-    return session.staleReason ?? "No recent event; session may be stale";
+  if (session.priority === "stale") {
+    return "No recent event; session may be stale";
   }
   return undefined;
 }
@@ -359,9 +356,12 @@ function integrationCards(
   sessions: readonly SanitizedSession[],
   preferredIntegration: PreferredIntegration | undefined,
   setup: DesktopSetupSnippets,
-): DesktopIntegrationCard[] {
+): {
+  formal: DesktopIntegrationCard[];
+  experimental: DesktopIntegrationCard[];
+} {
   const observedSources = new Set(sessions.map((session) => session.source));
-  return [
+  const cards: DesktopIntegrationCard[] = [
     {
       boundary:
         "Observes documented Claude Code lifecycle hooks without modifying Claude settings.",
@@ -404,64 +404,59 @@ function integrationCards(
     },
     {
       boundary:
-        "Manual / Experimental bridge. No automatic Cursor lifecycle hook or private API scraping is claimed.",
+        "Experimental integrations stay collapsed in v0.5. They are not part of the supported Windows contract.",
       copySetupLabel: "Copy setup commands",
       copyVerificationLabel: "Copy verification command",
       highlight: preferredIntegration === "cursor",
       id: "cursor",
-      maturity: "Manual / Experimental bridge",
-      observed: observedSources.has("cursor")
-        ? "Observed in current daemon"
-        : "Manual bridge available",
-      observes: "Explicit terminal or task-driven status updates only.",
+      maturity: "Experimental",
+      observed: observedSources.has("cursor") ? "Observed" : "Not connected",
+      observes: "Manual or source-specific events only.",
       setupCommand: setup.cursor,
-      setupStatus: observedSources.has("cursor")
-        ? "Live activity detected"
-        : "Manual commands ready",
+      setupStatus: "Experimental; copy-only setup",
       title: "Cursor",
       verificationCommand: setup.verification.cursor,
     },
     {
       boundary:
-        "Uses documented local plugin events and keeps payload handling allowlisted and local.",
-      copySetupLabel: "Copy plugin file",
-      highlight: preferredIntegration === "opencode",
+        "Experimental integrations are retained for diagnosis and manual ingest only.",
+      copySetupLabel: "Copy setup commands",
+      highlight: false,
       id: "opencode",
-      maturity: "Implemented, verification pending",
-      observed: observedSources.has("opencode")
-        ? "Observed in current daemon"
-        : "Plugin scaffold ready",
-      observes:
-        "Session and permission lifecycle updates from the local OpenCode plugin.",
+      maturity: "Experimental",
+      observed: observedSources.has("opencode") ? "Observed" : "Not connected",
+      observes: "Documented local plugin events when manually configured.",
       setupCommand: setup.openCode,
-      setupStatus: observedSources.has("opencode")
-        ? "Live activity detected"
-        : "Plugin scaffold ready",
+      setupStatus: "Experimental; copy-only setup",
       title: "OpenCode",
     },
     {
       boundary:
-        "Use manual ingest or local probes only. No private API scraping, hidden permissions, or background control paths.",
+        "Manual ingest remains available for troubleshooting and development.",
       copySetupLabel: "Copy ingest command",
       copyVerificationLabel: "Copy verification command",
       highlight: preferredIntegration === "manual",
       id: "manual",
-      maturity: "Manual / Custom ingest",
+      maturity: "Experimental",
       observed:
         observedSources.has("custom") || observedSources.has("generic-cli")
-          ? "Observed in current daemon"
-          : "Manual path available",
-      observes:
-        "Manual normalized events, generic CLI wrapping, and bounded local probes.",
+          ? "Observed"
+          : "Not connected",
+      observes: "Explicit normalized events only.",
       setupCommand: setup.antigravityProbe,
-      setupStatus:
-        observedSources.has("custom") || observedSources.has("generic-cli")
-          ? "Live activity detected"
-          : "Manual path ready",
-      title: "Manual / Custom ingest",
+      setupStatus: "Experimental; copy-only setup",
+      title: "Manual ingest",
       verificationCommand: setup.verification.antigravityProbe,
     },
   ];
+  return {
+    formal: cards.filter(
+      (card) => card.id === "claude-code" || card.id === "codex",
+    ),
+    experimental: cards.filter(
+      (card) => card.id !== "claude-code" && card.id !== "codex",
+    ),
+  };
 }
 
 function serviceBadge(
@@ -498,14 +493,6 @@ function primaryAction(
       description:
         "Start the local daemon and dashboard so Crewlight can watch live sessions.",
       label: "Start local service",
-    };
-  }
-  if (demoSessions.length === 0) {
-    return {
-      action: "run-demo",
-      description:
-        "Load the deterministic multi-agent scenario to populate Home, Demo, and Companion instantly.",
-      label: "Run multi-agent demo",
     };
   }
   return {
@@ -545,22 +532,45 @@ export function deriveDesktopViewModel(
 ): DesktopViewModel {
   const liveSessions =
     input.snapshot.kind === "online" ? input.snapshot.data.sessions : [];
-  const sortedSessions = sortSessions(liveSessions);
+  const sortedSessions = sortSessions(
+    liveSessions.filter(
+      (session) =>
+        session.priority !== "hidden" &&
+        !(
+          session.priority === "ready" &&
+          input.preferences.readyDismissedBefore !== undefined &&
+          session.lastEventAt <= input.preferences.readyDismissedBefore
+        ),
+    ),
+  );
   const demoSessions = sortedSessions.filter(isDemoSession);
+  const companionSessions = liveSessions.filter(
+    (session) =>
+      !(
+        session.priority === "ready" &&
+        input.preferences.readyDismissedBefore !== undefined &&
+        session.lastEventAt <= input.preferences.readyDismissedBefore
+      ),
+  );
   const companionView = deriveCompanionViewModel(
     input.snapshot.kind === "online"
-      ? { kind: "online", data: { sessions: liveSessions } }
+      ? { kind: "online", data: { sessions: companionSessions } }
       : input.snapshot,
   );
-  const previewSessions = sortedSessions.slice(0, 4).map(toSessionCard);
+  const homeSessions = sortedSessions.map(toSessionCard);
   const failedOrStale = sortedSessions.filter(
-    (session) => isError(session) || (session.isStale && isRunning(session)),
+    (session) => isError(session) || session.priority === "stale",
   ).length;
   const sections = Object.entries(SECTION_LABELS).map(([id, label]) => ({
     active: input.preferences.lastSection === id,
     id: id as DesktopSection,
     label,
   }));
+  const hasFormalRealEvent = liveSessions.some(
+    (session) =>
+      !isDemoSession(session) &&
+      (session.source === "claude-code" || session.source === "codex"),
+  );
   const onboardingSteps: DesktopOnboardingStep[] = [
     {
       id: "welcome",
@@ -577,32 +587,34 @@ export function deriveDesktopViewModel(
         input.snapshot.kind === "online",
     },
     {
-      id: "run-demo",
-      title: "Run demo",
-      description:
-        "Load six deterministic local sessions to see the product loop.",
-      complete: demoSessions.length > 0,
-    },
-    {
-      id: "show-companion",
-      title: "Show companion",
-      description: "Open the floating companion so live status stays nearby.",
-      complete: input.companion.visible,
-    },
-    {
       id: "choose-integration",
-      title: "Choose an integration path",
-      description: "Pick the first setup path you want Crewlight to highlight.",
-      complete: input.preferences.preferredIntegration !== undefined,
+      title: "Choose Claude Code or Codex",
+      description: "Choose the first supported integration to configure.",
+      complete:
+        input.preferences.preferredIntegration === "claude-code" ||
+        input.preferences.preferredIntegration === "codex",
+    },
+    {
+      id: "trust-or-setup",
+      title: "Check and trust the definition",
+      description:
+        "Copy the setup snippet, then review it in Claude Code or Codex /hooks. Copying is not a connection test.",
+      complete: input.preferences.integrationSetupCompleted,
+    },
+    {
+      id: "first-real-event",
+      title: "Run a real turn",
+      description: "Run a real session and wait for the first non-demo event.",
+      complete: hasFormalRealEvent,
     },
     {
       id: "finish",
       title: "Finish",
-      description: "Land in Home and keep the current local state intact.",
-      complete: input.preferences.onboardingCompleted,
+      description: "Land in Home after the first real event is visible.",
+      complete: input.preferences.onboardingCompleted && hasFormalRealEvent,
     },
   ];
-  const integrations = integrationCards(
+  const integrationSets = integrationCards(
     sortedSessions,
     input.preferences.preferredIntegration,
     setup,
@@ -618,12 +630,12 @@ export function deriveDesktopViewModel(
       ],
       license: "MIT",
       migrationSummary: [
-        "AgentPulse is now Crewlight.",
-        "The desktop app is the primary user-facing v0.5.0 surface.",
-        "CLI and browser dashboard remain available for advanced local workflows.",
+        "Crewlight is a local, read-only Attention Inbox for multi-agent work.",
+        "Windows 11 x64 is Supported; Linux and macOS are Preview; Remote is Beta.",
+        "CLI and browser dashboard remain developer surfaces, not additional product categories.",
       ],
       repoUrl: "https://github.com/QianQIUlp/Crewlight",
-      tagline: "Local activity radar for AI coding agents.",
+      tagline: "Attention Inbox for multi-agent work.",
       version: input.version,
     },
     appearance: {
@@ -672,10 +684,11 @@ export function deriveDesktopViewModel(
         input.companion,
         demoSessions,
       ),
-      previewSessions,
-      tagline: "Command Center",
+      sessions: homeSessions,
+      tagline: "Your local Agent Attention Inbox",
     },
-    integrations,
+    integrations: integrationSets.formal,
+    experimentalIntegrations: integrationSets.experimental,
     ...(input.notice ? { notice: input.notice } : {}),
     onboarding: {
       active: !input.preferences.onboardingCompleted,
@@ -690,11 +703,16 @@ export function deriveDesktopViewModel(
       host: input.runtimeSettings.host,
       notifier: input.runtimeSettings.notifier,
       onboardingCompleted: input.preferences.onboardingCompleted,
+      integrationSetupCompleted: input.preferences.integrationSetupCompleted,
       port: input.runtimeSettings.port,
       ...(input.preferences.preferredIntegration
         ? { preferredIntegration: input.preferences.preferredIntegration }
         : {}),
       serviceAutoStart: input.preferences.serviceAutoStart,
+      locale: input.preferences.locale,
+      ...(input.preferences.readyDismissedBefore !== undefined
+        ? { readyDismissedBefore: input.preferences.readyDismissedBefore }
+        : {}),
     },
     remote: {
       hosts: input.remoteHosts,

@@ -1528,7 +1528,7 @@ describe("setup snippet commands", () => {
     ).toThrow("absolute path");
   });
 
-  it("renders a simple Windows commandWindows without quotes", () => {
+  it("renders a quoted Windows commandWindows", () => {
     const runtime = setupRuntime({
       execPath: "C:\\Tools\\nodejs\\node.exe",
       entryPath: "C:\\Crewlight\\packages\\cli\\dist\\index.js",
@@ -1549,13 +1549,12 @@ describe("setup snippet commands", () => {
       '"C:\\Tools\\nodejs\\node.exe" "C:\\Crewlight\\packages\\cli\\dist\\index.js" "ingest" "codex-hook" "--hook" "Stop" "--surface" "cli"',
     );
     expect(handler?.commandWindows).toBe(
-      "C:\\Tools\\nodejs\\node.exe C:\\Crewlight\\packages\\cli\\dist\\index.js ingest codex-hook --hook Stop --surface cli",
+      '"C:\\Tools\\nodejs\\node.exe" "C:\\Crewlight\\packages\\cli\\dist\\index.js" "ingest" "codex-hook" "--hook" "Stop" "--surface" "cli"',
     );
-    expect(handler?.commandWindows).not.toMatch(/^"/u);
     expect(snippets.codex).toContain('"C:\\\\Tools\\\\nodejs\\\\node.exe"');
   });
 
-  it("renders a standalone Windows commandWindows without quotes", () => {
+  it("renders a standalone quoted Windows commandWindows", () => {
     const snippets = createSetupSnippets(
       undefined,
       setupRuntime({
@@ -1575,7 +1574,7 @@ describe("setup snippet commands", () => {
     };
 
     expect(parsed.hooks.Stop[0]?.hooks[0]?.commandWindows).toBe(
-      "C:\\Users\\demo\\Tools\\Crewlight\\crewlight.exe ingest codex-hook --hook Stop --surface cli",
+      '"C:\\Users\\demo\\Tools\\Crewlight\\crewlight.exe" "ingest" "codex-hook" "--hook" "Stop" "--surface" "cli"',
     );
   });
 
@@ -1610,9 +1609,8 @@ describe("setup snippet commands", () => {
       const handler = parsed.hooks[hookEventName]?.[0]?.hooks[0];
       expect(handler?.command).toContain(`"--hook" "${hookEventName}"`);
       expect(handler?.commandWindows).toBe(
-        `C:\\Users\\demo\\Tools\\Crewlight\\crewlight.exe ingest codex-hook --hook ${hookEventName} --surface cli`,
+        `"C:\\Users\\demo\\Tools\\Crewlight\\crewlight.exe" "ingest" "codex-hook" "--hook" "${hookEventName}" "--surface" "cli"`,
       );
-      expect(handler?.commandWindows).not.toMatch(/^"/u);
     }
   });
 
@@ -1819,7 +1817,7 @@ describe("setup snippet commands", () => {
     }
   });
 
-  it.each([" ", "\t", "&", "(", ")", "^", "%", "!", "'", '"', "<", ">", "|"])(
+  it.each(["%", "!", "&", "(", ")", "^", "<", ">"])(
     "marks Windows Codex hooks unavailable for path character %j",
     (character) => {
       const snippets = createSetupSnippets(
@@ -1836,10 +1834,8 @@ describe("setup snippet commands", () => {
         available: false,
         reason: expect.objectContaining({
           code: "windows-codex-hooks-unsafe-command",
-          message: expect.stringContaining("Codex CLI 0.141.0"),
-          action: expect.stringContaining(
-            "C:\\Users\\<user>\\Tools\\Crewlight\\crewlight.exe",
-          ),
+          message: expect.stringContaining("cannot be represented safely"),
+          action: expect.stringContaining("Copy the generated setup snippet"),
         }),
       });
       expect(snippets.codex).toContain('"ingest", "codex"');
@@ -1851,7 +1847,7 @@ describe("setup snippet commands", () => {
       undefined,
       setupRuntime({
         execPath: "C:\\Tools\\nodejs\\node.exe",
-        entryPath: "C:\\Crewlight App\\packages\\cli\\dist\\index.js",
+        entryPath: "C:\\Crewlight%App\\packages\\cli\\dist\\index.js",
         platform: "win32",
       }),
     );
@@ -1868,7 +1864,7 @@ describe("setup snippet commands", () => {
     const capture = captureIo();
     const runtime = setupRuntime({
       isSea: () => true,
-      execPath: "C:\\Crewlight App\\crewlight.exe",
+      execPath: "C:\\Crewlight%App\\crewlight.exe",
       entryPath: undefined,
       platform: "win32",
     });
@@ -1878,7 +1874,9 @@ describe("setup snippet commands", () => {
     ).toBe(1);
     expect(capture.output).toEqual([]);
     expect(capture.warnings.join("\n")).toContain("setup unavailable");
-    expect(capture.warnings.join("\n")).toContain("simple no-space path");
+    expect(capture.warnings.join("\n")).toContain(
+      "Copy the generated setup snippet",
+    );
     expect(capture.warnings.join("\n")).not.toContain(
       "C:\\Crewlight App\\crewlight.exe",
     );
@@ -1888,7 +1886,7 @@ describe("setup snippet commands", () => {
       executeSetupCommand(["codex", "--print"], codexCapture.io, runtime),
     ).toBe(0);
     expect(codexCapture.output).toEqual([
-      'notify = ["C:\\\\Crewlight App\\\\crewlight.exe", "ingest", "codex"]',
+      'notify = ["C:\\\\Crewlight%App\\\\crewlight.exe", "ingest", "codex"]',
     ]);
 
     const claudeCapture = captureIo();
@@ -1905,7 +1903,7 @@ describe("setup snippet commands", () => {
       };
     };
     expect(claudeSetup.hooks?.Stop?.[0]?.hooks?.[0]?.command).toBe(
-      '"C:\\Crewlight App\\crewlight.exe" "ingest" "claude-code"',
+      '"C:\\Crewlight%App\\crewlight.exe" "ingest" "claude-code"',
     );
   });
 

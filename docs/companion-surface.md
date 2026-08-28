@@ -1,6 +1,6 @@
 # Desktop Companion Surface
 
-The floating companion is part of Crewlight Desktop in v0.4.0. It is no longer
+The floating companion is part of Crewlight Desktop in v0.5.0. It is no longer
 the whole product and no longer an experimental source-checkout-only surface.
 
 ## Role
@@ -12,7 +12,7 @@ It continues to show only safe, allowlisted current-session fields:
 
 - source
 - surface
-- status
+- status and Attention priority
 - task title or workspace label
 - activity label
 - relative freshness
@@ -52,3 +52,5 @@ In a GUI-capable environment, verify:
 3. always-on-top stays synchronized with the main window controls
 4. demo sessions appear in both the main window and the companion
 5. hide, show, and bring-to-front work from both the main window and tray
+6. hidden sessions never appear in Home or Companion, while diagnostics retain
+   low-confidence states

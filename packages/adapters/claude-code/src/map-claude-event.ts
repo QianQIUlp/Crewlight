@@ -81,7 +81,7 @@ export function mapClaudeEvent(
   if (payload.hook_event_name === "SessionEnd") {
     return {
       kind: "ignored",
-      reason: "Claude Code SessionEnd is ignored in Crewlight v0.2",
+      reason: "Claude Code SessionEnd is ignored to preserve terminal state",
     };
   }
 

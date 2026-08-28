@@ -14,3 +14,4 @@ packages/companion/.desktop-resources/
 
 # Local research references (not committed)
 .ref/
+.agents/evidence/

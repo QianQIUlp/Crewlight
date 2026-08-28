@@ -1,6 +1,6 @@
 # Crewlight Product Positioning
 
-> Crewlight is a local activity radar for AI coding agents.
+> Crewlight is a local Agent Attention Inbox for concurrent coding work.
 
 ## Product Center
 
@@ -12,14 +12,14 @@ Its first job is to answer:
 - which ones failed
 - which ones may be stale
 
-## v0.4.0 Surface Hierarchy
+## v0.5.0 Surface Hierarchy
 
-Crewlight v0.4.0 now presents that model through a desktop-first hierarchy:
+Crewlight v0.5.0 presents that model through a compact Windows-first hierarchy:
 
-1. **Crewlight Desktop** for the main local user experience
-2. **Floating companion** for persistent glanceable status
-3. **Browser dashboard** for secondary developer inspection
-4. **CLI** for advanced setup, ingest, scripting, and standalone usage
+1. **Home / Inbox** for the main local user experience
+2. **Connect** for Claude Code and Codex setup
+3. **Troubleshooting** for service, diagnostics, and developer dashboard access
+4. **Settings** for bounded preferences and Remote Beta
 
 The product is no longer positioned as a CLI-first tool with an optional tiny
 Electron experiment attached to it.
@@ -51,6 +51,6 @@ Crewlight continues to avoid forwarding:
 - raw platform payloads
 - hidden private platform state
 
-The only persisted desktop data in v0.4.0 is bounded local UI preference data
-such as theme, density, selected section, companion visibility preference, and
-service auto-start preference.
+The only persisted desktop data is bounded local UI preference data such as
+theme, density, locale, selected section, companion visibility, readiness
+dismissal timestamp, and service auto-start preference.

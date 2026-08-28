@@ -16,7 +16,6 @@ export {
 export type {
   DashboardActionKind,
   DashboardApiResponse,
-  DashboardAttention,
   DashboardCapabilities,
   DashboardDoctorCheck,
   DashboardDoctorReport,
@@ -29,13 +28,14 @@ export {
   getDashboardAttention,
   getDashboardDurationMs,
   getDashboardIdentityLine,
-  getDashboardStaleState,
   getDashboardTaskTitle,
+  getDashboardStaleState,
   getDisplayName,
   getDisplayWorkspace,
   getLastEventAgeMs,
   getShortSessionKey,
   getSurfaceLabel,
   serializeDashboardSession,
+  sortDashboardSessions,
 } from "./dashboard.js";
 export { CrewlightService, type IngestResult } from "./service.js";
