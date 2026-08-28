@@ -79,26 +79,28 @@ Portable archive to require `Crewlight.exe`, `resources/app.asar`, and
 Linux x64, macOS arm64, and macOS x64 remain blocking source-validation
 targets. They do not run native release jobs and do not publish v0.5 binaries.
 
-## What remains manual
+## Local Portable acceptance
 
-Artifact verification is not desktop acceptance testing. Before publishing,
-verify the same frozen files on a daily Windows 11 x64 machine and a clean
-Azure Windows 11 x64 VM:
+Artifact verification is separate from desktop acceptance. The packaged
+Portable archive has an acceptance record from the tested local Windows Server
+2025 host covering:
 
-- desktop launch and lifecycle behavior;
-- onboarding, service controls, companion controls, and preference persistence;
-- installer and uninstall behavior;
-- native notification delivery;
-- unsigned installer and operating-system trust prompts;
-- manual Claude Code and Codex setup without configuration mutation;
-- waiting, completed, failed, stale, and notification-deduplication behavior;
-- keyboard access, visible focus, forced colors, and 200% text scaling;
-- screenshots from the actual GUI.
+- normal desktop launch;
+- local service start and stop;
+- a real Codex-shaped event;
+- onboarding completion;
+- deterministic demo data;
+- read-only fixed-path Claude Code and Codex inspection; no automatic config
+  write;
+- the floating companion;
+- no raw work content retained or exposed.
 
-Record those results in the versioned release checklist. A successful CI
-artifact job must not be described as successful GUI verification.
+Claude Code and Codex setup remains a manual product instruction. This record
+covers the Portable path. Installer-specific GUI behavior is unclaimed, while
+CI artifact checks are recorded separately. A release is incomplete until its
+manifest, sidecars, downloaded-file recheck, and local packaged Portable
+acceptance all pass. Any artifact-affecting change invalidates the frozen
+evidence.
 
 `release-manifest.json` is generated from actual files and is not a
-hand-maintained release list. A release is incomplete until its manifest,
-sidecars, downloaded-file recheck, and two-machine Windows acceptance all
-pass. Any artifact-affecting change invalidates the frozen evidence.
+hand-maintained release list.

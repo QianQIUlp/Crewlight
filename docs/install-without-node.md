@@ -1,13 +1,15 @@
 # Install Crewlight Without Node.js
 
-Crewlight v0.5.0 is a Windows-first Attention Inbox candidate. It is not
-published yet; do not present a download CTA until the Windows 11 acceptance
-record and GitHub Release exist. v0.4.0 was an archived prototype and did not
-publish a portable Desktop ZIP.
+Crewlight v0.5.0 is a Windows-first Attention Inbox candidate. Local packaged
+Portable acceptance is recorded on the tested Windows Server 2025 host. The
+artifacts remain unsigned. Claude Code/Codex setup remains a manual product
+instruction; acceptance used read-only fixed-path inspection with no automatic
+config write. v0.4.0 was an archived prototype and did not publish a portable
+Desktop ZIP.
 
 ## Windows Desktop
 
-Expected v0.5.0 assets after publication:
+Published v0.5.0 prerelease assets:
 
 - `crewlight-v0.5.0-windows-x64-desktop.zip` (Portable)
 - `crewlight-v0.5.0-windows-x64-installer.exe` (Installer)
@@ -51,10 +53,14 @@ not need to open it to experience Crewlight.
 Desktop verification remains a GUI step:
 
 - `Crewlight.exe` launches the main window
-- the app can start, stop, and restart the local service
+- the app can start and stop the local service
+- a real Codex-shaped event reaches the local Inbox
+- onboarding completes
 - the optional demo populates deterministic sessions in Home and Companion
 - the floating companion can be shown from the desktop app
-- copying setup and checking status do not modify Claude or Codex configuration
+- Claude Code and Codex fixed paths are inspected read-only; no automatic config
+  write occurs
+- no raw work content is retained or exposed
 
 CLI standalone verification remains covered by the existing standalone smoke
 tests and Windows CI job.

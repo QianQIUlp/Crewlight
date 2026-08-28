@@ -11,11 +11,12 @@
   <a href="https://github.com/QianQIUlp/Crewlight/actions/workflows/ci.yml">CI</a>
 </p>
 
-> v0.5.0 is a Windows-first candidate. Windows 11 x64 is the planned
+> v0.5.0 is a Windows-first candidate. Windows x64 is the planned
 > Supported platform (unsigned); Linux and macOS are Preview; Remote is Beta.
-> There is no public v0.5.0 download CTA until the physical Windows 11 and clean
-> Azure VM acceptance gates pass. v0.4.0 was an archived prototype published
-> on 2026-06-23.
+> Local packaged Portable acceptance is recorded on the tested Windows Server
+> 2025 host. Downloads are available from the
+> [v0.5.0 GitHub prerelease](https://github.com/QianQIUlp/Crewlight/releases/tag/v0.5.0).
+> v0.4.0 was an archived prototype published on 2026-06-23.
 
 Crewlight answers three questions while several agents work: **does one need
 me, is one still running, or did one fail?** It observes safe, allowlisted
@@ -88,9 +89,11 @@ pnpm release:verify
 The Windows release process produces standalone, Portable, and Installer
 artifacts, a `.sha256` sidecar for each, and a generated
 `release-manifest.json`. Linux/macOS remain in the source-validation matrix but
-do not publish v0.5 binaries. Do not describe CI artifact success as Windows
-GUI acceptance; the final release requires real Windows 11 and clean Azure VM
-evidence.
+do not publish v0.5 binaries. Local packaged Portable acceptance on the tested
+Windows Server 2025 host covers normal launch, local service start/stop, a real
+Codex-shaped event, onboarding completion, demo, read-only fixed-path Claude
+Code and Codex inspection with no automatic config write, the floating
+companion, and no raw work content.
 
 ## Data and limits
 

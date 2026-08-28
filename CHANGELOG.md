@@ -2,7 +2,7 @@
 
 Notable Crewlight changes are recorded here.
 
-## v0.5.0 — Unreleased
+## v0.5.0 — Unreleased candidate (prerelease 2026-08-28)
 
 - Windows-first local Agent Attention Inbox for concurrent Claude Code and
   Codex sessions.
@@ -14,11 +14,16 @@ Notable Crewlight changes are recorded here.
   Troubleshooting / Settings Desktop information architecture.
 - Pinned Node 22.23.2 release inputs, a generated manifest, and SHA-256
   sidecars for the Windows standalone, Portable, and Installer artifacts.
+- Local packaged Portable acceptance on the tested Windows Server 2025 host
+  covers normal launch, local service start/stop, a real Codex-shaped event,
+  onboarding completion, demo, read-only fixed-path Claude Code and Codex
+  inspection with no automatic config write, the floating companion, and no
+  raw work content.
 
-Release policy: Windows 11 x64 is Supported but unsigned; Linux and macOS are
+Release policy: Windows x64 is Supported but unsigned; Linux and macOS are
 source-validated Preview targets without v0.5 native binaries; Remote is Beta.
-v0.5.0 remains Unreleased until the physical Windows 11 and clean Azure VM
-acceptance gates pass.
+Local packaged Portable acceptance is recorded on the tested Windows Server
+2025 host; v0.5.0 is published as a candidate GitHub prerelease.
 
 ## v0.4.0 — Archived prototype, published 2026-06-23
 

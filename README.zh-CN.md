@@ -8,10 +8,11 @@
 
 <p align="center"><a href="README.md">English</a> · 简体中文</p>
 
-> v0.5.0 是 Windows-first 候选版本。Windows 11 x64 计划标记为
+> v0.5.0 是 Windows-first 候选版本。Windows x64 计划标记为
 > Supported（未签名）；Linux/macOS 仅保留源码验证，不发布 v0.5 原生
-> 二进制；Remote 为 Beta。实体
-> Windows 11 与干净 Azure VM 验收完成前，不显示 v0.5.0 下载 CTA。
+> 二进制；Remote 为 Beta。已在测试用的 Windows Server 2025 主机上记录
+> 打包 Portable 验收。下载见
+> [v0.5.0 GitHub prerelease](https://github.com/QianQIUlp/Crewlight/releases/tag/v0.5.0)。
 > v0.4.0 是 2026-06-23 发布的 archived prototype。
 
 Crewlight 用一个本地只读 Inbox 回答三个问题：哪个 Agent 需要我、哪个仍在
@@ -59,6 +60,11 @@ pnpm release:verify
 ```
 
 Linux/macOS 继续参加源码验证，但不发布 v0.5 原生二进制。
+
+测试用的 Windows Server 2025 主机上的打包 Portable 验收覆盖正常启动、本地
+服务启动/停止、真实 Codex 形状事件、onboarding 完成、demo、只读检查固定路径
+中的 Claude Code 与 Codex 且不自动写入配置、浮动 companion，以及不暴露原始工作
+内容。手工合并配置仍是产品使用说明的一部分。
 
 Daemon 默认只监听 loopback，内存上限为 1,000 个 session 与 100,000 个稳定
 事件 ID；没有云服务或持久化 session 历史。

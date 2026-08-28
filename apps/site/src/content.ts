@@ -3,6 +3,7 @@ export type Locale = "en" | "zh";
 export const links = {
   repository: "https://github.com/QianQIUlp/Crewlight",
   latestRelease: "https://github.com/QianQIUlp/Crewlight/releases/latest",
+  v050Release: "https://github.com/QianQIUlp/Crewlight/releases/tag/v0.5.0",
   releasePolicy:
     "https://github.com/QianQIUlp/Crewlight/blob/main/release-policy.json",
   readme: "https://github.com/QianQIUlp/Crewlight#readme",
@@ -250,9 +251,9 @@ function makeCopy(language: "en" | "zh") {
       primaryAction: zh ? "查看源码" : "Inspect the source",
       secondaryAction: zh ? "查看注意力模型" : "See the attention model",
       releaseNote: zh
-        ? "v0.5.0 是 Windows-first 候选版本；验收完成前不提供下载 CTA。"
-        : "v0.5.0 is a Windows-first candidate; no download CTA before acceptance.",
-      releaseAction: zh ? "查看发布策略" : "Read release policy",
+        ? "v0.5.0 Windows-first 候选预发布现已可用。"
+        : "The v0.5.0 Windows-first candidate prerelease is now available.",
+      releaseAction: zh ? "查看预发布" : "View prerelease",
       demoLabel: zh ? "本地视图示意" : "Illustrative local view",
       demoTitle: zh ? "Attention Inbox" : "Attention Inbox",
       demoLive: zh ? "示例 · 静态" : "DEMO · STATIC",
@@ -396,8 +397,8 @@ function makeCopy(language: "en" | "zh") {
         : "v0.5.0 Windows-first candidate",
       releaseLabel: zh ? "公开发布" : "PUBLIC RELEASE",
       releaseValue: zh
-        ? "v0.4.0 archived prototype"
-        : "v0.4.0 archived prototype",
+        ? "v0.5.0 Windows 候选预发布"
+        : "v0.5.0 Windows candidate prerelease",
       platformLabel: zh ? "平台策略" : "PLATFORM POLICY",
       platformValue: zh
         ? "Windows Supported/Unsigned；Linux/macOS 仅源码验证"
